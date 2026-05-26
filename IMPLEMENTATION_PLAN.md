@@ -32,7 +32,7 @@
 - [x] `AppShell` — macOS 사이드바 / Android 바텀 네비 폼팩터 분기
 - [x] `HomeScreen` — 오늘 할 일 위젯 (오늘 섹션 + 이월된 항목 배너)
 - [x] `CategoryView` — 카테고리별 필터 보기 (사이드바 선택 시)
-- [ ] `AddTodoSheet` — 빠른 추가 (제목 + 카테고리 chip + 일정 picker + Calendar 등록 토글)
+- [x] `AddTodoSheet` — 빠른 추가 (제목 + 카테고리 chip + 일정 picker + Calendar 등록 토글)
 - [ ] `TodoListItem` — 체크/편집/삭제 + 카테고리 컬러바
 - [ ] EmptyState / Skeleton / Snackbar undo 표준 UI 위젯
 
