@@ -23,7 +23,7 @@
 - [x] `VisibilityPolicy.isVisibleToday(todo, now)` 순수 함수 + unit test (체크된 항목 당일 자정 hide 케이스)
 
 ### 3. 로컬 데이터 (Drift)
-- [ ] `todos` Drift 테이블 정의 + DAO (insert/update/delete/watchByCategory/watchToday)
+- [x] `todos` Drift 테이블 정의 + DAO (insert/update/delete/watchByCategory/watchToday)
 - [ ] `TodoRepository` 인터페이스 (local + remote 어댑터 추상화)
 - [ ] `LocalTodoRepository` 구현 + integration test (SQLite in-memory)
 
