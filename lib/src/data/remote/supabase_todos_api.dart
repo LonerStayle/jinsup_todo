@@ -66,6 +66,9 @@ class SupabaseTodosApi {
 
   /// [Todo] → DB row 직접 노출 (테스트/매핑 안정성 검증용).
   Map<String, dynamic> rowForTest(Todo t, String userId) => _toRow(t, userId);
+
+  /// realtime payload (newRecord) → 도메인 [Todo] 변환. SupabaseRealtimeSync 가 사용.
+  Todo todoFromRow(Map<String, dynamic> row) => _fromRow(row);
 }
 
 final supabaseTodosApiProvider = Provider<SupabaseTodosApi?>((ref) {

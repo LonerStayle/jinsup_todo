@@ -1,0 +1,110 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../providers.dart';
+import '../todo_repository.dart';
+import '../../features/auth/auth_providers.dart';
+import 'supabase_provider.dart';
+import 'supabase_todos_api.dart';
+
+/// Supabase `todos` 테이블의 변경 (INSERT/UPDATE/DELETE) 을 구독해
+/// 로컬 [TodoRepository] 에 반영. user_id 필터로 본인 row 만.
+///
+/// 충돌 해소 (updated_at 기반 last-write-wins) 는 다음 task 에서 도입.
+/// 지금은 원격 변경 → local upsert/delete 만.
+class SupabaseRealtimeSync {
+  SupabaseRealtimeSync({
+    required this.client,
+    required this.api,
+    required this.localRepo,
+    required this.userId,
+  });
+
+  final SupabaseClient client;
+  final SupabaseTodosApi api;
+  final TodoRepository localRepo;
+  final String userId;
+
+  RealtimeChannel? _channel;
+
+  Future<void> start() async {
+    try {
+      // 1) 초기 풀백 — 원격 todos 를 local 로 복제.
+      final remoteAll = await api.fetchAll(userId);
+      for (final t in remoteAll) {
+        await localRepo.upsert(t);
+      }
+
+      // 2) 변경 구독.
+      _channel = client
+          .channel('todos:$userId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'todos',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'user_id',
+              value: userId,
+            ),
+            callback: _handle,
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('[solo_todo] Supabase realtime 구독 실패: $e');
+    }
+  }
+
+  Future<void> _handle(PostgresChangePayload payload) async {
+    try {
+      switch (payload.eventType) {
+        case PostgresChangeEvent.insert:
+        case PostgresChangeEvent.update:
+          final todo = api.todoFromRow(payload.newRecord);
+          await localRepo.upsert(todo);
+          break;
+        case PostgresChangeEvent.delete:
+          final id = payload.oldRecord['id'] as String?;
+          if (id != null) await localRepo.deleteById(id);
+          break;
+        case PostgresChangeEvent.all:
+          // postgres_changes API 는 .all 으로 등록해도 callback 에는 구체 event 만 옴.
+          break;
+      }
+    } catch (e) {
+      debugPrint('[solo_todo] realtime payload 처리 실패: $e');
+    }
+  }
+
+  Future<void> stop() async {
+    final c = _channel;
+    if (c == null) return;
+    try {
+      await client.removeChannel(c);
+    } catch (_) {
+      // 종료 단계 — 무시.
+    }
+    _channel = null;
+  }
+}
+
+/// 인증된 user 가 있을 때만 [SupabaseRealtimeSync] 를 활성화하는 lifecycle provider.
+///
+/// 누군가 `ref.watch(supabaseRealtimeSyncProvider)` 호출해야 init 된다 (AppShell 이 watch).
+final supabaseRealtimeSyncProvider = Provider<SupabaseRealtimeSync?>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  final api = ref.watch(supabaseTodosApiProvider);
+  final user = ref.watch(currentUserProvider);
+  if (client == null || api == null || user == null) return null;
+
+  final sync = SupabaseRealtimeSync(
+    client: client,
+    api: api,
+    localRepo: ref.watch(todoRepositoryProvider),
+    userId: user.id,
+  );
+  sync.start();
+  ref.onDispose(sync.stop);
+  return sync;
+});

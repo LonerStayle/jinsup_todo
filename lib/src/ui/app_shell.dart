@@ -5,6 +5,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../core/platform.dart';
 import '../core/theme.dart';
+import '../data/remote/supabase_realtime_sync.dart';
 import '../domain/category.dart';
 import '../features/add_todo/add_todo_controller.dart';
 import '../features/add_todo/add_todo_sheet.dart';
@@ -120,6 +121,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     ref.listen<int>(undoneTodayCountProvider, (_, next) {
       _tray?.updateUndoneCount(next);
     });
+
+    // Supabase realtime sync — 인증된 user 가 있을 때만 활성. lifecycle 은 provider 가 관리.
+    ref.watch(supabaseRealtimeSyncProvider);
 
     final destination = AppDestination.all[_index];
 
