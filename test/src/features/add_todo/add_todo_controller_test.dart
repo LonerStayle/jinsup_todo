@@ -14,7 +14,11 @@ void main() {
   setUp(() {
     db = AppDatabase.memory();
     repo = LocalTodoRepository(db.todosDao);
-    controller = AddTodoController(repo, () => DateTime.utc(2026, 5, 27, 9, 0));
+    controller = AddTodoController(
+      repo: repo,
+      now: () => DateTime.utc(2026, 5, 27, 9, 0),
+      calendar: null,
+    );
   });
 
   tearDown(() async => db.close());
