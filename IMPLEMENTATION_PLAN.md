@@ -45,7 +45,7 @@
 - [x] 카테고리 전환 단축키 (`0`~`5` 키 — 0=Today, 1=work, 2=personalDev, 3=daily, 4=longterm, 5=idea)
 
 ### 6. macOS 전용
-- [ ] Cmd+N 글로벌 단축키 (hotkey_manager) — 백그라운드여도 AddTodoSheet 호출
+- [x] Cmd+N 글로벌 단축키 (hotkey_manager) — 백그라운드여도 AddTodoSheet 호출
 - [ ] tray_manager 메뉴바 아이콘 + 미체크 카운트 배지
 - [ ] 시스템 다크모드 자동 추종
 

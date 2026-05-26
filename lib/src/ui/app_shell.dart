@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../core/platform.dart';
 import '../core/theme.dart';
@@ -24,6 +25,51 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   int _index = 0;
+  HotKey? _cmdN;
+
+  @override
+  void initState() {
+    super.initState();
+    _registerGlobalHotkey();
+  }
+
+  @override
+  void dispose() {
+    _unregisterGlobalHotkey();
+    super.dispose();
+  }
+
+  Future<void> _registerGlobalHotkey() async {
+    if (!AppPlatform.isDesktop) return;
+    try {
+      await hotKeyManager.unregisterAll();
+      final hotkey = HotKey(
+        key: PhysicalKeyboardKey.keyN,
+        modifiers: const [HotKeyModifier.meta],
+        scope: HotKeyScope.system,
+      );
+      await hotKeyManager.register(
+        hotkey,
+        keyDownHandler: (_) {
+          if (mounted) _openAddTodo();
+        },
+      );
+      _cmdN = hotkey;
+    } catch (e) {
+      // 글로벌 단축키 등록 실패 (test 환경 / 권한 거부) — FAB 으로 대체 가능하므로 fatal X.
+      debugPrint('[solo_todo] Cmd+N 글로벌 단축키 등록 실패: $e');
+    }
+  }
+
+  Future<void> _unregisterGlobalHotkey() async {
+    final h = _cmdN;
+    if (h == null) return;
+    try {
+      await hotKeyManager.unregister(h);
+    } catch (_) {
+      // 종료 단계 — 무시.
+    }
+  }
 
   void _select(int i) {
     setState(() => _index = i);
