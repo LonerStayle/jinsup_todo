@@ -28,7 +28,7 @@
 - [x] `LocalTodoRepository` 구현 + integration test (SQLite in-memory)
 
 ### 4. UI 골격
-- [ ] `AppTheme` — macos_ui Cupertino 톤 + 디자인 토큰 (간격 4/8/16/24, 타이포 스케일, 색 팔레트, 라운드 코너)
+- [x] `AppTheme` — macos_ui Cupertino 톤 + 디자인 토큰 (간격 4/8/16/24, 타이포 스케일, 색 팔레트, 라운드 코너)
 - [ ] `AppShell` — macOS 사이드바 / Android 바텀 네비 폼팩터 분기
 - [ ] `HomeScreen` — 오늘 할 일 위젯 (오늘 섹션 + 이월된 항목 배너)
 - [ ] `CategoryView` — 카테고리별 필터 보기 (사이드바 선택 시)
