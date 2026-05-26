@@ -160,7 +160,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                 onDestinationSelected: _select,
                 destinations: [
                   for (final d in AppDestination.all)
-                    NavigationDestination(icon: Icon(d.icon), label: d.label),
+                    NavigationDestination(
+                      icon: Icon(d.icon),
+                      label: d.label,
+                      tooltip: d.tooltipWithShortcut,
+                    ),
                 ],
               ),
       ),
@@ -291,32 +295,38 @@ class _SidebarItem extends StatelessWidget {
         horizontal: AppTokens.space8,
         vertical: AppTokens.space2,
       ),
-      child: Material(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppTokens.radiusM),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.space12,
-              vertical: AppTokens.space8,
-            ),
-            child: Row(
-              children: [
-                Icon(destination.icon, size: 18, color: destination.color),
-                const SizedBox(width: AppTokens.space12),
-                Expanded(
-                  child: Text(
-                    destination.label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: fg,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+      child: Tooltip(
+        message: destination.tooltipWithShortcut,
+        waitDuration: const Duration(milliseconds: 600),
+        child: Material(
+          color: bg,
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTokens.space12,
+                vertical: AppTokens.space8,
+              ),
+              child: Row(
+                children: [
+                  Icon(destination.icon, size: 18, color: destination.color),
+                  const SizedBox(width: AppTokens.space12),
+                  Expanded(
+                    child: Text(
+                      destination.label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: fg,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
