@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/platform.dart';
@@ -10,10 +11,10 @@ import '../features/category/category_view.dart';
 import '../features/home/home_screen.dart';
 import 'destination.dart';
 
-/// 폼팩터 분기 컨테이너 + FAB (빠른 추가 트리거).
+/// 폼팩터 분기 컨테이너 + FAB (빠른 추가 트리거) + 1~5 카테고리 단축키.
 ///
-/// - macOS desktop: 좌측 사이드바 + 우측 메인 + FAB (Cmd+N 단축키는 phase 6 에서 연결)
-/// - Android phone: 메인 + 하단 NavigationBar + FAB
+/// 단축키: `0` = Today, `1` = work, `2` = personalDev, `3` = daily, `4` = longterm, `5` = idea.
+/// macOS 데스크탑 global Cmd+N 은 phase 6 의 hotkey_manager task 에서 연결.
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
@@ -26,6 +27,12 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _select(int i) {
     setState(() => _index = i);
+  }
+
+  /// 단축키 → category null (Today) 또는 특정 [Category] 를 받아 destination index 로 매핑.
+  void _selectByDestination({Category? category}) {
+    final idx = AppDestination.all.indexWhere((d) => d.category == category);
+    if (idx >= 0 && idx != _index) _select(idx);
   }
 
   Future<void> _openAddTodo() async {
@@ -52,29 +59,82 @@ class _AppShellState extends ConsumerState<AppShell> {
       tooltip: '새 할 일 (Cmd+N)',
     );
 
+    final Widget body;
     if (AppPlatform.isDesktop) {
-      return Scaffold(
+      body = Row(
+        children: [
+          _Sidebar(selectedIndex: _index, onSelect: _select),
+          const VerticalDivider(width: AppTokens.hairline),
+          Expanded(child: _MainArea(destination: destination)),
+        ],
+      );
+    } else {
+      body = SafeArea(child: _MainArea(destination: destination));
+    }
+
+    return _ShortcutsHost(
+      onSelect: _selectByDestination,
+      child: Scaffold(
         floatingActionButton: fab,
-        body: Row(
-          children: [
-            _Sidebar(selectedIndex: _index, onSelect: _select),
-            const VerticalDivider(width: AppTokens.hairline),
-            Expanded(child: _MainArea(destination: destination)),
-          ],
-        ),
+        body: body,
+        bottomNavigationBar: AppPlatform.isDesktop
+            ? null
+            : NavigationBar(
+                selectedIndex: _index,
+                onDestinationSelected: _select,
+                destinations: [
+                  for (final d in AppDestination.all)
+                    NavigationDestination(icon: Icon(d.icon), label: d.label),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _SelectDestinationIntent extends Intent {
+  const _SelectDestinationIntent(this.category);
+
+  /// null 이면 Today.
+  final Category? category;
+}
+
+class _ShortcutsHost extends StatelessWidget {
+  const _ShortcutsHost({required this.onSelect, required this.child});
+
+  final void Function({Category? category}) onSelect;
+  final Widget child;
+
+  static final _digitKeys = <LogicalKeyboardKey, Category?>{
+    LogicalKeyboardKey.digit0: null,
+    LogicalKeyboardKey.digit1: Category.work,
+    LogicalKeyboardKey.digit2: Category.personalDev,
+    LogicalKeyboardKey.digit3: Category.daily,
+    LogicalKeyboardKey.digit4: Category.longterm,
+    LogicalKeyboardKey.digit5: Category.idea,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final shortcuts = <ShortcutActivator, Intent>{};
+    for (final entry in _digitKeys.entries) {
+      shortcuts[SingleActivator(entry.key)] = _SelectDestinationIntent(
+        entry.value,
       );
     }
 
-    return Scaffold(
-      floatingActionButton: fab,
-      body: SafeArea(child: _MainArea(destination: destination)),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: _select,
-        destinations: [
-          for (final d in AppDestination.all)
-            NavigationDestination(icon: Icon(d.icon), label: d.label),
-        ],
+    return Shortcuts(
+      shortcuts: shortcuts,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _SelectDestinationIntent: CallbackAction<_SelectDestinationIntent>(
+            onInvoke: (intent) {
+              onSelect(category: intent.category);
+              return null;
+            },
+          ),
+        },
+        child: Focus(autofocus: true, child: child),
       ),
     );
   }

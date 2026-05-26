@@ -42,7 +42,7 @@
 - [x] 삭제 흐름 (Snackbar undo 5초)
 - [x] 자동 이월 트리거 (앱 시작 시 1회 + 자정 Timer 재계산)
 - [x] 정리 트리거 (체크된 항목은 doneAt 의 다음날 00:00 부터 오늘 화면에서 숨김)
-- [ ] 카테고리 전환 단축키 (`1`~`5` 키)
+- [x] 카테고리 전환 단축키 (`0`~`5` 키 — 0=Today, 1=work, 2=personalDev, 3=daily, 4=longterm, 5=idea)
 
 ### 6. macOS 전용
 - [ ] Cmd+N 글로벌 단축키 (hotkey_manager) — 백그라운드여도 AddTodoSheet 호출
