@@ -5,13 +5,12 @@ import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../data/providers.dart';
 import '../../domain/todo.dart';
+import '../../ui/widgets/empty_state.dart';
+import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/todo_tile.dart';
 import 'today_providers.dart';
 
 /// 오늘 화면 — 헤더 + 이월 배너 + visible todos 리스트.
-///
-/// TodoListItem / AddTodoSheet 등 본격 동작은 다음 phase task 들에서 채운다.
-/// 지금은 빈 상태 + 이월 배너 + 단순 ListTile 까지.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -22,7 +21,7 @@ class HomeScreen extends ConsumerWidget {
     final now = ref.watch(nowProvider)();
 
     return asyncTodos.when(
-      loading: () => const _Loading(),
+      loading: () => const TodoListSkeleton(),
       error: (e, _) => _Error(message: '$e'),
       data: (todos) =>
           _Loaded(todos: todos, carryoverCount: carryoverCount, now: now),
@@ -62,7 +61,14 @@ class _Loaded extends StatelessWidget {
             ),
           ),
         if (todos.isEmpty)
-          const SliverFillRemaining(hasScrollBody: false, child: _EmptyState())
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(
+              icon: Icons.check_circle_outline_rounded,
+              title: '오늘 할 일이 없어요',
+              subtitle: 'Cmd+N 으로 빠르게 추가해보세요.',
+            ),
+          )
         else
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(
@@ -150,51 +156,6 @@ class _CarryoverBanner extends StatelessWidget {
       ),
     );
   }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(AppTokens.radiusL),
-            ),
-            child: Icon(
-              Icons.check_circle_outline_rounded,
-              size: 36,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: AppTokens.space20),
-          Text('오늘 할 일이 없어요', style: theme.textTheme.titleLarge),
-          const SizedBox(height: AppTokens.space8),
-          Text(
-            'Cmd+N 으로 빠르게 추가해보세요.',
-            style: theme.textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Loading extends StatelessWidget {
-  const _Loading();
-
-  @override
-  Widget build(BuildContext context) =>
-      const Center(child: CircularProgressIndicator(strokeWidth: 2));
 }
 
 class _Error extends StatelessWidget {

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/todo.dart';
+import '../../ui/widgets/empty_state.dart';
+import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/todo_tile.dart';
 import 'category_providers.dart';
 
@@ -18,8 +20,7 @@ class CategoryView extends ConsumerWidget {
     final asyncTodos = ref.watch(watchTodosByCategoryProvider(category));
 
     return asyncTodos.when(
-      loading: () =>
-          const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      loading: () => const TodoListSkeleton(),
       error: (e, _) => _Error(message: '$e'),
       data: (todos) => _Loaded(category: category, todos: todos),
     );
@@ -53,7 +54,12 @@ class _Loaded extends StatelessWidget {
         if (todos.isEmpty)
           SliverFillRemaining(
             hasScrollBody: false,
-            child: _EmptyState(category: category),
+            child: EmptyState(
+              icon: category.icon,
+              tone: category.color,
+              title: '${category.label}에 할 일이 없어요',
+              subtitle: '여기에 추가하면 ${category.label} 카테고리로 분류됩니다.',
+            ),
           )
         else
           SliverPadding(
@@ -161,44 +167,6 @@ class _StatChip extends StatelessWidget {
           color: color,
           fontWeight: FontWeight.w600,
         ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.category});
-
-  final Category category;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: category.color.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(AppTokens.radiusL),
-            ),
-            child: Icon(category.icon, size: 36, color: category.color),
-          ),
-          const SizedBox(height: AppTokens.space20),
-          Text(
-            '${category.label}에 할 일이 없어요',
-            style: theme.textTheme.titleLarge,
-          ),
-          const SizedBox(height: AppTokens.space8),
-          Text(
-            '여기에 추가하면 ${category.label} 카테고리로 분류됩니다.',
-            style: theme.textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }
