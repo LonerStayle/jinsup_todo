@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/platform.dart';
 import '../core/theme.dart';
+import '../features/home/home_screen.dart';
 import 'destination.dart';
 
 /// 폼팩터별 분기 컨테이너.
@@ -171,6 +172,18 @@ class _MainArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (destination.isToday) return const HomeScreen();
+    return _CategoryPlaceholder(destination: destination);
+  }
+}
+
+class _CategoryPlaceholder extends StatelessWidget {
+  const _CategoryPlaceholder({required this.destination});
+
+  final AppDestination destination;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
       child: Column(
@@ -189,9 +202,7 @@ class _MainArea extends StatelessWidget {
           Text(destination.label, style: theme.textTheme.headlineMedium),
           const SizedBox(height: AppTokens.space8),
           Text(
-            destination.isToday
-                ? '오늘의 할 일 화면은 다음 task 에서 채워집니다.'
-                : '${destination.label} 카테고리 보기는 다음 task 에서 채워집니다.',
+            '${destination.label} 카테고리 보기는 다음 task 에서 채워집니다.',
             style: theme.textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
