@@ -5,6 +5,14 @@ import '../../domain/category.dart';
 import '../../domain/todo.dart';
 import 'supabase_provider.dart';
 
+/// 원격 todos 저장소 계약. Supabase 외 다른 백엔드 / fake 가 동일 인터페이스 구현 가능.
+abstract interface class RemoteTodosApi {
+  Future<void> upsert(Todo todo, String userId);
+  Future<void> deleteById(String id, String userId);
+  Future<List<Todo>> fetchAll(String userId);
+  Todo todoFromRow(Map<String, dynamic> row);
+}
+
 /// Supabase `todos` 테이블 CRUD wrapper.
 ///
 /// 로컬 Drift 는 camelCase (dueAt) 컬럼명을 그대로 쓰지만, Supabase 측은 SQL
@@ -12,7 +20,7 @@ import 'supabase_provider.dart';
 ///
 /// RLS 정책 (SETUP.html 에 SQL 포함):
 ///   - SELECT/INSERT/UPDATE/DELETE: `auth.uid() = user_id`
-class SupabaseTodosApi {
+class SupabaseTodosApi implements RemoteTodosApi {
   SupabaseTodosApi(this._client);
 
   static const _table = 'todos';
@@ -21,15 +29,18 @@ class SupabaseTodosApi {
 
   /// id 기준 upsert. updatedAt 은 호출자가 미리 갱신한 상태여야 한다
   /// ([TodoRepository] 계약과 동일 — last-write-wins).
+  @override
   Future<void> upsert(Todo todo, String userId) async {
     await _client.from(_table).upsert(_toRow(todo, userId));
   }
 
+  @override
   Future<void> deleteById(String id, String userId) async {
     await _client.from(_table).delete().eq('id', id).eq('user_id', userId);
   }
 
   /// 초기 풀백 — 로그인 직후 또는 재연결 시 호출.
+  @override
   Future<List<Todo>> fetchAll(String userId) async {
     final rows = await _client.from(_table).select().eq('user_id', userId);
     return rows.map((r) => _fromRow(r)).toList();
@@ -68,6 +79,7 @@ class SupabaseTodosApi {
   Map<String, dynamic> rowForTest(Todo t, String userId) => _toRow(t, userId);
 
   /// realtime payload (newRecord) → 도메인 [Todo] 변환. SupabaseRealtimeSync 가 사용.
+  @override
   Todo todoFromRow(Map<String, dynamic> row) => _fromRow(row);
 }
 

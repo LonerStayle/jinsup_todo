@@ -55,7 +55,7 @@
 - [x] 원격 push (CRUD → Supabase `todos` 테이블)
 - [x] Realtime subscribe (todos) → local 캐시 갱신
 - [x] 충돌 해소 (updated_at 기반 last-write-wins)
-- [ ] 오프라인 큐 + 재연결 시 자동 flush
+- [x] 오프라인 큐 + 재연결 시 자동 flush
 
 ### 8. Google Calendar
 - [ ] google_sign_in OAuth 셋업 (desktop + Android 클라이언트 id 분리)

@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/auth/auth_providers.dart';
 import 'local/app_database.dart';
 import 'local/local_todo_repository.dart';
+import 'remote/supabase_todos_api.dart';
+import 'syncing_todo_repository.dart';
 import 'todo_repository.dart';
 
 /// 앱 전역에서 단일 인스턴스로 유지되는 SQLite [AppDatabase].
@@ -14,10 +17,22 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
   return db;
 });
 
-/// [TodoRepository] 의 기본 구현 (local only). phase 7 에서 SyncingTodoRepository 로 교체.
+/// [TodoRepository] — Supabase enabled + 인증된 user 가 있으면 [SyncingTodoRepository]
+/// (local + outbox + remote push), 아니면 [LocalTodoRepository] (local only).
 final todoRepositoryProvider = Provider<TodoRepository>((ref) {
   final db = ref.watch(appDatabaseProvider);
-  return LocalTodoRepository(db.todosDao);
+  final api = ref.watch(supabaseTodosApiProvider);
+
+  if (api == null) {
+    return LocalTodoRepository(db.todosDao);
+  }
+  return SyncingTodoRepository(
+    local: db.todosDao,
+    outbox: db.outboxDao,
+    api: api,
+    // userIdGetter 가 호출 시점마다 ref.read 로 현재 user 반환 — sign-in/out 동적 추적.
+    userIdGetter: () => ref.read(currentUserProvider)?.id,
+  );
 });
 
 /// 현재 시각을 주입 가능하게 — 테스트에서 결정성 보장 + 자정 트리거 갱신 대응.

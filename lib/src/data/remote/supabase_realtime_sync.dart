@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers.dart';
+import '../syncing_todo_repository.dart';
 import '../todo_repository.dart';
 import '../../features/auth/auth_providers.dart';
 import 'last_write_wins.dart';
@@ -23,11 +26,12 @@ class SupabaseRealtimeSync {
   });
 
   final SupabaseClient client;
-  final SupabaseTodosApi api;
+  final RemoteTodosApi api;
   final TodoRepository localRepo;
   final String userId;
 
   RealtimeChannel? _channel;
+  Timer? _flushTimer;
 
   Future<void> start() async {
     try {
@@ -40,7 +44,10 @@ class SupabaseRealtimeSync {
         }
       }
 
-      // 2) 변경 구독.
+      // 2) 오프라인 동안 쌓였을 outbox 즉시 flush.
+      await _flushIfSyncing();
+
+      // 3) 변경 구독.
       _channel = client
           .channel('todos:$userId')
           .onPostgresChanges(
@@ -55,8 +62,21 @@ class SupabaseRealtimeSync {
             callback: _handle,
           )
           .subscribe();
+
+      // 4) 주기 retry — 일시 단절 후 자동 복구. 30 초마다 flush 시도 (큐 비어 있으면 no-op).
+      _flushTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _flushIfSyncing(),
+      );
     } catch (e) {
       debugPrint('[solo_todo] Supabase realtime 구독 실패: $e');
+    }
+  }
+
+  Future<void> _flushIfSyncing() async {
+    final repo = localRepo;
+    if (repo is SyncingTodoRepository) {
+      await repo.flushPending();
     }
   }
 
@@ -86,6 +106,8 @@ class SupabaseRealtimeSync {
   }
 
   Future<void> stop() async {
+    _flushTimer?.cancel();
+    _flushTimer = null;
     final c = _channel;
     if (c == null) return;
     try {

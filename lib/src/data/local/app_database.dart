@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'outbox_dao.dart';
 import 'todos_dao.dart';
 
 part 'app_database.g.dart';
@@ -29,7 +30,24 @@ class Todos extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Todos], daos: [TodosDao])
+/// 오프라인/연결 실패 시 원격 push 대기열. FIFO 로 순서 보존.
+/// [SyncingTodoRepository] 가 local mutation 후 enqueue, 재연결 시 _tryFlush 가 비움.
+@DataClassName('OutboxRow')
+class OutboxEntries extends Table {
+  TextColumn get id => text()(); // outbox entry id (uuid)
+  // 'upsert' | 'delete'
+  TextColumn get kind => text()();
+  // 대상 todo id (delete 시에도 식별용)
+  TextColumn get todoId => text()();
+  // upsert 일 때만 — Todo JSON (jsonEncode). delete 일 때 null.
+  TextColumn get payload => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Todos, OutboxEntries], daos: [TodosDao, OutboxDao])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openOnDisk());
 
