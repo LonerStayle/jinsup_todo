@@ -50,7 +50,7 @@
 - [x] 시스템 다크모드 자동 추종
 
 ### 7. Supabase 연동
-- [ ] Supabase 클라이언트 부트스트랩 + 환경변수 검증 (env 누락 시 명확한 에러)
+- [x] Supabase 클라이언트 부트스트랩 + 환경변수 검증 (env 누락 시 명확한 에러)
 - [ ] 인증 (이메일 매직링크) + 세션 영속 (`shared_preferences` 또는 Supabase 내장)
 - [ ] 원격 push (CRUD → Supabase `todos` 테이블)
 - [ ] Realtime subscribe (todos) → local 캐시 갱신
