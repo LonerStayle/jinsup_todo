@@ -14,7 +14,7 @@
 - [x] pubspec.yaml 코어 의존성 추가 (flutter_riverpod, supabase_flutter, drift, sqlite3_flutter_libs, path_provider, hotkey_manager, tray_manager, macos_ui, google_sign_in, googleapis, googleapis_auth, intl, uuid, freezed, freezed_annotation, json_annotation, json_serializable, build_runner, drift_dev)
 - [x] lib/src 모듈 구조 정리 (app / core / domain / data / features / ui)
 - [x] Env 환경변수 로딩 (`--dart-define-from-file=.env.local`) — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `GOOGLE_OAUTH_CLIENT_ID_DESKTOP`, `GOOGLE_OAUTH_CLIENT_ID_ANDROID` + `.env.example` 추가
-- [ ] App entry point — ProviderScope + 폼팩터 분기 (macOS desktop vs Android phone)
+- [x] App entry point — ProviderScope + 폼팩터 분기 (macOS desktop vs Android phone)
 
 ### 2. 도메인 모델 (TDD)
 - [ ] `Category` enum (work / personalDev / daily / longterm / idea) + 한글 라벨 + 컬러 토큰
