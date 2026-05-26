@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>Solo Todo — SETUP 가이드</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surfaceAlt: #f1f3f6;
+    --outline: #d9dde5;
+    --fg: #0e1116;
+    --muted: #5a6273;
+    --accent: #2a66ff;
+    --mono: "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.55 -apple-system, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+  }
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 32px 96px;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+    margin: 0 0 8px;
+  }
+  .lead { color: var(--muted); margin: 0 0 32px; }
+  section {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 16px 0;
+  }
+  h2 {
+    margin: 0 0 12px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--fg);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2 .num {
+    display: inline-flex;
+    width: 28px; height: 28px;
+    border-radius: 999px;
+    background: rgba(42,102,255,0.12);
+    color: var(--accent);
+    align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+  }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  ul, ol { margin: 8px 0 8px 20px; padding: 0; }
+  li { margin: 6px 0; }
+  li.check { list-style: none; position: relative; padding-left: 26px; }
+  li.check::before {
+    content: "";
+    position: absolute; left: 0; top: 4px;
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--outline);
+    border-radius: 4px;
+    background: var(--surface);
+  }
+  code, kbd, .var {
+    font-family: var(--mono);
+    background: var(--surfaceAlt);
+    border: 1px solid var(--outline);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.92em;
+    color: var(--accent);
+  }
+  pre {
+    background: var(--surfaceAlt);
+    border: 1px solid var(--outline);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--fg);
+  }
+  pre code {
+    background: transparent;
+    border: 0; padding: 0; color: inherit;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+  th, td {
+    text-align: left; padding: 8px 12px;
+    border-bottom: 1px solid var(--outline);
+    vertical-align: top;
+  }
+  th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  .pill {
+    display: inline-block;
+    background: rgba(42,102,255,0.10);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px; font-weight: 600;
+    margin-left: 6px;
+  }
+  .warn {
+    border-left: 3px solid #ef4444;
+    background: rgba(239,68,68,0.06);
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 10px 0;
+    color: #6b2222;
+    font-size: 14px;
+  }
+  @media print {
+    body { background: white; }
+    section { box-shadow: none; break-inside: avoid; }
+    main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Solo Todo — 첫 실행 SETUP 가이드</h1>
+<p class="lead">
+  앱 코드 외부에서 한 번 셋업이 필요한 항목. 위에서 아래로 순서대로 진행해 주십시오.
+  체크박스를 하나씩 채우면서 진행하시면 빠짐없이 처리됩니다.
+</p>
+
+<!-- ============================================ -->
+<section>
+  <h2><span class="num">1</span> 환경변수 <span class="pill">.env.local</span></h2>
+
+  <p>저장소 루트의 <code>.env.example</code> 을 <code>.env.local</code> 로 복사 후 4 키를 채우십시오.
+     <code>.env.local</code> 은 <code>.gitignore</code> 에 포함되어 있어 커밋되지 않습니다.</p>
+
+  <table>
+    <tr><th>키</th><th>발급처</th><th>비고</th></tr>
+    <tr><td><span class="var">SUPABASE_URL</span></td>
+        <td>Supabase Dashboard → Project Settings → API</td>
+        <td>예: https://abc.supabase.co</td></tr>
+    <tr><td><span class="var">SUPABASE_ANON_KEY</span></td>
+        <td>동일</td>
+        <td>JWT (eyJ…)</td></tr>
+    <tr><td><span class="var">GOOGLE_OAUTH_CLIENT_ID_DESKTOP</span></td>
+        <td>Google Cloud Console → APIs & Services → Credentials</td>
+        <td>Type: Desktop. macOS 빌드용</td></tr>
+    <tr><td><span class="var">GOOGLE_OAUTH_CLIENT_ID_ANDROID</span></td>
+        <td>동일</td>
+        <td>Type: Android, package + SHA-1 fingerprint 필요</td></tr>
+  </table>
+
+  <h3>실행 시 주입</h3>
+<pre><code>flutter run --dart-define-from-file=.env.local
+flutter build macos --release --dart-define-from-file=.env.local
+flutter build apk --release --dart-define-from-file=.env.local</code></pre>
+
+  <ul>
+    <li class="check">Supabase URL + Anon Key 입력</li>
+    <li class="check">Google OAuth Desktop client id 입력 (Calendar 안 쓸 거면 비워둬도 OK)</li>
+    <li class="check">Google OAuth Android client id 입력</li>
+  </ul>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <h2><span class="num">2</span> Supabase 프로젝트 + RLS</h2>
+
+  <ol>
+    <li>Supabase Dashboard 에서 새 프로젝트 생성 (region: <code>ap-northeast-2</code> 서울 권장).</li>
+    <li>좌측 메뉴 <strong>Authentication → Providers → Email</strong> 활성화. "Magic Link" 사용.</li>
+    <li><strong>Database → SQL Editor</strong> 에서 아래 SQL 그대로 실행:</li>
+  </ol>
+
+<pre><code>-- todos 테이블 생성
+create table if not exists public.todos (
+  id              text primary key,
+  user_id         uuid references auth.users(id) on delete cascade not null,
+  title           text not null,
+  category        text not null,
+  due_at          timestamptz,
+  done_at         timestamptz,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  calendar_event_id text
+);
+
+-- RLS 활성
+alter table public.todos enable row level security;
+
+-- 본인 row 만 접근
+create policy "user_read_own"   on public.todos for select  using (auth.uid() = user_id);
+create policy "user_insert_own" on public.todos for insert  with check (auth.uid() = user_id);
+create policy "user_update_own" on public.todos for update  using (auth.uid() = user_id);
+create policy "user_delete_own" on public.todos for delete  using (auth.uid() = user_id);
+
+-- 동기화 정렬용 인덱스
+create index todos_user_updated on public.todos (user_id, updated_at desc);</code></pre>
+
+  <ol start="4">
+    <li><strong>Database → Replication</strong> 에서 <code>public.todos</code> 의 Realtime 활성화. (Postgres logical replication)</li>
+    <li><strong>Authentication → URL Configuration → Redirect URLs</strong> 에 매직링크 콜백 URL 추가:
+      <ul>
+        <li>macOS: <code>io.supabase.solo_todo://login-callback</code></li>
+        <li>Android: <code>com.goldenplanet.solo_todo://login-callback</code></li>
+      </ul>
+    </li>
+  </ol>
+
+  <ul>
+    <li class="check">프로젝트 생성</li>
+    <li class="check">Email Magic Link 활성화</li>
+    <li class="check">SQL 실행 (todos 테이블 + RLS)</li>
+    <li class="check">Realtime 활성화</li>
+    <li class="check">Redirect URLs 두 개 등록</li>
+  </ul>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <h2><span class="num">3</span> Google Cloud (Calendar API)</h2>
+
+  <ol>
+    <li><a href="https://console.cloud.google.com/">console.cloud.google.com</a> 에서 새 프로젝트 생성.</li>
+    <li><strong>APIs & Services → Library</strong> → "Google Calendar API" Enable.</li>
+    <li><strong>OAuth consent screen</strong> 설정 (External + 본인 이메일).</li>
+    <li><strong>Credentials → + Create credentials → OAuth client ID</strong>:
+      <ul>
+        <li><strong>Desktop app</strong> 타입 → client ID 발급 → <code>GOOGLE_OAUTH_CLIENT_ID_DESKTOP</code> 에 입력</li>
+        <li><strong>Android</strong> 타입 → package: <code>com.goldenplanet.solo_todo</code> + SHA-1 fingerprint
+          <pre><code>cd android && ./gradlew signingReport</code></pre>
+          출력 중 <code>SHA1</code> 값을 복사. <code>GOOGLE_OAUTH_CLIENT_ID_ANDROID</code> 에 입력.
+        </li>
+      </ul>
+    </li>
+    <li>Scope 는 <code>https://www.googleapis.com/auth/calendar.events</code> 한 개. 코드가 자동 요청.</li>
+  </ol>
+
+  <ul>
+    <li class="check">Calendar API Enable</li>
+    <li class="check">OAuth consent screen 설정</li>
+    <li class="check">Desktop client ID 발급 + .env.local 입력</li>
+    <li class="check">Android client ID 발급 + .env.local 입력</li>
+  </ul>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <h2><span class="num">4</span> macOS 빌드 (.app)</h2>
+
+  <div class="warn">
+    Xcode 풀 설치 + CocoaPods 가 필요합니다. 라이트한 <code>Command Line Tools</code> 만으론 부족합니다.
+  </div>
+
+<pre><code># 1) Xcode 풀 설치 (Mac App Store) + 첫 실행
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -runFirstLaunch
+
+# 2) CocoaPods
+sudo gem install cocoapods
+# 또는 Homebrew: brew install cocoapods
+
+# 3) 빌드
+flutter pub get
+pod install --project-directory=macos
+flutter build macos --release --dart-define-from-file=.env.local</code></pre>
+
+  <p>산출물: <code>build/macos/Build/Products/Release/solo_todo.app</code></p>
+
+  <h3>Entitlements (참고)</h3>
+  <p>App Sandbox + Network Client 권한이 이미 <code>macos/Runner/Release.entitlements</code> 에 적용돼 있습니다.
+     Supabase / Google Calendar outbound HTTPS 자동 동작.</p>
+
+  <ul>
+    <li class="check">Xcode 풀 설치 + xcode-select --switch</li>
+    <li class="check">CocoaPods 설치</li>
+    <li class="check"><code>flutter build macos --release</code> 성공</li>
+    <li class="check">.app 더블클릭 후 sign-in 동작 확인</li>
+    <li class="check">메뉴바 (tray) 아이콘 노출 확인</li>
+    <li class="check">Cmd+N 글로벌 단축키 동작 확인 (앱 백그라운드에서도)</li>
+  </ul>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <h2><span class="num">5</span> Android 빌드 (.apk)</h2>
+
+<pre><code># Android SDK + JDK 17 가 설치돼 있어야 함.
+# 첫 빌드 시 라이선스 수락 필요:
+flutter doctor --android-licenses
+
+# 빌드
+flutter pub get
+flutter build apk --release --dart-define-from-file=.env.local</code></pre>
+
+  <p>산출물: <code>build/app/outputs/flutter-apk/app-release.apk</code> (≈ 61 MB)</p>
+
+  <h3>Android 폰에 설치</h3>
+<pre><code># USB 디버깅 + adb 사용 시
+adb install build/app/outputs/flutter-apk/app-release.apk
+
+# 또는 Drive / Slack 등으로 apk 전송 후 "출처 알 수 없음" 허용 → 설치</code></pre>
+
+  <ul>
+    <li class="check">flutter doctor --android-licenses 수락</li>
+    <li class="check">flutter build apk --release 성공 (≈ 75초)</li>
+    <li class="check">Android 폰 설치 + 동일 계정 로그인</li>
+    <li class="check">macOS 에서 추가한 todo 가 Android 에서 5초 안에 보이는지 확인 (Realtime)</li>
+  </ul>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <h2><span class="num">6</span> Deep Link (매직링크 콜백)</h2>
+
+  <p>이메일 매직링크 클릭 후 OS 가 앱으로 되돌아오게 하려면 URL scheme 등록이 필요합니다.</p>
+
+  <h3>macOS — <code>macos/Runner/Info.plist</code></h3>
+<pre><code>&lt;key&gt;CFBundleURLTypes&lt;/key&gt;
+&lt;array&gt;
+  &lt;dict&gt;
+    &lt;key&gt;CFBundleURLSchemes&lt;/key&gt;
+    &lt;array&gt;&lt;string&gt;io.supabase.solo_todo&lt;/string&gt;&lt;/array&gt;
+  &lt;/dict&gt;
+&lt;/array&gt;</code></pre>
+
+  <h3>Android — <code>android/app/src/main/AndroidManifest.xml</code></h3>
+<pre><code>&lt;activity ...&gt;
+  ...
+  &lt;intent-filter&gt;
+    &lt;action android:name="android.intent.action.VIEW"/&gt;
+    &lt;category android:name="android.intent.category.DEFAULT"/&gt;
+    &lt;category android:name="android.intent.category.BROWSABLE"/&gt;
+    &lt;data android:scheme="com.goldenplanet.solo_todo" android:host="login-callback"/&gt;
+  &lt;/intent-filter&gt;
+&lt;/activity&gt;</code></pre>
+
+  <ul>
+    <li class="check">macOS Info.plist 의 CFBundleURLTypes 등록</li>
+    <li class="check">Android intent-filter 등록</li>
+    <li class="check">Supabase Dashboard 의 Redirect URLs 와 일치하는지 확인</li>
+  </ul>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <h2><span class="num">7</span> 운영 메모 & 성능 확인</h2>
+
+  <h3>자주 보는 명령</h3>
+<pre><code># 로컬 실행 (macOS)
+flutter run -d macos --dart-define-from-file=.env.local
+
+# 로컬 실행 (Android — 기기 선택 후)
+flutter devices
+flutter run -d &lt;device-id&gt; --dart-define-from-file=.env.local
+
+# 검증 (커밋 직전)
+dart analyze
+dart format --output=none --set-exit-if-changed .
+flutter test</code></pre>
+
+  <h3>60fps 트레이스 (디자인 점수 확인용)</h3>
+  <p>release 빌드로 1 분 사용 후 콘솔의 <code>[solo_todo] cold start = …ms</code> 줄 확인.
+     자세한 frame timing 은 <code>flutter run --profile</code> + DevTools Performance Overlay 사용.</p>
+
+  <h3>Supabase 대시보드</h3>
+  <p>Database → Tables → todos 에서 row 확인. Realtime 활성 시 변경 즉시 반영.</p>
+
+  <ul>
+    <li class="check">콜드 스타트 1초 이하 확인</li>
+    <li class="check">DevTools Performance 1 분 트레이스 — 평균 fps ≥ 60</li>
+    <li class="check">macOS ↔ Android todo 변경이 5초 이내 양방향 동기화</li>
+  </ul>
+</section>
+
+<!-- ============================================ -->
+<section>
+  <h2><span class="num">8</span> 첫 실행 최종 체크리스트</h2>
+  <ul>
+    <li class="check"><code>.env.local</code> 4 키 채움</li>
+    <li class="check">Supabase RLS SQL 실행 + Realtime 활성</li>
+    <li class="check">Google OAuth 2 client id 발급 + .env.local 반영</li>
+    <li class="check">Deep link URL scheme 두 OS 등록</li>
+    <li class="check">macOS .app 빌드 + 첫 sign-in (매직링크 이메일 도착 확인)</li>
+    <li class="check">Android .apk 설치 + 같은 계정 sign-in</li>
+    <li class="check">양방향 동기화 확인 (Supabase Realtime)</li>
+    <li class="check">Calendar 토글 1번 → Google Calendar 에 이벤트 자동 등록</li>
+    <li class="check">메뉴바 tray + Cmd+N 단축키 동작</li>
+    <li class="check">자정 이월/정리 동작 (1 일 사용 후 확인)</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>

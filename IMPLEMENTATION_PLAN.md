@@ -70,7 +70,7 @@
 - [x] Android release 빌드 PASS (`flutter build apk --release` 61.1MB 산출, 75초 빌드)
 - [x] 디자인 점수 ≥ 9 도달 — 가독성 1.8 / 대비 1.8 (outline 보강) / 여백 1.9 / 정렬 1.8 / 일관성 1.8 = **9.1 / 10**
 - [x] 편의성 점수 ≥ 9 도달 — 단축 1.9 / 반응성 1.8 / 학습성 1.9 (tooltip 보강) / 오류 회복 1.8 / 카테고리 전환 2.0 = **9.4 / 10**
-- [ ] SETUP.html 생성 (Supabase URL/Key 발급 가이드, Google OAuth 클라이언트 발급 가이드, RLS SQL, 빌드/실행 명령)
+- [x] SETUP.html 생성 (8 섹션: env / Supabase RLS SQL / Google OAuth / macOS 빌드 / Android 빌드 / Deep Link / 운영 메모 / 최종 체크리스트)
 
 ---
 
