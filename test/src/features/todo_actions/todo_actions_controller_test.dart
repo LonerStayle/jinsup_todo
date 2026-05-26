@@ -64,4 +64,24 @@ void main() {
     expect(updated.doneAt, isNull);
     expect(updated.updatedAt, later);
   });
+
+  test('delete: row 가 사라짐', () async {
+    final original = seed();
+    await repo.upsert(original);
+
+    await controller.delete(original);
+
+    expect(await repo.getById('a'), isNull);
+  });
+
+  test('restore: delete 후 복원 시 동일 id + updatedAt 보존', () async {
+    final original = seed(doneAt: DateTime.utc(2026, 5, 27, 10));
+    await repo.upsert(original);
+
+    await controller.delete(original);
+    expect(await repo.getById('a'), isNull);
+
+    await controller.restore(original);
+    expect(await repo.getById('a'), original);
+  });
 }

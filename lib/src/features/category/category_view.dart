@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/todo.dart';
+import '../../ui/widgets/dismissible_todo_tile.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../../ui/widgets/skeleton.dart';
-import '../../ui/widgets/todo_tile.dart';
+import '../../ui/widgets/undo_snackbar.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import 'category_providers.dart';
 
@@ -27,6 +28,16 @@ class CategoryView extends ConsumerWidget {
         category: category,
         todos: todos,
         onToggle: (t) => ref.read(todoActionsProvider).toggle(t),
+        onDelete: (t) async {
+          final actions = ref.read(todoActionsProvider);
+          await actions.delete(t);
+          if (!context.mounted) return;
+          showUndoSnackbar(
+            context,
+            message: '"${t.title}" 삭제됨',
+            onUndo: () => actions.restore(t),
+          );
+        },
       ),
     );
   }
@@ -37,11 +48,13 @@ class _Loaded extends StatelessWidget {
     required this.category,
     required this.todos,
     required this.onToggle,
+    required this.onDelete,
   });
 
   final Category category;
   final List<Todo> todos;
   final void Function(Todo) onToggle;
+  final void Function(Todo) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -81,8 +94,11 @@ class _Loaded extends StatelessWidget {
             ),
             sliver: SliverList.separated(
               itemCount: todos.length,
-              itemBuilder: (_, i) =>
-                  TodoTile(todo: todos[i], onToggle: () => onToggle(todos[i])),
+              itemBuilder: (_, i) => DismissibleTodoTile(
+                todo: todos[i],
+                onToggle: () => onToggle(todos[i]),
+                onDelete: () => onDelete(todos[i]),
+              ),
               separatorBuilder: (_, _) =>
                   const SizedBox(height: AppTokens.space8),
             ),

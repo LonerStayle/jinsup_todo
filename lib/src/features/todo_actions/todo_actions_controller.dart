@@ -22,6 +22,13 @@ class TodoActionsController {
     await _repo.upsert(updated);
     return updated;
   }
+
+  /// id 기준 삭제. 호출자가 [restore] 로 되돌릴 수 있도록 원본은 호출자가 보관.
+  Future<void> delete(Todo todo) => _repo.deleteById(todo.id);
+
+  /// [delete] 로 지워진 Todo 를 그대로 복원 (id 동일, updatedAt 보존).
+  /// Undo SnackBar 의 "되돌리기" 액션이 호출한다.
+  Future<void> restore(Todo todo) => _repo.upsert(todo);
 }
 
 final todoActionsProvider = Provider<TodoActionsController>(
