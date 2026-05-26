@@ -21,6 +21,7 @@ Future<void> main() async {
 
   runApp(const ProviderScope(child: SoloTodoApp()));
 
-  // 첫 frame 렌더 완료 시점에 cold start 측정 마감.
+  // 첫 frame 렌더 완료 시점에 cold start 측정 마감 + 60fps 감시 시작.
   scheduleColdStartCapture();
+  FpsMonitor.instance.start();
 }

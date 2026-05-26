@@ -65,7 +65,7 @@
 
 ### 9. 품질 게이트 (PROJECT_DONE 조건)
 - [x] 콜드 스타트 < 1s 측정 (`lib/src/core/perf.dart` 의 stopwatch 로그)
-- [ ] 60fps 유지 확인 (DevTools 프레임 트레이스 1분 캡처)
+- [x] 60fps 유지 확인 (FpsMonitor + DevTools 프레임 트레이스 1분 캡처)
 - [ ] macOS release 빌드 PASS (`flutter build macos --release`)
 - [ ] Android release 빌드 PASS (`flutter build apk --release`)
 - [ ] 디자인 점수 ≥ 9 도달 (가독성/대비/여백/정렬/일관성 각 2점)
