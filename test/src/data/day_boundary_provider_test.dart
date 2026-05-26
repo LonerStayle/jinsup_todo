@@ -48,7 +48,8 @@ void main() {
 
         // 자정 + 안전 마진 통과까지만 elapse (단일 step).
         // 더 흘리면 다음 자정 Timer 도 fire 되어 무한 추론 가능.
-        final until = nextMidnightFrom(clock.now()) + const Duration(seconds: 2);
+        final until =
+            nextMidnightFrom(clock.now()) + const Duration(seconds: 2);
         async.elapse(until);
 
         expect(
