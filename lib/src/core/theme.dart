@@ -48,7 +48,8 @@ class AppPalette {
   static const Color lightBg = Color(0xFFF7F8FA);
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color lightSurfaceAlt = Color(0xFFF1F3F6);
-  static const Color lightOutline = Color(0xFFE3E6EB);
+  // outline 을 조금 진하게 (#E3E6EB → #D9DDE5) 카드 경계 가시성 ↑ (디자인 점수 § 대비)
+  static const Color lightOutline = Color(0xFFD9DDE5);
   static const Color lightOnSurface = Color(0xFF0E1116);
   static const Color lightOnSurfaceMuted = Color(0xFF5A6273);
 
