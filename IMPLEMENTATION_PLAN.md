@@ -37,7 +37,7 @@
 - [x] EmptyState / Skeleton / Snackbar undo 표준 UI 위젯
 
 ### 5. 핵심 동작
-- [ ] 추가 흐름 (Sheet 저장 → repo write → 리스트 즉시 갱신)
+- [x] 추가 흐름 (Sheet 저장 → repo write → 리스트 즉시 갱신)
 - [ ] 체크 흐름 (낙관적 업데이트 — UI 먼저, DB 비동기)
 - [ ] 삭제 흐름 (Snackbar undo 5초)
 - [ ] 자동 이월 트리거 (앱 시작 시 1회 + 자정 Timer 재계산)

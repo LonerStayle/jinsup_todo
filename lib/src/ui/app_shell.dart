@@ -1,38 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/platform.dart';
 import '../core/theme.dart';
+import '../domain/category.dart';
+import '../features/add_todo/add_todo_controller.dart';
+import '../features/add_todo/add_todo_sheet.dart';
 import '../features/category/category_view.dart';
 import '../features/home/home_screen.dart';
 import 'destination.dart';
 
-/// 폼팩터별 분기 컨테이너.
+/// 폼팩터 분기 컨테이너 + FAB (빠른 추가 트리거).
 ///
-/// - macOS desktop: 좌측 사이드바 (220 px) + 우측 메인 영역
-/// - Android phone: 메인 영역 + 하단 [NavigationBar] (6 destination)
-///
-/// destination 선택 state 만 보유. 본격 화면 (HomeScreen / CategoryView) 은
-/// phase 4 의 다음 task 들에서 main area 자리에 들어간다.
-class AppShell extends StatefulWidget {
+/// - macOS desktop: 좌측 사이드바 + 우측 메인 + FAB (Cmd+N 단축키는 phase 6 에서 연결)
+/// - Android phone: 메인 + 하단 NavigationBar + FAB
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> {
   int _index = 0;
 
   void _select(int i) {
     setState(() => _index = i);
   }
 
+  Future<void> _openAddTodo() async {
+    final dest = AppDestination.all[_index];
+    final initialCategory = dest.category ?? Category.daily;
+    await AddTodoSheet.show(
+      context,
+      initialCategory: initialCategory,
+      onSubmit: (submission) {
+        ref.read(addTodoControllerProvider).add(submission);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final destination = AppDestination.all[_index];
 
+    final fab = FloatingActionButton.extended(
+      key: const ValueKey('add-todo-fab'),
+      onPressed: _openAddTodo,
+      icon: const Icon(Icons.add),
+      label: const Text('추가'),
+      tooltip: '새 할 일 (Cmd+N)',
+    );
+
     if (AppPlatform.isDesktop) {
       return Scaffold(
+        floatingActionButton: fab,
         body: Row(
           children: [
             _Sidebar(selectedIndex: _index, onSelect: _select),
@@ -44,6 +66,7 @@ class _AppShellState extends State<AppShell> {
     }
 
     return Scaffold(
+      floatingActionButton: fab,
       body: SafeArea(child: _MainArea(destination: destination)),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
