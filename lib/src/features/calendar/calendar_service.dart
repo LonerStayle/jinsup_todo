@@ -34,6 +34,40 @@ class CalendarService {
     }
   }
 
+  /// 기존 캘린더 이벤트를 todo 의 최신 상태로 patch. dueAt 이 null 이 되면 이벤트 자체를
+  /// 삭제 (호출자가 [deleteEvent] 로 별도 처리해도 OK 하지만, 이 경로가 더 명확).
+  ///
+  /// 사용자가 OAuth 를 끊은 경우 등 인가 실패는 예외 전파.
+  Future<void> updateEventForTodo(Todo todo, String eventId) async {
+    if (todo.dueAt == null) {
+      await deleteEvent(eventId);
+      return;
+    }
+    final account = await _auth.tryRestore() ?? await _auth.signIn();
+    final api = await _apiFor(account);
+    if (api == null) return;
+    try {
+      await api.events.update(_toEvent(todo), 'primary', eventId);
+    } finally {
+      api.requester.close();
+    }
+  }
+
+  /// 캘린더 이벤트 삭제. 이미 삭제된 (404) 경우 silent — 멱등.
+  Future<void> deleteEvent(String eventId) async {
+    final account = await _auth.tryRestore() ?? await _auth.signIn();
+    final api = await _apiFor(account);
+    if (api == null) return;
+    try {
+      await api.events.delete('primary', eventId);
+    } on gcal.DetailedApiRequestError catch (e) {
+      if (e.status == 404 || e.status == 410) return; // 이미 없음 — 멱등
+      rethrow;
+    } finally {
+      api.requester.close();
+    }
+  }
+
   Future<_AuthedCalendarApi?> _apiFor(GoogleSignInAccount account) async {
     final headers = await _auth.authHeadersForCalendar(account);
     if (headers == null) return null;
@@ -94,5 +128,29 @@ Future<String?> tryCreateCalendarEvent(Ref ref, Todo todo) async {
   } catch (e) {
     debugPrint('[solo_todo] Calendar 이벤트 생성 실패: $e');
     return null;
+  }
+}
+
+/// Todo 변경 시 (편집 / 삭제 흐름) 호출. eventId 가 있는 todo 만 처리.
+Future<void> tryUpdateCalendarEvent(Ref ref, Todo todo) async {
+  final eventId = todo.calendarEventId;
+  if (eventId == null) return;
+  final svc = ref.read(calendarServiceProvider);
+  if (svc == null) return;
+  try {
+    await svc.updateEventForTodo(todo, eventId);
+  } catch (e) {
+    debugPrint('[solo_todo] Calendar 이벤트 갱신 실패: $e');
+  }
+}
+
+Future<void> tryDeleteCalendarEvent(Ref ref, String? eventId) async {
+  if (eventId == null) return;
+  final svc = ref.read(calendarServiceProvider);
+  if (svc == null) return;
+  try {
+    await svc.deleteEvent(eventId);
+  } catch (e) {
+    debugPrint('[solo_todo] Calendar 이벤트 삭제 실패: $e');
   }
 }
