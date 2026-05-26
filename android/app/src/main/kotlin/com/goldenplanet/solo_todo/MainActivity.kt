@@ -1,0 +1,5 @@
+package com.goldenplanet.solo_todo
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()

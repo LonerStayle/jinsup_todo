@@ -9,8 +9,8 @@ Claude Code 가 매 세션 자동 로드하므로, ralph 의 매 iteration fresh
 ## 🔒 비전 인터뷰 상태 (gating)
 
 ```yaml
-onboarded: false
-onboarded_at: null
+onboarded: true
+onboarded_at: 2026-05-25T23:55:00+09:00
 ```
 
 > `onboarded: false` 이면 ralph 는 매 iteration 첫 응답을 **비전 인터뷰** (`vision-intake` skill) 로 시작한다.
@@ -21,28 +21,77 @@ onboarded_at: null
 ## 비전 / 사양 (대표님 영역 — vision-intake 가 채움)
 
 ### 1. 비전
-*(미입력. vision-intake skill 로 채워집니다.)*
+대표님(30대 개발자, 1인 사용)을 위한 **나만의 데스크탑·모바일 통합 Todo 앱**. macOS 데스크탑이 메인, Android 가 보조. UX 가 최강으로 편리하고 UI 가독성·가시성이 최대인 v1.0.0 완성품을 한 번에 만든다.
 
 ### 2. 대상 사용자
-*(미입력)*
+**30대 개발자 본인 (대표님, 1인 사용자)**. 업무 스타일은 "할 일 체크리스트를 적고 하나씩 처리해가는" 방식. 주 작업기기는 맥북, 보조로 Android 폰. 팀 공유나 협업은 일체 없는 개인 전용 도구.
 
 ### 3. 핵심 산출물
-*(미입력)*
+
+기본 동작
+- 할 일 **추가 / 체크 / 삭제**
+- **카테고리 분류** — 5종 고정: ① 회사 할일 ② 개인개발 할일 ③ 일상 할일 ④ 장기 목표 ⑤ 개인 아이디어
+- **오늘 할 일 위젯** (메인 화면에 항상 노출)
+- **Cmd+N 글로벌 단축키** — 어디서든 누르면 즉시 할 일 추가 입력창 호출
+
+이월 / 정리 로직 (핵심)
+- 오늘 할 일 중 **체크 안 된 항목** → 다음날로 자동 이월
+- **체크된 항목** → 당일 자정 지나면 오늘 화면에서 사라짐 (히스토리 보관)
+
+연동
+- **Google Calendar 연동** — 할 일에 날짜/시간 틀만 채워 넣으면 자동으로 캘린더에 등록될 만큼 UX 가 쉬워야 함 (UX 가 강조되는 영역)
 
 ### 4. 성공 정의
-*(미입력)*
+
+정성 기준 (최우선)
+- **가독성·가시성** 최대치. 정말 편하다고 본인이 느낄 것.
+- 매 iteration 자가 측정 두 지표:
+  - **디자인 점수** (UI 가독성·가시성, 10점 만점)
+  - **편의성 점수** (UX 단축 동작·반응성, 10점 만점)
+- **두 점수 모두 9 이상** 도달 시 비전 충족 인정.
+
+정량 기준
+- 콜드 스타트 1초 이내 (macOS desktop)
+- UI 프레임률 60fps 이상 (스크롤·애니메이션 끊김 없음)
+- Supabase 실시간 동기화 — 한쪽에서 변경 시 다른쪽 5초 이내 반영
+- 입력→저장 응답 200ms 이내 체감
+
+릴리스 기준
+- **v1.0.0 한 번에 완성** (점진 릴리스 없음. 첫 출시가 완성품)
 
 ### 5. 금지 / 범위 밖
-*(미입력)*
+- **iOS 버전 X** (macOS desktop + Android 만)
+- **웹 버전 X** (Flutter desktop / mobile 만)
+- **팀 공유 / 멀티유저 / 협업 기능 X** (개인 전용)
+- **광고 / 결제 / 인앱구매 모듈 X**
+- **Notion / Jira / Slack / Trello 등 외부 ToDo 도구 연동 X** (Google Calendar 만 예외적으로 허용)
 
 ### 6. 외부 의존
-*(미입력)*
+- **Supabase** — DB + Auth + Realtime 동기화. 대표님 개인 Supabase 프로젝트 사용. macOS ↔ Android 데이터 동기화의 단일 출처.
+- **Google Calendar API** (OAuth2, calendar v3). 날짜/시간 입력 시 매우 쉬운 UX 로 캘린더에 자동 등록.
 
 ### 7. 규모·일정·비용 cap
-*(미입력)*
+- **ralph 자율 루프 최대 200 iteration**. v1.0.0 모든 비전 항목 완료까지 한 번에 진행.
+- 매 iteration 끝에 디자인 점수·편의성 점수 자가 평가 (10점 만점). **두 지표 모두 9 이상** 도달 + 모든 `[x]` 시 `PROJECT_DONE` 출력.
+- 그 전이라도 모든 plan 항목 `[x]` 가 되었으나 점수 9 미만이면, 점수 보강 task 를 `IMPLEMENTATION_PLAN.md` 끝에 자동 추가하여 계속 iteration.
 
 ### 8. 기술 스택
-*(미입력 — 빈 채로 두면 아래 "기본 기술 스택" 디폴트가 적용됩니다)*
+
+factory 디폴트 (Python+uv+FastAPI / React Vite / Android Kotlin / Postgres) 는 **전체 override**.
+
+| 영역 | 결정 |
+|------|------|
+| **단일 코드베이스** | **Flutter (Dart)** — macOS `.app` + Android `.apk` 한 코드로 동시 빌드 |
+| 데이터·인증·동기화 | **Supabase** (`supabase_flutter` SDK). 별도 백엔드 서버 없음. |
+| 캘린더 연동 | `googleapis` (Calendar v3) + `google_sign_in` |
+| macOS 글로벌 단축키 (Cmd+N) | `hotkey_manager` |
+| 시스템 트레이 / 메뉴바 | `tray_manager` |
+| macOS 네이티브 룩 보강 | `macos_ui` (Cupertino 톤) |
+| 상태 관리 | `riverpod` |
+| 로컬 캐시 (오프라인 대응) | `drift` (SQLite) |
+| 로깅·에러 | `logger` |
+
+별도 백엔드 (Python/FastAPI) 사용 안 함. Supabase 가 백엔드.
 
 ---
 

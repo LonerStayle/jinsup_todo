@@ -7,19 +7,18 @@
 
 ## 환경 사전조건
 
-<!-- 도메인에 맞게 채우십시오. 사용자가 직접 채우거나, ralph 첫 iteration 이 채웁니다.
-     비어 있으면 ralph 의 backpressure (검증) 가 작동하지 못하므로 결국 채워져야 합니다. -->
-
-- 운영체제:
-- 런타임 버전:
-- 패키지 매니저:
+- 운영체제: macOS 26.2 (Apple Silicon)
+- 런타임 버전: Flutter 3.41.9 (stable) / Dart 3.11.5
+- 패키지 매니저: pub (flutter pub) / Gradle (Android) / CocoaPods (macOS)
 
 ---
 
 ## 셋업 (1회)
 
 ```bash
-# 예) uv sync && cd web && npm ci
+flutter pub get
+# macOS desktop:  pod install --project-directory=macos  (CocoaPods 필요)
+# Android:        Android Studio + JDK 17 권장. 첫 빌드 시 SDK 자동 동기화.
 ```
 
 ---
@@ -29,22 +28,24 @@
 모든 명령이 exit 0 이어야 commit 한다.
 
 ```bash
-# 1) lint
-# 예) ruff check . && (cd web && npm run lint)
+# 1) lint (Dart analyzer)
+dart analyze
 
-# 2) typecheck
-# 예) mypy . && (cd web && npm run typecheck)
+# 2) format check (자동 포맷 적용된 상태 유지 확인)
+dart format --output=none --set-exit-if-changed .
 
-# 3) tests
-# 예) pytest -q && (cd web && npm run test -- --run)
+# 3) tests (단위 + 위젯 + integration)
+flutter test
 ```
 
 ---
 
-## 선택 검증
+## 선택 검증 (품질 게이트 — 시간 소요)
 
 ```bash
-# 예) e2e, 빌드, 보안 스캔 등
+# release 빌드 smoke
+flutter build macos --release
+flutter build apk --release
 ```
 
 ---
@@ -52,5 +53,10 @@
 ## 실행 (로컬 확인용)
 
 ```bash
-# 예) uvicorn app.main:app --reload
+# macOS desktop
+flutter run -d macos --dart-define-from-file=.env.local
+
+# Android (실기기/에뮬레이터)
+flutter devices
+flutter run -d <device_id> --dart-define-from-file=.env.local
 ```

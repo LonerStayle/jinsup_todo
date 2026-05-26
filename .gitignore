@@ -27,3 +27,35 @@ __pycache__/
 node_modules/
 .npm/
 .pnpm-store/
+
+# Flutter / Dart / Pub
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+**/build/
+**/ios/Flutter/.last_build_id
+*.iml
+app.*.symbols
+app.*.map.json
+
+# Android Studio build artifacts
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Flutter Gradle local
+android/.gradle/
+android/local.properties
+android/captures/
+android/key.properties
+
+# macOS desktop generated
+macos/Pods/
+macos/Flutter/ephemeral/
+macos/.symlinks/
+
+# ralph-loop session state
+.claude/ralph-loop.local.md
