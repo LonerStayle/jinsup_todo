@@ -16,6 +16,15 @@ final watchTodayTodosProvider = StreamProvider<List<Todo>>((ref) {
   return repo.watchToday(now);
 });
 
+/// 오늘 화면 visible todos 중 미체크 항목의 개수 (트레이 카운트 표시용).
+final undoneTodayCountProvider = Provider<int>((ref) {
+  final asyncTodos = ref.watch(watchTodayTodosProvider);
+  return asyncTodos.maybeWhen(
+    data: (todos) => todos.where((t) => !t.isDone).length,
+    orElse: () => 0,
+  );
+});
+
 /// 어제 이전에서 이월된 미체크 항목의 개수 (배너 표시용).
 final carryoverCountProvider = Provider<int>((ref) {
   // currentDayProvider 가 자정 갱신 시 같이 재계산되도록 transitively 의존.

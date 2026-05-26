@@ -46,7 +46,7 @@
 
 ### 6. macOS 전용
 - [x] Cmd+N 글로벌 단축키 (hotkey_manager) — 백그라운드여도 AddTodoSheet 호출
-- [ ] tray_manager 메뉴바 아이콘 + 미체크 카운트 배지
+- [x] tray_manager 메뉴바 아이콘 + 미체크 카운트 배지
 - [ ] 시스템 다크모드 자동 추종
 
 ### 7. Supabase 연동

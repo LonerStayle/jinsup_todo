@@ -10,6 +10,8 @@ import '../features/add_todo/add_todo_controller.dart';
 import '../features/add_todo/add_todo_sheet.dart';
 import '../features/category/category_view.dart';
 import '../features/home/home_screen.dart';
+import '../features/home/today_providers.dart';
+import '../features/system/tray_service.dart';
 import 'destination.dart';
 
 /// 폼팩터 분기 컨테이너 + FAB (빠른 추가 트리거) + 1~5 카테고리 단축키.
@@ -26,17 +28,36 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   int _index = 0;
   HotKey? _cmdN;
+  TrayService? _tray;
 
   @override
   void initState() {
     super.initState();
     _registerGlobalHotkey();
+    _initTray();
   }
 
   @override
   void dispose() {
     _unregisterGlobalHotkey();
+    _tray?.dispose();
     super.dispose();
+  }
+
+  Future<void> _initTray() async {
+    if (!AppPlatform.isDesktop) return;
+    final tray = TrayService(
+      onAddTodo: () {
+        if (mounted) _openAddTodo();
+      },
+      onQuit: () => SystemNavigator.pop(),
+    );
+    await tray.init();
+    if (!mounted) {
+      await tray.dispose();
+      return;
+    }
+    _tray = tray;
   }
 
   Future<void> _registerGlobalHotkey() async {
@@ -95,6 +116,11 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // 미체크 카운트가 바뀌면 tray title 갱신 (macOS 만 실효).
+    ref.listen<int>(undoneTodayCountProvider, (_, next) {
+      _tray?.updateUndoneCount(next);
+    });
+
     final destination = AppDestination.all[_index];
 
     final fab = FloatingActionButton.extended(
