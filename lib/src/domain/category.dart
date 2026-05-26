@@ -1,34 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:json_annotation/json_annotation.dart';
 
 /// Solo Todo 의 카테고리 5종. CLAUDE.md 의 비전에 고정.
 ///
 /// 각 값은 DB 저장용 [id], 한글 [label], 시각화용 [color] + [icon] 를 갖는다.
 /// 색은 phase 4 디자인 토큰 task 에서 본격 검증 (WCAG AA 대비 등) 후 보강될 수 있다.
+///
+/// `@JsonValue` 는 json_serializable 로 직렬화될 때 enum 이름 ('personalDev') 가 아닌
+/// [id] ('personal_dev') 가 그대로 직렬화되도록 보장한다 — DB 호환 + 안정성.
 enum Category {
+  @JsonValue('work')
   work(
     id: 'work',
     label: '회사 할일',
     color: Color(0xFF2A66FF),
     icon: Icons.business_center_outlined,
   ),
+  @JsonValue('personal_dev')
   personalDev(
     id: 'personal_dev',
     label: '개인개발',
     color: Color(0xFF8B5CF6),
     icon: Icons.code,
   ),
+  @JsonValue('daily')
   daily(
     id: 'daily',
     label: '일상',
     color: Color(0xFF10B981),
     icon: Icons.home_outlined,
   ),
+  @JsonValue('longterm')
   longterm(
     id: 'longterm',
     label: '장기 목표',
     color: Color(0xFFEF4444),
     icon: Icons.flag_outlined,
   ),
+  @JsonValue('idea')
   idea(
     id: 'idea',
     label: '아이디어',
