@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers.dart';
 import '../todo_repository.dart';
 import '../../features/auth/auth_providers.dart';
+import 'last_write_wins.dart';
 import 'supabase_provider.dart';
 import 'supabase_todos_api.dart';
 
@@ -30,10 +31,13 @@ class SupabaseRealtimeSync {
 
   Future<void> start() async {
     try {
-      // 1) 초기 풀백 — 원격 todos 를 local 로 복제.
+      // 1) 초기 풀백 — 원격 todos 를 local 로 복제. LWW 로 local 이 더 최신이면 skip.
       final remoteAll = await api.fetchAll(userId);
-      for (final t in remoteAll) {
-        await localRepo.upsert(t);
+      for (final remote in remoteAll) {
+        final local = await localRepo.getById(remote.id);
+        if (LastWriteWins.remoteWins(local, remote)) {
+          await localRepo.upsert(remote);
+        }
       }
 
       // 2) 변경 구독.
@@ -61,8 +65,12 @@ class SupabaseRealtimeSync {
       switch (payload.eventType) {
         case PostgresChangeEvent.insert:
         case PostgresChangeEvent.update:
-          final todo = api.todoFromRow(payload.newRecord);
-          await localRepo.upsert(todo);
+          final remote = api.todoFromRow(payload.newRecord);
+          final local = await localRepo.getById(remote.id);
+          // LWW: local 이 더 최신 (사용자가 방금 수정) 이면 stale remote skip.
+          if (LastWriteWins.remoteWins(local, remote)) {
+            await localRepo.upsert(remote);
+          }
           break;
         case PostgresChangeEvent.delete:
           final id = payload.oldRecord['id'] as String?;

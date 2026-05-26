@@ -54,7 +54,7 @@
 - [x] 인증 (이메일 매직링크) + 세션 영속 (`shared_preferences` 또는 Supabase 내장)
 - [x] 원격 push (CRUD → Supabase `todos` 테이블)
 - [x] Realtime subscribe (todos) → local 캐시 갱신
-- [ ] 충돌 해소 (updated_at 기반 last-write-wins)
+- [x] 충돌 해소 (updated_at 기반 last-write-wins)
 - [ ] 오프라인 큐 + 재연결 시 자동 flush
 
 ### 8. Google Calendar
