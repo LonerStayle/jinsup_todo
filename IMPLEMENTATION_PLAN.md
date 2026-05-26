@@ -24,7 +24,7 @@
 
 ### 3. 로컬 데이터 (Drift)
 - [x] `todos` Drift 테이블 정의 + DAO (insert/update/delete/watchByCategory/watchToday)
-- [ ] `TodoRepository` 인터페이스 (local + remote 어댑터 추상화)
+- [x] `TodoRepository` 인터페이스 (local + remote 어댑터 추상화)
 - [ ] `LocalTodoRepository` 구현 + integration test (SQLite in-memory)
 
 ### 4. UI 골격
