@@ -23,7 +23,9 @@ abstract interface class RemoteTodosApi {
 class SupabaseTodosApi implements RemoteTodosApi {
   SupabaseTodosApi(this._client);
 
-  static const _table = 'todos';
+  /// Supabase 무료 플랜 하나의 프로젝트를 다른 앱과 공유할 수 있도록 prefix 명시.
+  /// (별도 schema 사용 시 PostgREST Exposed Schemas 추가 설정 필요해 prefix 가 안전.)
+  static const _table = 'solo_todo_todos';
 
   final SupabaseClient _client;
 

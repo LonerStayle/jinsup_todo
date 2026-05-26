@@ -49,11 +49,11 @@ class SupabaseRealtimeSync {
 
       // 3) 변경 구독.
       _channel = client
-          .channel('todos:$userId')
+          .channel('solo_todo_todos:$userId')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
-            table: 'todos',
+            table: 'solo_todo_todos',
             filter: PostgresChangeFilter(
               type: PostgresChangeFilterType.eq,
               column: 'user_id',

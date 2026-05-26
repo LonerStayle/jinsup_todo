@@ -181,8 +181,8 @@ flutter build apk --release --dart-define-from-file=.env.local</code></pre>
     <li><strong>Database → SQL Editor</strong> 에서 아래 SQL 그대로 실행:</li>
   </ol>
 
-<pre><code>-- todos 테이블 생성
-create table if not exists public.todos (
+<pre><code>-- solo_todo_todos 테이블 생성 (Supabase 무료 플랜 1 프로젝트를 다른 앱과 공유 가능하도록 prefix)
+create table if not exists public.solo_todo_todos (
   id              text primary key,
   user_id         uuid references auth.users(id) on delete cascade not null,
   title           text not null,
@@ -195,19 +195,19 @@ create table if not exists public.todos (
 );
 
 -- RLS 활성
-alter table public.todos enable row level security;
+alter table public.solo_todo_todos enable row level security;
 
 -- 본인 row 만 접근
-create policy "user_read_own"   on public.todos for select  using (auth.uid() = user_id);
-create policy "user_insert_own" on public.todos for insert  with check (auth.uid() = user_id);
-create policy "user_update_own" on public.todos for update  using (auth.uid() = user_id);
-create policy "user_delete_own" on public.todos for delete  using (auth.uid() = user_id);
+create policy "solo_todo_user_read_own"   on public.solo_todo_todos for select  using (auth.uid() = user_id);
+create policy "solo_todo_user_insert_own" on public.solo_todo_todos for insert  with check (auth.uid() = user_id);
+create policy "solo_todo_user_update_own" on public.solo_todo_todos for update  using (auth.uid() = user_id);
+create policy "solo_todo_user_delete_own" on public.solo_todo_todos for delete  using (auth.uid() = user_id);
 
 -- 동기화 정렬용 인덱스
-create index todos_user_updated on public.todos (user_id, updated_at desc);</code></pre>
+create index solo_todo_todos_user_updated on public.solo_todo_todos (user_id, updated_at desc);</code></pre>
 
   <ol start="4">
-    <li><strong>Database → Replication</strong> 에서 <code>public.todos</code> 의 Realtime 활성화. (Postgres logical replication)</li>
+    <li><strong>Database → Replication</strong> 에서 <code>public.solo_todo_todos</code> 의 Realtime 활성화. (Postgres logical replication)</li>
     <li><strong>Authentication → URL Configuration → Redirect URLs</strong> 에 매직링크 콜백 URL 추가:
       <ul>
         <li>macOS: <code>io.supabase.solo_todo://login-callback</code></li>
@@ -373,7 +373,7 @@ flutter test</code></pre>
      자세한 frame timing 은 <code>flutter run --profile</code> + DevTools Performance Overlay 사용.</p>
 
   <h3>Supabase 대시보드</h3>
-  <p>Database → Tables → todos 에서 row 확인. Realtime 활성 시 변경 즉시 반영.</p>
+  <p>Database → Tables → <code>solo_todo_todos</code> 에서 row 확인. Realtime 활성 시 변경 즉시 반영.</p>
 
   <ul>
     <li class="check">콜드 스타트 1초 이하 확인</li>
