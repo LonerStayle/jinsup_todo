@@ -64,7 +64,7 @@
 - [x] AddTodoSheet 의 "Calendar 등록" 토글 UX — 토글 1번이면 자동 등록 (UX 최우선)
 
 ### 9. 품질 게이트 (PROJECT_DONE 조건)
-- [ ] 콜드 스타트 < 1s 측정 (`lib/src/core/perf.dart` 의 stopwatch 로그)
+- [x] 콜드 스타트 < 1s 측정 (`lib/src/core/perf.dart` 의 stopwatch 로그)
 - [ ] 60fps 유지 확인 (DevTools 프레임 트레이스 1분 캡처)
 - [ ] macOS release 빌드 PASS (`flutter build macos --release`)
 - [ ] Android release 빌드 PASS (`flutter build apk --release`)
