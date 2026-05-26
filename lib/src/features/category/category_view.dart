@@ -1,0 +1,235 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/theme.dart';
+import '../../domain/category.dart';
+import '../../domain/todo.dart';
+import '../../ui/widgets/todo_tile.dart';
+import 'category_providers.dart';
+
+/// 카테고리 destination 선택 시 보여줄 화면. 헤더 + 미체크/완료 통계 + 리스트.
+class CategoryView extends ConsumerWidget {
+  const CategoryView({super.key, required this.category});
+
+  final Category category;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncTodos = ref.watch(watchTodosByCategoryProvider(category));
+
+    return asyncTodos.when(
+      loading: () =>
+          const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      error: (e, _) => _Error(message: '$e'),
+      data: (todos) => _Loaded(category: category, todos: todos),
+    );
+  }
+}
+
+class _Loaded extends StatelessWidget {
+  const _Loaded({required this.category, required this.todos});
+
+  final Category category;
+  final List<Todo> todos;
+
+  @override
+  Widget build(BuildContext context) {
+    final undone = todos.where((t) => !t.isDone).length;
+    final done = todos.length - undone;
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTokens.space24,
+            AppTokens.space32,
+            AppTokens.space24,
+            AppTokens.space16,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: _Header(category: category, undone: undone, done: done),
+          ),
+        ),
+        if (todos.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _EmptyState(category: category),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTokens.space24,
+              AppTokens.space8,
+              AppTokens.space24,
+              AppTokens.space48,
+            ),
+            sliver: SliverList.separated(
+              itemCount: todos.length,
+              itemBuilder: (_, i) => TodoTile(todo: todos[i]),
+              separatorBuilder: (_, _) =>
+                  const SizedBox(height: AppTokens.space8),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.category,
+    required this.undone,
+    required this.done,
+  });
+
+  final Category category;
+  final int undone;
+  final int done;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: category.color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(AppTokens.radiusM),
+              ),
+              child: Icon(category.icon, color: category.color),
+            ),
+            const SizedBox(width: AppTokens.space12),
+            Expanded(
+              child: Text(
+                category.label,
+                style: theme.textTheme.displayMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppTokens.space12),
+        Row(
+          children: [
+            _StatChip(label: '미체크', count: undone, color: category.color),
+            const SizedBox(width: AppTokens.space8),
+            _StatChip(
+              label: '완료',
+              count: done,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space12,
+        vertical: AppTokens.space4,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+      ),
+      child: Text(
+        '$label $count',
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.category});
+
+  final Category category;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: category.color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(AppTokens.radiusL),
+            ),
+            child: Icon(category.icon, size: 36, color: category.color),
+          ),
+          const SizedBox(height: AppTokens.space20),
+          Text(
+            '${category.label}에 할 일이 없어요',
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: AppTokens.space8),
+          Text(
+            '여기에 추가하면 ${category.label} 카테고리로 분류됩니다.',
+            style: theme.textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Error extends StatelessWidget {
+  const _Error({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTokens.space24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, color: theme.colorScheme.error, size: 36),
+            const SizedBox(height: AppTokens.space12),
+            Text('카테고리를 불러오지 못했어요', style: theme.textTheme.titleMedium),
+            const SizedBox(height: AppTokens.space4),
+            Text(
+              message,
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

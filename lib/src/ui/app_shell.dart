@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/platform.dart';
 import '../core/theme.dart';
+import '../features/category/category_view.dart';
 import '../features/home/home_screen.dart';
 import 'destination.dart';
 
@@ -173,41 +174,6 @@ class _MainArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (destination.isToday) return const HomeScreen();
-    return _CategoryPlaceholder(destination: destination);
-  }
-}
-
-class _CategoryPlaceholder extends StatelessWidget {
-  const _CategoryPlaceholder({required this.destination});
-
-  final AppDestination destination;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: destination.color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(AppTokens.radiusL),
-            ),
-            child: Icon(destination.icon, size: 36, color: destination.color),
-          ),
-          const SizedBox(height: AppTokens.space20),
-          Text(destination.label, style: theme.textTheme.headlineMedium),
-          const SizedBox(height: AppTokens.space8),
-          Text(
-            '${destination.label} 카테고리 보기는 다음 task 에서 채워집니다.',
-            style: theme.textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
+    return CategoryView(category: destination.category!);
   }
 }

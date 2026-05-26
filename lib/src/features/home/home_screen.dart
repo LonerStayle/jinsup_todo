@@ -5,6 +5,7 @@ import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../data/providers.dart';
 import '../../domain/todo.dart';
+import '../../ui/widgets/todo_tile.dart';
 import 'today_providers.dart';
 
 /// 오늘 화면 — 헤더 + 이월 배너 + visible todos 리스트.
@@ -72,7 +73,7 @@ class _Loaded extends StatelessWidget {
             ),
             sliver: SliverList.separated(
               itemCount: todos.length,
-              itemBuilder: (_, i) => _TodoTile(todo: todos[i]),
+              itemBuilder: (_, i) => TodoTile(todo: todos[i]),
               separatorBuilder: (_, _) =>
                   const SizedBox(height: AppTokens.space8),
             ),
@@ -146,72 +147,6 @@ class _CarryoverBanner extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TodoTile extends StatelessWidget {
-  const _TodoTile({required this.todo});
-
-  final Todo todo;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.space16,
-          vertical: AppTokens.space12,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 36,
-              decoration: BoxDecoration(
-                color: todo.category.color,
-                borderRadius: BorderRadius.circular(AppTokens.radiusS),
-              ),
-            ),
-            const SizedBox(width: AppTokens.space12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    todo.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      decoration: todo.isDone
-                          ? TextDecoration.lineThrough
-                          : null,
-                      color: todo.isDone
-                          ? theme.colorScheme.onSurface.withValues(alpha: 0.45)
-                          : null,
-                    ),
-                  ),
-                  if (todo.dueAt != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppTokens.space2),
-                      child: Text(
-                        KoDate.time(todo.dueAt!),
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Icon(
-              todo.isDone
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked,
-              color: todo.isDone
-                  ? todo.category.color
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.35),
-            ),
-          ],
-        ),
       ),
     );
   }
