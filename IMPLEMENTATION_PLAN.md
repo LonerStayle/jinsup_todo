@@ -58,7 +58,7 @@
 - [x] 오프라인 큐 + 재연결 시 자동 flush
 
 ### 8. Google Calendar
-- [ ] google_sign_in OAuth 셋업 (desktop + Android 클라이언트 id 분리)
+- [x] google_sign_in OAuth 셋업 (desktop + Android 클라이언트 id 분리)
 - [ ] `CalendarService.createEventForTodo` (Todo → Event 매핑)
 - [ ] `CalendarService.updateEventForTodo` / `deleteEvent` (Todo 변경/삭제 시 캘린더 동기)
 - [ ] AddTodoSheet 의 "Calendar 등록" 토글 UX — 토글 1번이면 자동 등록 (UX 최우선)
