@@ -8,6 +8,7 @@ import '../../domain/todo.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/todo_tile.dart';
+import '../todo_actions/todo_actions_controller.dart';
 import 'today_providers.dart';
 
 /// 오늘 화면 — 헤더 + 이월 배너 + visible todos 리스트.
@@ -23,8 +24,12 @@ class HomeScreen extends ConsumerWidget {
     return asyncTodos.when(
       loading: () => const TodoListSkeleton(),
       error: (e, _) => _Error(message: '$e'),
-      data: (todos) =>
-          _Loaded(todos: todos, carryoverCount: carryoverCount, now: now),
+      data: (todos) => _Loaded(
+        todos: todos,
+        carryoverCount: carryoverCount,
+        now: now,
+        onToggle: (t) => ref.read(todoActionsProvider).toggle(t),
+      ),
     );
   }
 }
@@ -34,11 +39,13 @@ class _Loaded extends StatelessWidget {
     required this.todos,
     required this.carryoverCount,
     required this.now,
+    required this.onToggle,
   });
 
   final List<Todo> todos;
   final int carryoverCount;
   final DateTime now;
+  final void Function(Todo) onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +86,8 @@ class _Loaded extends StatelessWidget {
             ),
             sliver: SliverList.separated(
               itemCount: todos.length,
-              itemBuilder: (_, i) => TodoTile(todo: todos[i]),
+              itemBuilder: (_, i) =>
+                  TodoTile(todo: todos[i], onToggle: () => onToggle(todos[i])),
               separatorBuilder: (_, _) =>
                   const SizedBox(height: AppTokens.space8),
             ),

@@ -7,6 +7,7 @@ import '../../domain/todo.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/todo_tile.dart';
+import '../todo_actions/todo_actions_controller.dart';
 import 'category_providers.dart';
 
 /// 카테고리 destination 선택 시 보여줄 화면. 헤더 + 미체크/완료 통계 + 리스트.
@@ -22,16 +23,25 @@ class CategoryView extends ConsumerWidget {
     return asyncTodos.when(
       loading: () => const TodoListSkeleton(),
       error: (e, _) => _Error(message: '$e'),
-      data: (todos) => _Loaded(category: category, todos: todos),
+      data: (todos) => _Loaded(
+        category: category,
+        todos: todos,
+        onToggle: (t) => ref.read(todoActionsProvider).toggle(t),
+      ),
     );
   }
 }
 
 class _Loaded extends StatelessWidget {
-  const _Loaded({required this.category, required this.todos});
+  const _Loaded({
+    required this.category,
+    required this.todos,
+    required this.onToggle,
+  });
 
   final Category category;
   final List<Todo> todos;
+  final void Function(Todo) onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +81,8 @@ class _Loaded extends StatelessWidget {
             ),
             sliver: SliverList.separated(
               itemCount: todos.length,
-              itemBuilder: (_, i) => TodoTile(todo: todos[i]),
+              itemBuilder: (_, i) =>
+                  TodoTile(todo: todos[i], onToggle: () => onToggle(todos[i])),
               separatorBuilder: (_, _) =>
                   const SizedBox(height: AppTokens.space8),
             ),
