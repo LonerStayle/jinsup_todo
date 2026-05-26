@@ -39,6 +39,13 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 1;
 
+  /// `storeDateTimeAsText: true` — DateTime 을 ISO 8601 text 로 저장.
+  /// 기본 (unix int) 은 fetch 시 항상 local time 으로 변환되어 UTC↔local 구분을 잃는다.
+  /// UTC 를 보존해야 Supabase 동기화 시 timezone 충돌이 없다.
+  @override
+  DriftDatabaseOptions get options =>
+      const DriftDatabaseOptions(storeDateTimeAsText: true);
+
   static QueryExecutor _openOnDisk() {
     return LazyDatabase(() async {
       final dir = await getApplicationSupportDirectory();
