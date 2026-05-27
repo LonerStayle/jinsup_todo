@@ -23,28 +23,33 @@ abstract interface class RemoteTodosApi {
 class SupabaseTodosApi implements RemoteTodosApi {
   SupabaseTodosApi(this._client);
 
-  /// Supabase 무료 플랜 하나의 프로젝트를 다른 앱과 공유할 수 있도록 prefix 명시.
-  /// (별도 schema 사용 시 PostgREST Exposed Schemas 추가 설정 필요해 prefix 가 안전.)
-  static const _table = 'solo_todo_todos';
+  /// 무료 플랜 1 프로젝트를 다른 앱과 공유할 때 격리. Supabase Dashboard 의
+  /// Settings → API → Exposed Schemas 에 [_schema] 가 추가돼 있어야 PostgREST 가 인식.
+  static const _schema = 'solo_todo';
+  static const _table = 'todos';
 
   final SupabaseClient _client;
+
+  /// schema-bound query builder. supabase_flutter 의 `schema()` 는 새 wrapper 반환이라
+  /// 호출 시점마다 만들지 않고 lazy field 로 캐싱.
+  late final _qb = _client.schema(_schema);
 
   /// id 기준 upsert. updatedAt 은 호출자가 미리 갱신한 상태여야 한다
   /// ([TodoRepository] 계약과 동일 — last-write-wins).
   @override
   Future<void> upsert(Todo todo, String userId) async {
-    await _client.from(_table).upsert(_toRow(todo, userId));
+    await _qb.from(_table).upsert(_toRow(todo, userId));
   }
 
   @override
   Future<void> deleteById(String id, String userId) async {
-    await _client.from(_table).delete().eq('id', id).eq('user_id', userId);
+    await _qb.from(_table).delete().eq('id', id).eq('user_id', userId);
   }
 
   /// 초기 풀백 — 로그인 직후 또는 재연결 시 호출.
   @override
   Future<List<Todo>> fetchAll(String userId) async {
-    final rows = await _client.from(_table).select().eq('user_id', userId);
+    final rows = await _qb.from(_table).select().eq('user_id', userId);
     return rows.map((r) => _fromRow(r)).toList();
   }
 

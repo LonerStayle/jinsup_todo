@@ -181,55 +181,88 @@ flutter build apk --release --dart-define-from-file=.env.local</code></pre>
     <li><strong>Database → SQL Editor</strong> 에서 아래 SQL 그대로 실행:</li>
   </ol>
 
-<pre><code>-- solo_todo_todos 테이블 생성 (Supabase 무료 플랜 1 프로젝트를 다른 앱과 공유 가능하도록 prefix)
-create table if not exists public.solo_todo_todos (
-  id              text primary key,
-  user_id         uuid references auth.users(id) on delete cascade not null,
-  title           text not null,
-  category        text not null,
-  due_at          timestamptz,
-  done_at         timestamptz,
-  created_at      timestamptz not null default now(),
-  updated_at      timestamptz not null default now(),
+<pre><code>-- 별도 schema 'solo_todo' 안에 격리. 다른 앱이 같은 프로젝트의 public 을 쓰더라도 영향 X.
+create schema if not exists solo_todo;
+
+-- Supabase 의 PostgREST + Realtime 이 사용하는 role 에 schema 사용 권한 부여.
+grant usage on schema solo_todo to anon, authenticated, service_role;
+alter default privileges in schema solo_todo
+  grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema solo_todo
+  grant all on sequences to anon, authenticated, service_role;
+
+-- todos 테이블
+create table if not exists solo_todo.todos (
+  id                text primary key,
+  user_id           uuid references auth.users(id) on delete cascade not null,
+  title             text not null,
+  category          text not null,
+  due_at            timestamptz,
+  done_at           timestamptz,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now(),
   calendar_event_id text
 );
 
--- RLS 활성
-alter table public.solo_todo_todos enable row level security;
+-- 이미 만든 테이블에도 grant (default privileges 는 새 객체에만 적용되므로 명시)
+grant all on solo_todo.todos to anon, authenticated, service_role;
 
--- 본인 row 만 접근
-create policy "solo_todo_user_read_own"   on public.solo_todo_todos for select  using (auth.uid() = user_id);
-create policy "solo_todo_user_insert_own" on public.solo_todo_todos for insert  with check (auth.uid() = user_id);
-create policy "solo_todo_user_update_own" on public.solo_todo_todos for update  using (auth.uid() = user_id);
-create policy "solo_todo_user_delete_own" on public.solo_todo_todos for delete  using (auth.uid() = user_id);
+-- RLS — 본인 row 만
+alter table solo_todo.todos enable row level security;
+create policy "user_read_own"   on solo_todo.todos for select  using (auth.uid() = user_id);
+create policy "user_insert_own" on solo_todo.todos for insert  with check (auth.uid() = user_id);
+create policy "user_update_own" on solo_todo.todos for update  using (auth.uid() = user_id);
+create policy "user_delete_own" on solo_todo.todos for delete  using (auth.uid() = user_id);
 
 -- 동기화 정렬용 인덱스
-create index solo_todo_todos_user_updated on public.solo_todo_todos (user_id, updated_at desc);</code></pre>
+create index todos_user_updated on solo_todo.todos (user_id, updated_at desc);
 
-  <h3>이미 옛 <code>public.todos</code> 로 실행했었다면 (마이그레이션)</h3>
-  <p>이전 버전 SETUP 의 SQL 을 실행한 적이 있다면 아래 마이그레이션 SQL 을 한번 더 실행해 주십시오.
-     테이블 / policy / index 이름이 모두 prefix 버전으로 rename 됩니다. <code>todos</code> 가 없으면 no-op 으로 안전.</p>
-<pre><code>do $$
+-- Realtime publication 에 추가 (Dashboard 의 Database → Replication 토글과 동등)
+alter publication supabase_realtime add table solo_todo.todos;</code></pre>
+
+  <div class="warn">
+    <strong>Supabase Dashboard → Settings → API → Exposed schemas</strong> 에
+    <code>solo_todo</code> 를 반드시 추가해 주십시오. (default 는 <code>public, graphql_public</code>
+    만이라 새 schema 는 명시해 줘야 PostgREST 가 인식합니다.)
+  </div>
+
+  <h3>이미 이전 버전 SQL 을 실행했었다면 (마이그레이션)</h3>
+  <p>예전에 <code>public.todos</code> 또는 <code>public.solo_todo_todos</code> 로 실행한 적이 있다면
+     아래 마이그레이션 SQL 을 추가 실행해 주십시오. 두 경우 모두 <code>solo_todo.todos</code> 로 이동합니다.
+     해당 테이블이 없으면 no-op 으로 안전.</p>
+<pre><code>-- (위 메인 SQL 의 'create schema if not exists solo_todo;' 가 이미 실행된 뒤에 호출하세요)
+
+do $$
 begin
+  -- Case A: public.todos (가장 첫 버전)
   if exists (
     select 1 from information_schema.tables
     where table_schema = 'public' and table_name = 'todos'
   ) then
-    alter table public.todos rename to solo_todo_todos;
-
-    -- policy 이름들 (옛 이름이 없으면 raise — 아래 exception 으로 skip)
-    begin alter policy "user_read_own"   on public.solo_todo_todos rename to "solo_todo_user_read_own";   exception when undefined_object then null; end;
-    begin alter policy "user_insert_own" on public.solo_todo_todos rename to "solo_todo_user_insert_own"; exception when undefined_object then null; end;
-    begin alter policy "user_update_own" on public.solo_todo_todos rename to "solo_todo_user_update_own"; exception when undefined_object then null; end;
-    begin alter policy "user_delete_own" on public.solo_todo_todos rename to "solo_todo_user_delete_own"; exception when undefined_object then null; end;
-
-    -- index rename (옛 이름 없으면 skip)
-    begin alter index public.todos_user_updated rename to solo_todo_todos_user_updated; exception when undefined_object then null; end;
+    alter table public.todos set schema solo_todo;
   end if;
-end $$;</code></pre>
+
+  -- Case B: public.solo_todo_todos (prefix 버전)
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'solo_todo_todos'
+  ) then
+    alter table public.solo_todo_todos set schema solo_todo;
+    alter table solo_todo.solo_todo_todos rename to todos;
+  end if;
+end $$;
+
+-- 옮긴 객체들도 새 grant 부여
+grant all on solo_todo.todos to anon, authenticated, service_role;
+
+-- 옛 publication 매핑 정리 후 새 schema 의 테이블 등록 (이미 있으면 no-op)
+alter publication supabase_realtime drop table if exists public.todos;
+alter publication supabase_realtime drop table if exists public.solo_todo_todos;
+alter publication supabase_realtime add  table solo_todo.todos;</code></pre>
 
   <ol start="4">
-    <li><strong>Database → Replication</strong> 에서 <code>public.solo_todo_todos</code> 의 Realtime 활성화. (Postgres logical replication)</li>
+    <li><strong>Settings → API → Exposed schemas</strong> 에 <code>solo_todo</code> 추가
+        (default <code>public, graphql_public</code> 옆에 콤마 + solo_todo).</li>
     <li><strong>Authentication → URL Configuration → Redirect URLs</strong> 에 매직링크 콜백 URL 추가:
       <ul>
         <li>macOS: <code>io.supabase.solo_todo://login-callback</code></li>
@@ -241,8 +274,8 @@ end $$;</code></pre>
   <ul>
     <li class="check">프로젝트 생성</li>
     <li class="check">Email Magic Link 활성화</li>
-    <li class="check">SQL 실행 (todos 테이블 + RLS)</li>
-    <li class="check">Realtime 활성화</li>
+    <li class="check">SQL 실행 (schema + todos 테이블 + RLS + Realtime add)</li>
+    <li class="check">Exposed schemas 에 <code>solo_todo</code> 추가</li>
     <li class="check">Redirect URLs 두 개 등록</li>
   </ul>
 </section>
@@ -406,7 +439,7 @@ dart analyze && dart format --output=none --set-exit-if-changed . && flutter tes
      자세한 frame timing 은 <code>flutter run --profile</code> + DevTools Performance Overlay 사용.</p>
 
   <h3>Supabase 대시보드</h3>
-  <p>Database → Tables → <code>solo_todo_todos</code> 에서 row 확인. Realtime 활성 시 변경 즉시 반영.</p>
+  <p>Database → Tables → schema <code>solo_todo</code> → <code>todos</code> 에서 row 확인. Realtime 활성 시 변경 즉시 반영.</p>
 
   <ul>
     <li class="check">콜드 스타트 1초 이하 확인</li>
