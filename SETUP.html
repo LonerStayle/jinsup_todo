@@ -206,6 +206,28 @@ create policy "solo_todo_user_delete_own" on public.solo_todo_todos for delete  
 -- 동기화 정렬용 인덱스
 create index solo_todo_todos_user_updated on public.solo_todo_todos (user_id, updated_at desc);</code></pre>
 
+  <h3>이미 옛 <code>public.todos</code> 로 실행했었다면 (마이그레이션)</h3>
+  <p>이전 버전 SETUP 의 SQL 을 실행한 적이 있다면 아래 마이그레이션 SQL 을 한번 더 실행해 주십시오.
+     테이블 / policy / index 이름이 모두 prefix 버전으로 rename 됩니다. <code>todos</code> 가 없으면 no-op 으로 안전.</p>
+<pre><code>do $$
+begin
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'todos'
+  ) then
+    alter table public.todos rename to solo_todo_todos;
+
+    -- policy 이름들 (옛 이름이 없으면 raise — 아래 exception 으로 skip)
+    begin alter policy "user_read_own"   on public.solo_todo_todos rename to "solo_todo_user_read_own";   exception when undefined_object then null; end;
+    begin alter policy "user_insert_own" on public.solo_todo_todos rename to "solo_todo_user_insert_own"; exception when undefined_object then null; end;
+    begin alter policy "user_update_own" on public.solo_todo_todos rename to "solo_todo_user_update_own"; exception when undefined_object then null; end;
+    begin alter policy "user_delete_own" on public.solo_todo_todos rename to "solo_todo_user_delete_own"; exception when undefined_object then null; end;
+
+    -- index rename (옛 이름 없으면 skip)
+    begin alter index public.todos_user_updated rename to solo_todo_todos_user_updated; exception when undefined_object then null; end;
+  end if;
+end $$;</code></pre>
+
   <ol start="4">
     <li><strong>Database → Replication</strong> 에서 <code>public.solo_todo_todos</code> 의 Realtime 활성화. (Postgres logical replication)</li>
     <li><strong>Authentication → URL Configuration → Redirect URLs</strong> 에 매직링크 콜백 URL 추가:
