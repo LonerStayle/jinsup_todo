@@ -377,18 +377,29 @@ adb install build/app/outputs/flutter-apk/app-release.apk
 <section>
   <h2><span class="num">7</span> 운영 메모 & 성능 확인</h2>
 
-  <h3>자주 보는 명령</h3>
-<pre><code># 로컬 실행 (macOS)
-flutter run -d macos --dart-define-from-file=.env.local
+  <h3>자주 보는 명령 — <code>Makefile</code> 한방</h3>
+  <p>모든 dart-define / device 선택은 <code>make</code> 가 알아서. <code>.env.local</code> 자동 감지.</p>
+<pre><code>make help          # 사용법
+make setup         # flutter pub get + (macOS) pod install
+make codegen       # freezed/json/drift codegen
 
-# 로컬 실행 (Android — 기기 선택 후)
+make run           # macOS 데스크탑 실행
+make run-android   # Android 첫 device 자동 선택 실행
+
+make build-macos   # release .app 산출
+make build-apk     # release .apk 산출
+
+make check         # analyze + format-check + test (커밋 직전)
+make test          # flutter test
+make format        # dart format .
+
+make clean         # flutter clean + pub get</code></pre>
+
+  <p>raw 명령으로 직접 실행하시려면:</p>
+<pre><code>flutter run -d macos --dart-define-from-file=.env.local
 flutter devices
 flutter run -d &lt;device-id&gt; --dart-define-from-file=.env.local
-
-# 검증 (커밋 직전)
-dart analyze
-dart format --output=none --set-exit-if-changed .
-flutter test</code></pre>
+dart analyze && dart format --output=none --set-exit-if-changed . && flutter test</code></pre>
 
   <h3>60fps 트레이스 (디자인 점수 확인용)</h3>
   <p>release 빌드로 1 분 사용 후 콘솔의 <code>[solo_todo] cold start = …ms</code> 줄 확인.
