@@ -5,6 +5,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../core/platform.dart';
 import '../core/theme.dart';
+import '../data/providers.dart';
 import '../data/remote/supabase_realtime_sync.dart';
 import '../domain/category.dart';
 import '../features/add_todo/add_todo_controller.dart';
@@ -61,7 +62,9 @@ class _AppShellState extends ConsumerState<AppShell> {
       onAddTodo: () {
         if (mounted) _openAddTodo();
       },
-      onQuit: () => SystemNavigator.pop(),
+      onQuit: () {
+        if (mounted) _confirmQuit();
+      },
     );
     await tray.init();
     if (!mounted) {
@@ -69,6 +72,42 @@ class _AppShellState extends ConsumerState<AppShell> {
       return;
     }
     _tray = tray;
+  }
+
+  /// tray menu 의 "종료" — outbox 가 비어 있으면 즉시 종료, pending 이 있으면 confirm dialog.
+  /// 동기화되지 않은 변경은 다음 실행 시 자동 flush 되지만, 사용자가 그 사실을 알 수 있게.
+  Future<void> _confirmQuit() async {
+    final pending = ref.read(outboxCountProvider).value ?? 0;
+    if (pending == 0) {
+      await SystemNavigator.pop();
+      return;
+    }
+    if (!mounted) return;
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('종료할까요?'),
+            content: Text(
+              '아직 동기화되지 않은 변경 $pending건이 있어요.\n'
+              '다음 실행 시 자동 동기화되지만 지금 끄면 잠시 동안 다른 기기에서 안 보일 수 있어요.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('종료'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (confirmed) {
+      await SystemNavigator.pop();
+    }
   }
 
   Future<void> _registerGlobalHotkey() async {

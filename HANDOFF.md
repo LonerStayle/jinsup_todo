@@ -83,9 +83,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 **§ 10-B 에러 처리 4/4 완료**. § 10-B 시스템/macOS 진행 중 (1/4):
 - ✅ hotkey_manager unregisterAll → 우리 hotkey 만 unregister (commit `0876c22`)
 - ✅ Tray icon 체크박스 SVG → 22/44/66 PNG 멀티 해상도 (commit `2fff903`)
-- ✅ 시스템 단축키 비충돌 점검 + AppShell doc 명시 (commit pending)
+- ✅ 시스템 단축키 비충돌 점검 + AppShell doc 명시 (commit `224ae41`)
+- ✅ tray "종료" — outbox pending 시 confirm dialog (commit pending)
 
-다음: § 10-B 시스템 마지막 — tray menu "종료" 의 `SystemNavigator.pop()` 미저장 데이터 안전성 확인.
+**§ 10-B 시스템 4/4 완료**. 다음: § 10-B **성능 / 정리** 그룹 첫 — `FpsMonitor.start` 가 release 빌드 동작 이슈.
 
 ---
 
