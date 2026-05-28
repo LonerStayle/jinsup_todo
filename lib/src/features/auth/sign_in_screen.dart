@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import 'auth_service.dart';
 
-/// 이메일 매직링크 발송 화면. Supabase 가 enabled 일 때만 노출 (_AuthGate 가 분기).
+/// 이메일 OTP 6자리 코드 흐름. 두 단계:
+///   1) 이메일 입력 → "코드 받기" → 코드 발송
+///   2) 6자리 코드 입력 → "확인" → 세션 생성
+///
+/// 매직링크가 아니라 OTP — Supabase Site URL 이 다른 앱과 공유 불가능한 제약을 우회.
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
 
@@ -12,44 +17,78 @@ class SignInScreen extends ConsumerStatefulWidget {
   ConsumerState<SignInScreen> createState() => _SignInScreenState();
 }
 
+enum _Step { email, otp }
+
 class _SignInScreenState extends ConsumerState<SignInScreen> {
-  final _ctrl = TextEditingController();
-  bool _sending = false;
-  bool _sent = false;
+  final _emailCtrl = TextEditingController();
+  final _otpCtrl = TextEditingController();
+  _Step _step = _Step.email;
+  bool _busy = false;
   String? _error;
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _emailCtrl.dispose();
+    _otpCtrl.dispose();
     super.dispose();
   }
 
-  bool get _canSubmit {
-    final v = _ctrl.text.trim();
-    return v.contains('@') && v.length >= 5 && !_sending;
+  bool get _canSendEmail {
+    final v = _emailCtrl.text.trim();
+    return v.contains('@') && v.length >= 5 && !_busy;
   }
 
-  Future<void> _submit() async {
+  bool get _canVerify => _otpCtrl.text.trim().length == 6 && !_busy;
+
+  Future<void> _sendCode() async {
     final auth = ref.read(authServiceProvider);
-    if (auth == null || !_canSubmit) return;
+    if (auth == null || !_canSendEmail) return;
     setState(() {
-      _sending = true;
+      _busy = true;
       _error = null;
     });
     try {
-      await auth.signInWithEmailOtp(_ctrl.text);
+      await auth.sendEmailOtp(_emailCtrl.text);
       if (!mounted) return;
       setState(() {
-        _sending = false;
-        _sent = true;
+        _busy = false;
+        _step = _Step.otp;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _sending = false;
-        _error = '메일 전송에 실패했어요. 잠시 후 다시 시도해 주십시오.\n($e)';
+        _busy = false;
+        _error = '코드 발송에 실패했어요. 잠시 후 다시 시도해 주십시오.\n($e)';
       });
     }
+  }
+
+  Future<void> _verify() async {
+    final auth = ref.read(authServiceProvider);
+    if (auth == null || !_canVerify) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await auth.verifyEmailOtp(email: _emailCtrl.text, token: _otpCtrl.text);
+      // 성공 시 authStateProvider 가 signedIn emit → _AuthGate 가 AppShell 로 전환.
+      // 별도 navigation 불필요.
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = '코드가 일치하지 않거나 만료됐어요. 다시 입력하거나 새 코드를 받아주십시오.\n($e)';
+      });
+    }
+  }
+
+  void _backToEmail() {
+    setState(() {
+      _step = _Step.email;
+      _otpCtrl.clear();
+      _error = null;
+    });
   }
 
   @override
@@ -81,77 +120,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   const SizedBox(height: AppTokens.space8),
                   Text(
-                    '이메일로 로그인 링크를 보내드릴게요.',
+                    _step == _Step.email
+                        ? '이메일로 6자리 코드를 보내드릴게요.'
+                        : '메일로 받은 6자리 코드를 입력해 주십시오.',
                     style: theme.textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppTokens.space24),
-                  if (_sent) ...[
-                    Container(
-                      padding: const EdgeInsets.all(AppTokens.space16),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(
-                          alpha: 0.08,
-                        ),
-                        borderRadius: BorderRadius.circular(AppTokens.radiusM),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.mark_email_read_outlined,
-                            color: theme.colorScheme.primary,
-                          ),
-                          const SizedBox(width: AppTokens.space12),
-                          const Expanded(
-                            child: Text('메일을 확인해 주십시오. 링크를 누르면 자동으로 로그인됩니다.'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppTokens.space12),
-                    TextButton(
-                      onPressed: () => setState(() => _sent = false),
-                      child: const Text('다른 이메일로 다시 보내기'),
-                    ),
-                  ] else ...[
-                    TextField(
-                      controller: _ctrl,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      autofocus: true,
-                      enabled: !_sending,
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: (_) => _submit(),
-                      decoration: const InputDecoration(
-                        hintText: 'you@example.com',
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: AppTokens.space12),
-                    FilledButton(
-                      onPressed: _canSubmit ? _submit : null,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: AppTokens.space12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppTokens.radiusM,
-                          ),
-                        ),
-                      ),
-                      child: _sending
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('로그인 링크 보내기'),
-                    ),
-                  ],
+                  if (_step == _Step.email)
+                    ..._emailFields(theme)
+                  else
+                    ..._otpFields(theme),
                   if (_error != null) ...[
                     const SizedBox(height: AppTokens.space12),
                     Text(
@@ -169,5 +148,113 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _emailFields(ThemeData theme) {
+    return [
+      TextField(
+        controller: _emailCtrl,
+        keyboardType: TextInputType.emailAddress,
+        autofillHints: const [AutofillHints.email],
+        autofocus: true,
+        enabled: !_busy,
+        onChanged: (_) => setState(() {}),
+        onSubmitted: (_) => _sendCode(),
+        decoration: const InputDecoration(
+          hintText: 'you@example.com',
+          prefixIcon: Icon(Icons.email_outlined),
+        ),
+      ),
+      const SizedBox(height: AppTokens.space12),
+      FilledButton(
+        onPressed: _canSendEmail ? _sendCode : null,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: AppTokens.space12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          ),
+        ),
+        child: _busy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Text('코드 받기'),
+      ),
+    ];
+  }
+
+  List<Widget> _otpFields(ThemeData theme) {
+    return [
+      Container(
+        padding: const EdgeInsets.all(AppTokens.space12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.mark_email_read_outlined,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: AppTokens.space12),
+            Expanded(
+              child: Text(
+                '${_emailCtrl.text.trim()} 으로 코드를 보냈어요',
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: AppTokens.space12),
+      TextField(
+        controller: _otpCtrl,
+        keyboardType: TextInputType.number,
+        autofillHints: const [AutofillHints.oneTimeCode],
+        autofocus: true,
+        enabled: !_busy,
+        maxLength: 6,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onChanged: (_) => setState(() {}),
+        onSubmitted: (_) => _verify(),
+        textAlign: TextAlign.center,
+        style: theme.textTheme.headlineMedium?.copyWith(
+          letterSpacing: 8,
+          fontWeight: FontWeight.w700,
+        ),
+        decoration: const InputDecoration(hintText: '000000', counterText: ''),
+      ),
+      const SizedBox(height: AppTokens.space12),
+      FilledButton(
+        onPressed: _canVerify ? _verify : null,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: AppTokens.space12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          ),
+        ),
+        child: _busy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Text('확인'),
+      ),
+      const SizedBox(height: AppTokens.space8),
+      TextButton(
+        onPressed: _busy ? null : _backToEmail,
+        child: const Text('다른 이메일로 다시'),
+      ),
+    ];
   }
 }
