@@ -8,6 +8,7 @@ import 'package:solo_todo/src/data/providers.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/category/category_providers.dart';
 import 'package:solo_todo/src/features/home/today_providers.dart';
+import 'package:solo_todo/src/features/outline/tree_providers.dart';
 import 'package:solo_todo/src/ui/app_shell.dart';
 
 void main() {
@@ -15,12 +16,19 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          // 모든 stream provider 를 빈 stream 으로 override 해서 Drift 의존 + timer leak 제거.
+          // 모든 stream provider 를 빈 stream 으로 override — Drift 의존 + timer leak 제거.
+          // HANDOFF § 6 함정: 'Widget test 에서 Drift stream 직접 사용 금지'.
           watchTodayTodosProvider.overrideWith((_) => Stream.value(<Todo>[])),
           watchTodosByCategoryProvider.overrideWith(
             (_, _) => Stream.value(<Todo>[]),
           ),
           outboxCountProvider.overrideWith((_) => Stream<int>.value(0)),
+          // v1.1 — outline screen 용 stream 들.
+          allTodosProvider.overrideWith((_) => Stream.value(<Todo>[])),
+          rootsOfCategoryProvider.overrideWith(
+            (_, _) => Stream.value(<Todo>[]),
+          ),
+          childrenOfProvider.overrideWith((_, _) => Stream.value(<Todo>[])),
         ],
         child: MaterialApp(
           theme: AppTheme.mobileLight(),
@@ -62,10 +70,10 @@ void main() {
     expect(find.text('오늘'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('v1.1 — 숫자 6 → Outline 화면 (전체보기) 노출', (tester) async {
+  testWidgets('v1.1 — 숫자 6 → Outline (전체보기) 화면 노출', (tester) async {
     await pump(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.digit6);
     await tester.pump();
-    expect(find.text('전체보기 (Outline)'), findsAtLeastNWidgets(1));
+    expect(find.text('카테고리 / 폴더 / 메모를 한 화면에'), findsOneWidget);
   });
 }

@@ -157,7 +157,7 @@
 
 **Outline view**
 - [x] AppShell destination 에 "전체보기 (Outline)" 추가 — `DestinationKind` enum 도입 (today/category/outline), AppDestination.all 에 outline 추가 (shortcutDigit 6, account_tree_outlined). _SelectDestinationIntent / _digitKeys 를 digit-based 로 단순화 (Category? → int). _MainArea 에 isOutline 분기 + placeholder OutlineScreen (다음 task 에서 본격 트리). 신규 테스트 1건 (총 253/253 PASS).
-- [ ] OutlineScreen — 5 카테고리 root 펼침/접힘, 깊이별 16px 들여쓰기, 폴더 헤더 [N/M] + progress bar (note 분모 제외).
+- [x] OutlineScreen 본격 구현 — 5 카테고리 root + 자식 트리 재귀 렌더. `_OutlineCategory` (ConsumerWidget) → `_OutlineNode` (ConsumerWidget, depth 깊이별 16px 들여쓰기). 펼침/접힘 상태는 `_collapsed: Set<String>` (default 펼침, 접힌 id 만 set). 카테고리 헤더 'cat:{id}' 접두로 todo id 와 분리. 카테고리 row + 노드 row 모두 chevron + [N/M] + 얇은 progress bar (`_ProgressBadge`). note 는 sticky_note 아이콘 + italic, task 는 check icon. allTodosProvider 신규 추가 (tree_providers). shortcuts test 가 outline stream override 도 함께 처리 (Drift timer leak 회피). 회귀 없음 (총 253/253 PASS).
 - [ ] OutlineScreen widget test — 펼침/접힘 토글, 진척률 카운트, note 가 분모에서 제외되는지 검증.
 
 **Bulk paste**

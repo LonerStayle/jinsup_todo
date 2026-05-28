@@ -9,6 +9,14 @@ import '../../domain/todo.dart';
 /// outline view 가 카테고리 root 부터 펼쳐가며 사용. carryover/visibility 와는 별개
 /// layer — outline 은 트리 구조 자체를 표시 (note 포함), today 는 task 평탄 list.
 
+/// 사용자의 모든 todos stream — subtree progress 계산에 사용.
+/// outline view 는 root + 자식을 별도 stream 으로 받지만, 진척률 계산은 트리 전체를
+/// 한 번 walk 해야 하므로 평탄 list 가 편하다.
+final allTodosProvider = StreamProvider<List<Todo>>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return db.todosDao.watchAll();
+});
+
 /// 특정 parent_id 직속 자식 stream. parent_id 가 null 인 root 은 별도 provider
 /// ([rootsOfCategoryProvider]) 를 쓴다.
 final childrenOfProvider = StreamProvider.family<List<Todo>, String>((
