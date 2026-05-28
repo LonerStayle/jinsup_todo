@@ -1,9 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/auth_providers.dart';
+import 'categories_repository.dart';
 import 'local/app_database.dart';
+import 'local/local_categories_repository.dart';
 import 'local/local_todo_repository.dart';
+import 'remote/supabase_categories_api.dart';
 import 'remote/supabase_todos_api.dart';
+import 'syncing_categories_repository.dart';
 import 'syncing_todo_repository.dart';
 import 'todo_repository.dart';
 
@@ -53,4 +57,22 @@ final nowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 final outboxCountProvider = StreamProvider<int>((ref) {
   final db = ref.watch(appDatabaseProvider);
   return db.outboxDao.watchCount();
+});
+
+/// [CategoriesRepository] — Supabase enabled + 인증 user 있으면 [SyncingCategoriesRepository]
+/// (local + outbox + remote push), 아니면 [LocalCategoriesRepository] (local only).
+/// todos 의 [todoRepositoryProvider] 와 동일 패턴.
+final categoriesRepositoryProvider = Provider<CategoriesRepository>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  final api = ref.watch(supabaseCategoriesApiProvider);
+
+  if (api == null) {
+    return LocalCategoriesRepository(db.categoriesDao);
+  }
+  return SyncingCategoriesRepository(
+    local: db.categoriesDao,
+    outbox: db.outboxDao,
+    api: api,
+    userIdGetter: () => ref.read(currentUserProvider)?.id,
+  );
 });

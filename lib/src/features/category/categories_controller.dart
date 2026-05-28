@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/local/categories_dao.dart';
+import '../../data/categories_repository.dart';
 import '../../data/providers.dart';
 import '../../domain/category.dart';
 import '../../domain/policies/category_delete_policy.dart';
@@ -10,13 +10,16 @@ import '../../domain/policies/category_delete_policy.dart';
 /// v1.2 — Categories 는 DB row 로 저장되어 사용자가 추가 / 삭제 가능. builtin 도
 /// 삭제 가능하지만 카테고리에 속한 todos 가 ≥1 이면 [CategoryDeletePolicy] 가
 /// 차단한다 — UI 는 [DeleteCheck.blockedByTodos] 결과로 차단 dialog 를 띄운다.
+///
+/// Repository abstraction (LocalCategoriesRepository / SyncingCategoriesRepository)
+/// 위에 동작 — production 에선 outbox + Supabase push 까지 자동.
 class CategoriesController {
-  CategoriesController(this._dao);
+  CategoriesController(this._repo);
 
-  final CategoriesDao _dao;
+  final CategoriesRepository _repo;
 
   /// 새 카테고리 추가 (또는 기존 id 면 update — label / color / icon / sortOrder 갱신).
-  Future<void> add(Category category) => _dao.upsert(category);
+  Future<void> add(Category category) => _repo.upsert(category);
 
   /// id 기준 삭제 시도.
   ///
@@ -25,15 +28,15 @@ class CategoriesController {
   /// - [DeleteCheck.blockedByTodos] — 안 todos 가 N건 있어 차단됨. 호출자는
   ///   안내 dialog 를 띄우고 todos 처리를 요청한다.
   Future<DeleteCheck> delete(String id) async {
-    final category = await _dao.getById(id);
+    final category = await _repo.getById(id);
     if (category == null) {
       // 이미 없으면 ok 반환 (idempotent — 같은 명령 두 번 실행해도 안전).
       return const DeleteCheck.ok();
     }
-    final count = await _dao.countTodosOfCategory(id);
+    final count = await _repo.countTodosOfCategory(id);
     final check = CategoryDeletePolicy.canDelete(category, count);
     if (check.isOk) {
-      await _dao.deleteById(id);
+      await _repo.deleteById(id);
     }
     return check;
   }
@@ -41,11 +44,9 @@ class CategoriesController {
 
 /// 전체 카테고리 stream — sidebar / outline 이 watch.
 final categoriesProvider = StreamProvider<List<Category>>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return db.categoriesDao.watchAll();
+  return ref.watch(categoriesRepositoryProvider).watchAll();
 });
 
 final categoriesControllerProvider = Provider<CategoriesController>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return CategoriesController(db.categoriesDao);
+  return CategoriesController(ref.watch(categoriesRepositoryProvider));
 });

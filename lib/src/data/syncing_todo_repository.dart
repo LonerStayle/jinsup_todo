@@ -117,6 +117,11 @@ class SyncingTodoRepository implements TodoRepository {
 
     final entries = await outbox.allOrdered();
     for (final e in entries) {
+      // categories kind ('cat-upsert' / 'cat-delete') 는 SyncingCategoriesRepository
+      // 책임 — 같은 outbox 테이블을 공유하지만 서로 자기 kind 만 처리하고 다른 kind 는 skip.
+      if (e.kind != 'upsert' && e.kind != 'delete') {
+        continue;
+      }
       try {
         if (e.kind == 'upsert') {
           final raw = e.payload;

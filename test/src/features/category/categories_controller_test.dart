@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:solo_todo/src/data/local/app_database.dart';
+import 'package:solo_todo/src/data/local/local_categories_repository.dart';
 import 'package:solo_todo/src/domain/category.dart';
 import 'package:solo_todo/src/domain/policies/category_delete_policy.dart';
 import 'package:solo_todo/src/domain/todo.dart';
@@ -9,6 +10,8 @@ import 'package:solo_todo/src/features/category/categories_controller.dart';
 /// CategoriesController 검증 — in-memory DB 기반.
 ///
 /// onCreate 가 5 builtin 을 seed 하므로 baseline = builtin 5종.
+/// Controller 는 [CategoriesRepository] 의존 → 단위 테스트에서는
+/// [LocalCategoriesRepository] (Drift DAO wrap) 사용.
 void main() {
   group('CategoriesController', () {
     late AppDatabase db;
@@ -16,7 +19,9 @@ void main() {
 
     setUp(() async {
       db = AppDatabase.memory();
-      controller = CategoriesController(db.categoriesDao);
+      controller = CategoriesController(
+        LocalCategoriesRepository(db.categoriesDao),
+      );
     });
 
     tearDown(() async {
