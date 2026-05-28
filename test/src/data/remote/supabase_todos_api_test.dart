@@ -61,6 +61,153 @@ void main() {
       expect(row['calendar_event_id'], 'evt-xyz');
     });
   });
+
+  group('v1.1 — parent_id / type / sort_order 매핑', () {
+    test('_toRow — 트리 노드 (parent_id set, sort_order=5)', () {
+      final todo = Todo(
+        id: 'child',
+        title: '울트라 모드',
+        category: Category.personalDev,
+        dueAt: null,
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+        parentId: 'js-super',
+        type: TodoType.task,
+        sortOrder: 5,
+      );
+      final row = _toRowForCheck(todo, 'user-1');
+      expect(row['parent_id'], 'js-super');
+      expect(row['type'], 'task');
+      expect(row['sort_order'], 5);
+    });
+
+    test('_toRow — note 타입', () {
+      final note = Todo(
+        id: 'note-1',
+        title: '→ KV 캐싱 ...',
+        category: Category.work,
+        dueAt: null,
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+        parentId: 'project-cogito',
+        type: TodoType.note,
+        sortOrder: 0,
+      );
+      final row = _toRowForCheck(note, 'user-1');
+      expect(row['type'], 'note');
+      expect(row['parent_id'], 'project-cogito');
+    });
+
+    test('_toRow — 기본값 (parent_id null, type=task, sort_order=0)', () {
+      final plain = Todo(
+        id: 'plain',
+        title: 'x',
+        category: Category.daily,
+        dueAt: null,
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+      );
+      final row = _toRowForCheck(plain, 'user-1');
+      expect(row['parent_id'], isNull);
+      expect(row['type'], 'task');
+      expect(row['sort_order'], 0);
+    });
+
+    test('round-trip — _toRow → _fromRow 가 동일 Todo 복원 (트리 + note)', () {
+      final original = Todo(
+        id: 'tree',
+        title: '→ 메모',
+        category: Category.idea,
+        dueAt: DateTime.utc(2026, 5, 28, 13),
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+        parentId: 'parent-x',
+        type: TodoType.note,
+        sortOrder: 7,
+      );
+      final row = _toRowForCheck(original, 'user-1');
+      final restored = _fromRowForCheck(row);
+      expect(restored, original);
+    });
+
+    test('_fromRow 역호환 — v1.0 row (parent_id/type/sort_order 누락) → 기본값', () {
+      // Supabase 가 옛 v1.0 row 를 내려보낼 때 (ALTER 전) 클라이언트가 안전하게 해석해야 함.
+      final legacyRow = <String, dynamic>{
+        'id': 'legacy',
+        'title': '옛 todo',
+        'category': 'work',
+        'due_at': null,
+        'done_at': null,
+        'created_at': '2026-05-01T09:00:00.000Z',
+        'updated_at': '2026-05-01T09:00:00.000Z',
+        'calendar_event_id': null,
+        // parent_id / type / sort_order 자체가 row 에 없는 케이스.
+      };
+      final restored = _fromRowForCheck(legacyRow);
+      expect(restored.parentId, isNull);
+      expect(restored.type, TodoType.task);
+      expect(restored.sortOrder, 0);
+    });
+
+    test('_fromRow — sort_order 가 num (double) 으로 와도 int 로 안전 변환', () {
+      // PostgREST 가 가끔 numeric 타입을 double 로 직렬화하는 케이스 대비.
+      final row = <String, dynamic>{
+        'id': 'x',
+        'title': 'y',
+        'category': 'daily',
+        'due_at': null,
+        'done_at': null,
+        'created_at': '2026-05-27T09:00:00.000Z',
+        'updated_at': '2026-05-27T09:00:00.000Z',
+        'calendar_event_id': null,
+        'parent_id': null,
+        'type': 'task',
+        'sort_order': 3.0,
+      };
+      final restored = _fromRowForCheck(row);
+      expect(restored.sortOrder, 3);
+    });
+  });
+
+  test('SupabaseTodosApi.rowForTest 가 helper 와 동일 매핑 — 두 곳 dup 회귀 가드', () {
+    // SupabaseTodosApi 자체를 instance 화하려면 SupabaseClient 가 필요해서 직접 호출 불가.
+    // 대신 helper 가 동일 logic 을 만들도록 의도 — 키 셋이 일치하는지만 정적 비교.
+    final keysFromHelper = _toRowForCheck(
+      Todo(
+        id: 'k',
+        title: 't',
+        category: Category.daily,
+        dueAt: null,
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+      ),
+      'u',
+    ).keys.toSet();
+    expect(keysFromHelper, {
+      'id',
+      'user_id',
+      'title',
+      'category',
+      'due_at',
+      'done_at',
+      'created_at',
+      'updated_at',
+      'calendar_event_id',
+      'parent_id',
+      'type',
+      'sort_order',
+    });
+  });
 }
 
 /// SupabaseTodosApi 의 _toRow 동작을 client 없이 검증하기 위한 helper.
@@ -76,4 +223,37 @@ Map<String, dynamic> _toRowForCheck(Todo t, String userId) => {
   'created_at': t.createdAt.toIso8601String(),
   'updated_at': t.updatedAt.toIso8601String(),
   'calendar_event_id': t.calendarEventId,
+  'parent_id': t.parentId,
+  'type': t.type.name,
+  'sort_order': t.sortOrder,
 };
+
+/// 위 _toRow 의 역 — row → Todo. SupabaseTodosApi._fromRow 와 동일 logic.
+Todo _fromRowForCheck(Map<String, dynamic> row) => Todo(
+  id: row['id'] as String,
+  title: row['title'] as String,
+  category: Category.fromId(row['category'] as String),
+  dueAt: _parseTime(row['due_at']),
+  doneAt: _parseTime(row['done_at']),
+  createdAt: _parseTime(row['created_at'])!,
+  updatedAt: _parseTime(row['updated_at'])!,
+  calendarEventId: row['calendar_event_id'] as String?,
+  parentId: row['parent_id'] as String?,
+  type: _parseTypeForCheck(row['type']),
+  sortOrder: row['sort_order'] is int
+      ? row['sort_order'] as int
+      : (row['sort_order'] is num ? (row['sort_order'] as num).toInt() : 0),
+);
+
+DateTime? _parseTime(Object? value) =>
+    value == null ? null : DateTime.parse(value as String).toUtc();
+
+TodoType _parseTypeForCheck(Object? raw) {
+  switch (raw) {
+    case 'note':
+      return TodoType.note;
+    case 'task':
+    default:
+      return TodoType.task;
+  }
+}

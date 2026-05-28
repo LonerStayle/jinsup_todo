@@ -214,6 +214,67 @@ void main() {
       expect(await db.outboxDao.count(), 0);
     });
   });
+
+  group('v1.1 — outbox push payload 가 parent_id/type/sortOrder 보존', () {
+    test(
+      '트리 노드 upsert → fake api 호출 시 parent_id/type/sortOrder 모두 도착',
+      () async {
+        final tree = Todo(
+          id: 'child',
+          title: '울트라 모드',
+          category: Category.personalDev,
+          dueAt: null,
+          doneAt: null,
+          createdAt: DateTime.utc(2026, 5, 27, 9),
+          updatedAt: DateTime.utc(2026, 5, 27, 9),
+          calendarEventId: null,
+          parentId: 'js-super',
+          type: TodoType.task,
+          sortOrder: 5,
+        );
+        await repo.upsert(tree);
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
+        final pushed = api.upsertCalls.single.t;
+        expect(pushed.parentId, 'js-super');
+        expect(pushed.type, TodoType.task);
+        expect(pushed.sortOrder, 5);
+        expect(await db.outboxDao.count(), 0);
+      },
+    );
+
+    test('note 타입도 outbox → push round-trip 보존', () async {
+      final note = Todo(
+        id: 'note-1',
+        title: '→ KV 캐싱',
+        category: Category.work,
+        dueAt: null,
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+        parentId: 'project-cogito',
+        type: TodoType.note,
+        sortOrder: 2,
+      );
+      api.failAll = true;
+      await repo.upsert(note);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      // outbox 에 한 번 남음.
+      expect(await db.outboxDao.count(), 1);
+
+      // 재시도 → 같은 note 가 보존돼서 push.
+      api.failAll = false;
+      await repo.flushPending();
+
+      final pushed = api.upsertCalls.last.t;
+      expect(pushed.type, TodoType.note);
+      expect(pushed.parentId, 'project-cogito');
+      expect(pushed.sortOrder, 2);
+    });
+  });
 }
 
 class _FakeApi implements RemoteTodosApi {

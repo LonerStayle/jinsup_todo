@@ -65,6 +65,10 @@ class SupabaseTodosApi implements RemoteTodosApi {
     'created_at': t.createdAt.toIso8601String(),
     'updated_at': t.updatedAt.toIso8601String(),
     'calendar_event_id': t.calendarEventId,
+    // v1.1 — 트리 / 메모 모델
+    'parent_id': t.parentId,
+    'type': t.type.name,
+    'sort_order': t.sortOrder,
   };
 
   Todo _fromRow(Map<String, dynamic> row) => Todo(
@@ -76,7 +80,24 @@ class SupabaseTodosApi implements RemoteTodosApi {
     createdAt: _parseTime(row['created_at'])!,
     updatedAt: _parseTime(row['updated_at'])!,
     calendarEventId: row['calendar_event_id'] as String?,
+    // v1.1 — 옛 v1.0 row (컬럼 없음) 도 안전하게 기본값으로 복원.
+    parentId: row['parent_id'] as String?,
+    type: _parseType(row['type']),
+    sortOrder: row['sort_order'] is int
+        ? row['sort_order'] as int
+        : (row['sort_order'] is num ? (row['sort_order'] as num).toInt() : 0),
   );
+
+  /// 미지의 type 문자열 또는 누락 시 'task' 로 안전 fallback (TodosDao._parseType 와 일관).
+  static TodoType _parseType(Object? raw) {
+    switch (raw) {
+      case 'note':
+        return TodoType.note;
+      case 'task':
+      default:
+        return TodoType.task;
+    }
+  }
 
   /// PostgREST 는 timestamptz 를 ISO 8601 문자열로 반환.
   DateTime? _parseTime(Object? value) =>
