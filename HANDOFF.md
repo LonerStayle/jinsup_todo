@@ -1,202 +1,194 @@
-# HANDOFF — 다음 세션 (ralph 자동 루프) 진입용
+# HANDOFF — 다음 세션 (fresh context) 진입용
 
+> ralph 자동 루프 + 사람 reader 모두 이 파일 하나로 컨텍스트 복원 가능하게 작성.
 > 매 iter 시작 시 CLAUDE.md / PROMPT.md / IMPLEMENTATION_PLAN.md 와 함께 이 파일도 읽는다.
-> 외부 환경 / 함정 / 우선순위는 여기에만 적혀 있다.
-> 마지막 업데이트: **2026-05-28**
+> 마지막 업데이트: **2026-05-29**
 
 ---
 
-## 1. 현재 단계
+## 0. Goal (현재 무엇을 만들고 있나)
 
-**v1.0.0 후속 — § 10 보강** 진입.
+**Solo Todo** — 대표님(30대 개발자, 1인 사용) 전용 macOS desktop + Android 통합 Todo 앱.
 
-- 9 phase / 45 task 모두 `[x]` 완료 (commit `087c761` 시점 PROJECT_DONE 출력)
-- 그 후 사용자 실사용 + 코드 재검토로 **§ 10 (33 task) 추가** (commit `b96cecc`)
-- main branch, working tree clean
-- analyze clean / test 123/123 PASS / Android release APK 빌드 검증
-- 디자인 9.1 / 편의성 9.4 (임계값 9 도달)
+- **Flutter (Dart)** 단일 코드베이스, **Supabase** 백엔드 (Auth + Postgres + RLS + Realtime), **Google Calendar API** 연동.
+- 비전: 메모장 대체. UI 가독성 최강 + UX 단축 동작 강력. v1.0.0 한 번에 완성품.
+- 자가평가 기준: 디자인 점수 + 편의성 점수 모두 9/10 이상.
+
+세부 비전은 `CLAUDE.md` 의 "비전 / 사양" 8 섹션 참조.
 
 ---
 
-## 2. 외부 환경 상태 (사용자가 이미 셋업한 것)
+## 1. Current Progress (어디까지 왔나)
+
+### 완료 단계
+
+| 단계 | 상태 | 메모 |
+|------|------|------|
+| **v1.0.0 — 9 phase / 45 task** | ✅ 종료 (`087c761`) | 첫 PROJECT_DONE |
+| **§ 10 — 사용자 실사용 보고 + 코드 재검토 보강 (33 task)** | ✅ 종료 (`e16bd68`) | 디자인 9.3 / 편의성 9.5 |
+| **§ 11 — v1.1 폴더/Outline 트리/bulk paste/메모 타입 (16 task)** | ✅ 종료 (`13b895a`) | 디자인 9.4 / 편의성 9.6 |
+| **§ 12 — v1.2 카테고리 fully 동적 + Todo description (26 task)** | 🔵 **plan 추가됨, 진행 직전** | iter 1 도 안 시작 |
+
+### 현 상태 (2026-05-29)
+
+- main branch, working tree clean (마지막 commit `13b895a`)
+- analyze clean / format clean / **flutter test 280/280 PASS**
+- v1.0 → v1.1 backwards-compat (Drift onUpgrade 1→2 + Supabase ALTER + JSON @Default)
+- SETUP.html 의 § 2 끝에 v1.0→v1.1 마이그레이션 안내 (ALTER TABLE 3 줄) 추가
+
+### v1.1 완료 기능 (참고)
+
+- **트리 구조**: todo 에 parent_id 추가, 무한 깊이 자식 가능 (메모장 사례 → 앱 그대로 매핑)
+- **메모(note) 타입**: type='task' / 'note'. note 는 체크 X, today 화면 제외, 진척률 분모 제외
+- **Outline view**: 단축키 6. 5 카테고리 root + 자식 트리 펼침/접힘 + [N/M] progress bar
+- **Bulk paste**: AddTodoSheet 의 multi-line paste → N개 todos 일괄 추가 (confirm dialog)
+- **Today breadcrumb**: today list 의 각 todo 옆에 "JS슈퍼 / 울트라 모드" 식 path
+
+---
+
+## 2. 외부 환경 상태 (대표님이 이미 셋업한 것)
 
 | 항목 | 상태 |
 |------|------|
-| macOS Xcode 풀 설치 + `xcode-select --switch` + `xcodebuild -runFirstLaunch` | ✅ 완료 |
-| CocoaPods (`brew install cocoapods`) | ✅ 완료 |
-| `make setup` (pub get + pod install) | ✅ 완료 |
+| macOS Xcode 풀 설치 + `xcode-select --switch` + `xcodebuild -runFirstLaunch` | ✅ |
+| CocoaPods (`brew install cocoapods`) | ✅ |
+| `make setup` (pub get + pod install) | ✅ |
 | Supabase 프로젝트 + schema `solo_todo` + `todos` 테이블 + RLS + index + publication | ✅ SQL 실행 완료 |
-| Supabase **Exposed schemas** 에 `solo_todo` 추가 | ✅ 완료 |
-| Supabase Email Templates (`Confirm signup` + `Magic Link`) 가 `{{ .Token }}` 표시 | ✅ 수정 완료 |
-| `.env.local` (SUPABASE_URL / ANON / GOOGLE OAuth desktop + Android) | ✅ 채움 |
+| Supabase **Exposed schemas** 에 `solo_todo` 추가 | ✅ |
+| Supabase Email Templates (`Confirm signup` + `Magic Link`) 가 `{{ .Token }}` 표시 | ✅ |
+| `.env.local` (SUPABASE_URL / ANON / GOOGLE OAuth desktop + Android) | ✅ |
 | Android debug SHA-1 | `F8:EC:9C:48:5D:79:DB:8B:D3:41:42:4C:65:33:14:EB:71:35:AE:DC` |
-
-Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
-
----
-
-## 3. 다음 진행 우선순위 — § 10-A 부터
-
-**§ 10-A (사용자 직접 보고 4 건)** 진행 현황:
-
-1. ~~체크 풀림~~ ✅ **fix 됨** (commit `554c44e`) — realtime self-receive → outbox 재enqueue 무한 사이클 차단.
-2. ~~삭제 불가~~ ✅ **fix 됨** (commit `554c44e`) — 동일 원인 통합 패치.
-3. ~~무한 호출~~ ✅ **fix 됨** (commit `554c44e`) — 위 사이클이 가장 강력한 원인.
-4. ~~dueAt 종일 옵션~~ ✅ **fix 됨** (commit pending) — `_pickDueDate` 가 date 만 받고 기본 종일. `_DueRow` 에 "시간 추가" / "시간 변경" / "하루 종일" 액션. `AddTodoSubmission.isAllDay` + `CalendarService` 종일 event 분기.
-
-**fix 요지** (`lib/src/data/remote/supabase_realtime_sync.dart`):
-- `localApply: TodoRepository` 가 **outbox 우회** repository (LocalTodoRepository) 여야 한다고 명시.
-- `flushOutbox: Future<void> Function()` 별도 콜백으로 분리 — realtime sync 가 outbox 를 직접 알지 않음.
-- `applyInsertOrUpdate` / `applyDelete` 메서드 분리 (`@visibleForTesting`).
-- `forApplyOnly` 명명 생성자 추가 — 단위 테스트가 SupabaseClient mocking 없이 apply 동작만 검증.
-- provider 에서 `LocalTodoRepository(db.todosDao)` 를 별도 생성해 주입.
-
-테스트 (`test/src/data/remote/supabase_realtime_sync_test.dart`): 3 개 신규 케이스.
-- self-receive 반복 broadcast → outbox count 0 유지 + local doneAt 유지
-- delete self-receive → outbox 0 + local 삭제 유지
-- stale updatedAt remote → LWW 가 local 채택 (체크 풀림 X)
-
-총 126/126 PASS (이전 123 + 3).
-
-**§ 10-A 모두 완료**. § 10-B 진행 중 (6/24 완료, 상태/동기화 영역 완료):
-- ✅ `currentDayProvider` 자정 Timer race 가드 (commit `5075239`)
-- ✅ `SyncingTodoRepository.flushPending` mutex + rerun coalesce (commit `99847e3`)
-- ✅ LWW strict `>` (동률 시 local 채택) (commit `222465b`)
-- ✅ Realtime self-receive stomp 가드 — 위 두 패치로 통합 해소
-- ✅ `SupabaseRealtimeSync.start` 순서 재배치 — subscribe 먼저 (commit `e70652f`)
-- ✅ signOut + user 변경 시 옛 데이터 cleanup (commit `4fcbcc8`)
-- ✅ watchAll 의 doneAt 정렬에 `NullsOrder.first` 명시 (commit `f58a130`)
-- ✅ AddTodoSheet 더블 submit 가드 — `_submitted` 플래그 (commit `66fa819`)
-- ✅ 카테고리 chip selected outline 강조 (commit `a1735fe`)
-- ✅ 이월 배너 다크 모드 가독성 — alpha 분기 (commit `5541a44`)
-- ✅ Dismissible threshold 0.6 + confirmDismiss 옵션 노출 (commit `f2c2bfc`)
-- ✅ FAB 위치 — mobile endContained / desktop endFloat (commit `2cf25c5`)
-- ✅ `_ShortcutsHost` 0~5 키 TextField focus 가드 (commit `f9b8ad0`)
-- ✅ AppShell desktop bottomNavigationBar:null 의도 주석 (commit `becd9d4`)
-
-**§ 10-B UI 동작 8/8 완료**. § 10-B 에러 처리 진행 중 (1/4 완료):
-- ✅ outbox count 기반 "동기화 대기" chip — HomeScreen 헤더 (commit `3e765ac`)
-- ✅ Supabase auth 에러 분류 — rate limit / invalid email / OTP 만료 친화 메시지 (commit `61e218d`)
-- ✅ Calendar 권한 거부 → AddTodoResult.calendarWarning + SnackBar (commit `a5dd0a4`)
-- ✅ 토큰 만료/외부 sign-out 자동 cleanup (commit `7e6d78b`)
-
-**§ 10-B 에러 처리 4/4 완료**. § 10-B 시스템/macOS 진행 중 (1/4):
-- ✅ hotkey_manager unregisterAll → 우리 hotkey 만 unregister (commit `0876c22`)
-- ✅ Tray icon 체크박스 SVG → 22/44/66 PNG 멀티 해상도 (commit `2fff903`)
-- ✅ 시스템 단축키 비충돌 점검 + AppShell doc 명시 (commit `224ae41`)
-- ✅ tray "종료" — outbox pending 시 confirm dialog (commit `5a1456a`)
-
-**§ 10-B 시스템 4/4 완료**. § 10-B 성능/정리 진행 중 (2/5):
-- ✅ FpsMonitor.start — release 빌드 default skip + force 옵션 (commit `b83914b`)
-- ✅ TodoListSkeleton AnimationController vsync 안전성 검증 (commit `6b66a9a`)
-- ✅ nowProvider callable 검토 — 현재 디자인 유지 + doc 보강 (commit `124dec8`)
-- ✅ Drift MigrationStrategy 골격 (commit `5d0d263`)
-- ✅ release debugPrint 일관 확인 — 11곳 모두 `[solo_todo]` prefix + non-fatal 경로 (commit `36c72c9`)
-
-**§ 10-B 테스트 gap 5/5 완료** — § 10-B 전 영역 종료:
-- ✅ 사이클 통합 (controller-level) — 추가/체크/삭제/restore + calendar warning (commit `d00fc02`)
-- ✅ 자정 trigger + outbox flush 결합 테스트 (commit `7749b43`)
-- ✅ 빠른 연속 mutation race 테스트 — 같은 todo toggle + upsert→delete (commit `3f61974`)
-- ✅ signOut/user-전환/idempotent reemit 데이터 정리 테스트 보강 (commit `ceedf76`)
-- ✅ dueAt null (하루 종일) todo 의 watchToday / CarryoverPolicy 동작 test (commit `1baf8cc`)
-
-**§ 10-C UI/UX 보강 5/5 완료** — § 10-C 전 영역 종료:
-- ✅ 체크 토글 후 부드러운 reorder 애니메이션 — AnimatedTodoSliver (SliverAnimatedList + id-diff) (commit `fdd29f9`)
-- ✅ AddTodoSheet dueAt 빠른 칩 — 오늘/내일/다음주(=오늘+7일)/시간 지정 (commit `15025f4`)
-- ✅ 사이드바 selected 상태에 키보드 focus ring — SidebarItem (InkWell.onFocusChange + BorderSide outline) (commit `a8797a4`)
-- ✅ Snackbar undo progress bar — _UndoContent + TweenAnimationBuilder(1.0→0.0) + LinearProgressIndicator (commit `fc61247`)
-- ✅ OTP 자동 verify — _onOtpChanged + 300ms debounce timer (length ≥ 6 일 때) (commit pending)
-
-총 200/200 PASS. § 10-A + § 10-B + § 10-C 모두 종료.
-
-**v1.1 § 11 16/16 완료** (2026-05-29) — 폴더 / Outline 트리 / bulk paste / 메모 타입:
-- ✅ Todo 모델 + Drift schema + onUpgrade 1→2 + migration test (commit `b98ab7e`, `2bd5da8`, `d9bf929`, `58e64fc`)
-- ✅ supabase/schema.sql ALTER 안내 + SupabaseTodosApi 매핑 + outbox payload (commit `1402ef8`, `a79b036`)
-- ✅ CarryoverPolicy / VisibilityPolicy note 분리 + Tree query providers + computeSubtreeProgress (commit `5d8b03b`, `fe3bf9d`)
-- ✅ AddTodoSheet task/note 토글 + TodoTile note 시각 (commit `7689454`, `a2a4b55`)
-- ✅ AppShell Outline destination (단축키 6) + OutlineScreen + widget test (commit `5c5f940`, `50d9abc`, `0ed54be`)
-- ✅ Bulk paste 멀티라인 감지 + confirm dialog + 단위 테스트 (commit `c0074d7`, `b8c1ce5`)
-- ✅ HomeScreen today breadcrumb — computeTodoPath + AnimatedTodoSliver breadcrumbBuilder (commit `2277c68`)
-
-총 **280/280 PASS**. v1.0 → v1.1 backwards-compat (Drift onUpgrade + Supabase ALTER + JSON @Default).
-
-**자가평가 (2026-05-29)** — 디자인 **9.4** / 편의성 **9.6** (이전 9.3 / 9.5 → 둘 다 +0.1, 비전 충족 유지).
-**SETUP.html v1.1 갱신** — § 2 끝에 'v1.0 → v1.1 마이그레이션 (트리/메모)' ALTER TABLE 3 줄 idempotent 안내 추가.
-
-PROMPT.md §2 + CLAUDE.md §7 조건 만족 → **PROJECT_DONE**.
+| Supabase OTP length | 8자리 (앱은 6~10 가변 허용) |
+| **v1.1 ALTER (parent_id / type / sort_order)** | ⚠️ **확인 필요** — SETUP.html § 2 끝 |
 
 ---
 
-## 4. 핵심 파일 위치
+## 3. Next Steps — v1.2 진행
+
+### 3-A. 대표님 직접 작업 (ralph 못 함)
+
+1. **CLAUDE.md 비전 § 3 갱신** — "카테고리 분류 — 5종 고정" 표현을 "기본 5종 + 사용자 추가/삭제 가능" 으로 변경. vision-intake skill 영역이라 ralph 가 수정 X. **이거 안 하면 v1.2 plan 과 비전이 모순** — ralph 가 § 5 (금지) 와 헷갈릴 수 있음.
+
+### 3-B. ralph 자동 작업 (26 task)
+
+IMPLEMENTATION_PLAN.md 의 `### 12. v1.2 — 카테고리 fully 동적 + Todo 상세 메모` 섹션. 의존성 순서:
+
+| 그룹 | task 수 | 핵심 |
+|------|---------|------|
+| 비전 영역 | 1 | (대표님 직접 — ralph 건너뜀) |
+| Category 도메인 모델 | 1 | enum → freezed data class + builtinSeeds |
+| Drift schema + DAO + migration | 4 | categories 테이블 신규 + schemaVersion 2→3 + migration test + CategoriesDao |
+| 카테고리 정책 + Controller | 2 | CategoryDeletePolicy (안 todos ≥1 차단) + CategoriesController |
+| Supabase 동기화 | 3 | schema.sql + SupabaseCategoriesApi + SyncingCategoriesRepository |
+| 카테고리 UI | 4 | sidebar dynamic destination + 단축키 1~9 + ADD dialog + DELETE + widget test |
+| Todo description | 4 | 모델/Drift/Supabase/schema.sql |
+| Edit todo | 5 | AddTodoSheet description + initialTodo edit 모드 + TodoActions.update + TodoTile.onTap + 힌트 아이콘 |
+| 테스트 통합 | 2 | edit 모드 widget test + 단축키 동적 매핑 widget test |
+
+### 3-C. ralph-loop 재시작
+
+```bash
+/ralph-loop:ralph-loop "Read PROMPT.md and follow it." --completion-promise "PROJECT_DONE" --max-iterations 34
+```
+(권장 34 = 26 × 1.3, 검증 재시도 여유)
+
+---
+
+## 4. What Worked (반복할 만한 접근)
+
+- **bite-sized commit** — 한 iteration = 한 task = 1~3 파일 수정 + 단위 테스트. 분해가 곱고 의존성 순서 (DB → Domain → UI → 테스트) 일관.
+- **backwards-compat 패턴** — Drift onUpgrade case 별 ALTER + Supabase `ALTER TABLE ADD COLUMN IF NOT EXISTS` 안내 주석 + JSON `@Default` 로 옛 payload 안전 복원.
+- **stream provider override 로 widget test** — Drift in-memory DB 는 timer leak 위험. `StreamProvider.overrideWith((_) => Stream.value([]))` 패턴 (`HANDOFF.md § 6` 함정).
+- **pure 함수 분리** — `splitBulkLines`, `computeTodoPath`, `computeSubtreeProgress` 처럼 도메인 로직을 `@visibleForTesting` static 으로 노출. unit test 가 widget mount 없이 직접 검증.
+- **fake_async + clock + nowProvider** — 자정 trigger, debounce 등 시간 의존 로직을 결정적으로 검증.
+- **race 가드 패턴** — `_submitted` flag / mutex (`_flushing` + `_rerunRequested`) / Timer cancel 후 재설정 (debounce).
+
+---
+
+## 5. What Didn't Work (반복하지 말 것)
+
+- **Widget test 에서 Drift stream 직접 사용** — pending timer leak 으로 `binding._verifyInvariants` 위반. 반드시 stream provider override 패턴.
+- **AppShell widget mount 통합 테스트** — hotkey_manager / tray / Timer 의 dispose 가 까다로워 hang. controller + DB 레벨 통합으로 검증 (`app_shell_flow_test.dart` 참고).
+- **LWW 동률 stomp** — `>=` 동일 시각 → self-overwrite. `>` strict (§ 10-A 4건 통합 fix 의 핵심 원인).
+- **TextField maxLines: 1 + paste 감지** — `\n` 자동 제거되어 multi-line paste 감지 불가. `maxLines: 5 + keyboardType.multiline + onChanged \n 감지` 패턴.
+- **Riverpod 3 의 valueOrNull** — 일부 버전에서 미존재. `.asData?.value` 사용.
+
+---
+
+## 6. 함정 / 주의사항
+
+- **cwd**: Bash 호출이 종종 옛 폴더로 reset. **항상 절대경로** `/Users/goldenplanet/jinsup_ralph_mobile/solo_todo` 사용.
+- **Drift DateTime**: `storeDateTimeAsText: true` — ISO 8601 text 로 저장. SQL 비교 시 string 사전순.
+- **Supabase schema**: `solo_todo.todos` (public 아님). 코드는 `client.schema('solo_todo').from('todos')`. SQL 도 `solo_todo.*`.
+- **LWW**: 동률 stomp 회피 위해 `>` strict (>=) X.
+- **인증**: 매직링크 X / OTP 6~10 자리 (Site URL 공유 불가 제약). `AuthService.sendEmailOtp` + `verifyEmailOtp(type: OtpType.email)`.
+- **Widget test ↔ Drift stream**: provider override 필수.
+- **fake_async**: `nowProvider.overrideWithValue(() => clock.now())` 패턴.
+- **NavigationBar 6 destinations**: Android 폰 좁은 화면 빡빡. **v1.2 에서 N 동적이 되면 더 빡빡** — UI 보강 필요할 수도.
+- **macOS desktop bottomNavigationBar**: null 분기 의도.
+- **TestWidgets timer 누수**: AnimationController 가 vsync, 화면 unmount 시 정상 dispose.
+- **Riverpod 3**: `valueOrNull` → `.asData?.value`.
+- **Widget mount viewport**: AddTodoSheet 가 길어져 `setSurfaceSize(400, 1400)` 필요. `_Actions row` 가 viewport 밖이면 tap 무시 — `onPressed` 직접 호출 패턴이 안전.
+
+---
+
+## 7. 핵심 파일 위치 (v1.1 종료 시점)
 
 ```
-CLAUDE.md                              비전 / 환경 (자동 로드)
+CLAUDE.md                              비전 / 환경 (자동 로드) — § 3 갱신 필요!
 PROMPT.md                              ralph 절차 (§1 매 iter 흐름)
-IMPLEMENTATION_PLAN.md                 task 체크리스트 (§ 10 부터 진행)
+IMPLEMENTATION_PLAN.md                 task 체크리스트 (§ 12 v1.2 진입 직전)
 AGENTS.md                              검증 명령 (dart analyze + format + flutter test)
 Makefile                               make help / run / build / check / sql
 
 lib/src/
 ├── app/                               SoloTodoApp + _AuthGate + Env
 ├── core/                              theme / platform / perf / date_format
-├── domain/                            Category, Todo, policies (carryover/visibility)
+├── domain/
+│   ├── category.dart                  ⚠️ v1.2 에서 enum → freezed data class
+│   ├── todo.dart                      Todo + TodoType (task/note) + parentId/sortOrder
+│   └── policies/
+│       ├── carryover_policy.dart      note 분리 적용됨
+│       └── visibility_policy.dart     note 분리 적용됨
 ├── data/
-│   ├── local/                         AppDatabase (Drift) + TodosDao + OutboxDao + LocalTodoRepository
+│   ├── local/                         AppDatabase (schemaVersion 2) + TodosDao + OutboxDao + LocalTodoRepository
 │   ├── remote/                        SupabaseTodosApi / Realtime / LWW / supabase_provider
 │   ├── day_boundary_provider.dart     자정 Timer
-│   ├── providers.dart                 appDatabase / todoRepository (Local or Syncing) / nowProvider
+│   ├── providers.dart                 appDatabase / todoRepository / nowProvider / outboxCountProvider
 │   ├── syncing_todo_repository.dart   local + outbox + remote push 합성
 │   └── todo_repository.dart           abstract interface
 ├── features/
-│   ├── add_todo/                      AddTodoSheet + AddTodoController
-│   ├── auth/                          AuthService (OTP) + SignInScreen + providers
+│   ├── add_todo/                      AddTodoSheet (task/note + bulk paste) + AddTodoController
+│   ├── auth/                          AuthService (OTP + 300ms debounce) + SignInScreen + providers
 │   ├── calendar/                      GoogleAuthService + CalendarService
 │   ├── category/                      CategoryView + providers
-│   ├── home/                          HomeScreen + today_providers (watchToday / carryoverCount / undoneCount)
+│   ├── home/                          HomeScreen (breadcrumb) + today_providers
+│   ├── outline/                       ⭐ v1.1 신규 — OutlineScreen + tree_providers (allTodos / childrenOf / rootsOfCategory / SubtreeProgress / computeTodoPath)
 │   ├── system/                        TrayService
-│   └── todo_actions/                  toggle / delete / restore controller
+│   └── todo_actions/                  toggle / delete / restore controller (v1.2 에 update 추가 예정)
 └── ui/
-    ├── app_shell.dart                 폼팩터 분기 + FAB + Cmd+N + 0~5 단축키
-    ├── destination.dart
-    └── widgets/                       TodoTile / DismissibleTodoTile / EmptyState / Skeleton / UndoSnackbar
+    ├── app_shell.dart                 폼팩터 분기 + FAB + Cmd+N + 0~6 단축키 (SidebarItem public)
+    ├── destination.dart               DestinationKind enum (today/category/outline)
+    └── widgets/
+        ├── animated_todo_list.dart    AnimatedTodoSliver (SliverAnimatedList + id-diff + breadcrumbBuilder)
+        ├── dismissible_todo_tile.dart Dismissible + TodoTile (threshold 0.6)
+        ├── todo_tile.dart             note → sticky_note 아이콘 + italic
+        ├── empty_state.dart
+        ├── skeleton.dart              TodoListSkeleton
+        └── undo_snackbar.dart         _UndoContent + progress bar
 
 supabase/
-├── schema.sql                         신규 셋업 (idempotent)
+├── schema.sql                         v1.1 ALTER 안내 포함 (parent_id/type/sort_order)
 └── migrate.sql                        옛 public 테이블 정리
 
-assets/tray_icon.png                   22x22 placeholder
-SETUP.html                             사용자용 가이드 (env + Supabase + OAuth + 빌드)
+assets/tray_icon.png                   22/44/66 PNG 멀티 해상도
+SETUP.html                             사용자용 가이드 (v1.0 + v1.1 마이그레이션)
+docs/audit/                            /audit-risk 1회성 산출물 (gitignored)
 ```
 
 ---
 
-## 5. ralph 첫 iter 절차 (PROMPT.md §1 기반)
-
-1. `git status` / `git log -5` 로 현재 확인
-2. `IMPLEMENTATION_PLAN.md` 의 **§ 10 첫 `[ ]` task** 픽 (현재 § 10-A 의 첫 항목 = "체크 풀림 버그")
-3. 작업 — 원인 추정 + 패치 + integration test 추가
-4. `make check` (analyze + format + test) PASS 확인
-5. commit + `[ ]` → `[x]` 토글
-6. 종료 → Stop hook 재투입
-
----
-
-## 6. 함정 / 주의사항
-
-- **cwd 이슈**: Bash 호출이 종종 `mobile_ralph01` (옛 폴더명) 으로 reset 됨. **항상 절대경로** `/Users/goldenplanet/jinsup_ralph_mobile/solo_todo` 사용. 명령은 `cd /Users/.../solo_todo && ...` 로 시작.
-- **Drift DateTime**: `storeDateTimeAsText: true` 적용 — ISO 8601 text 로 UTC/local 보존. SQL 비교 시 string 사전순.
-- **Supabase 테이블 schema**: `solo_todo.todos` (public 아님). 코드는 `client.schema('solo_todo').from('todos')` 사용 중. SQL 작성 시도 `solo_todo.todos`.
-- **LWW 동률 stomp**: `LastWriteWins.remoteWins` 의 `>=` 동일 시각 → 자기 자신 self-overwrite 가능 (§10-A 의 1+2 추정 원인).
-- **인증**: 매직링크 채택 안 함. OTP 6~10 자리 흐름. Site URL 이 다른 앱과 공유 불가능한 제약 때문. AuthService.sendEmailOtp + verifyEmailOtp(type: OtpType.email).
-- **Widget test 에서 Drift stream 직접 사용 금지**: pending timer leak 으로 binding._verifyInvariants 위반. `StreamController` override 패턴 사용 (참고: `test/src/features/home/cleanup_trigger_test.dart`).
-- **fake_async + ProviderContainer**: `nowProvider.overrideWithValue(() => clock.now())` 패턴 (참고: `day_boundary_provider_test.dart`).
-- **NavigationBar 6 destinations**: Android 폰 좁은 화면에서 빡빡. 디자인 보강 후보.
-- **macOS desktop 의 bottomNavigationBar**: null 분기. 의도된 것.
-- **TestWidgets timer 누수**: AnimationController (TodoListSkeleton 등) 가 매 frame vsync. 화면 unmount 시 정상 dispose 됨.
-
----
-
-## 7. 빌드 / 검증 (Makefile)
+## 8. 빌드 / 검증 (Makefile)
 
 ```bash
 make check        # analyze + format-check + test (커밋 직전)
@@ -211,11 +203,10 @@ make sql          # schema.sql 클립보드 (Supabase SQL Editor 붙여넣기용
 
 ---
 
-## 8. 이 인수인계서 갱신 규칙
+## 9. 이 HANDOFF 갱신 규칙
 
-- § 10 항목 진행 / 결함 추가 발견 시 → § 3 (우선순위) 와 IMPLEMENTATION_PLAN.md 동시 갱신
-- 외부 환경 (Supabase 셋업 / Xcode / env) 상태 변경 시 → § 2 갱신
-- 새 함정 발견 시 → § 6 갱신
-- 큰 결정 변경 (LWW 정책 변경 등) 시 → § 3 의 근거 섹션 갱신
+- task 진행 / 외부 환경 변경 시 § 1 / § 2 동기화
+- 새 함정 발견 시 § 6 추가
+- v1.x 종료 시 § 1 의 단계 표 + § 7 핵심 파일 위치 갱신
 
-ralph 가 다음 iter 들에서 § 10 진행하며 매 commit 마다 이 파일도 같이 업데이트.
+ralph 가 v1.2 진행 중 매 commit 마다 이 파일도 함께 갱신.
