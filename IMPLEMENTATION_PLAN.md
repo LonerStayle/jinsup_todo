@@ -188,7 +188,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] CategoriesController — add(category) / delete(id) — delete 가 [CategoryDeletePolicy] 호출 후 [DeleteCheck] 반환 (ok 시 실제 delete, blocked 시 todos 보존). idempotent (id 없으면 ok). `categoriesProvider` (StreamProvider) + `categoriesControllerProvider` (Provider) 노출. 단위 테스트 5건 (add/ok delete/blocked/idempotent/builtin delete). 298/298 PASS (+5 신규).
 
 **Supabase 동기화**
-- [ ] supabase/schema.sql 에 `solo_todo.categories` 테이블 추가 (id text PK / user_id FK / label / icon_code_point / color_value / sort_order / is_builtin / created_at). RLS 4 정책 (auth.uid() = user_id) + Realtime publication 등록 + v1.1 → v1.2 ALTER 안내 (categories CREATE + todos ADD COLUMN description) idempotent 주석.
+- [x] supabase/schema.sql 에 v1.2 섹션 추가 — `solo_todo.categories` 테이블 (id PK / user_id FK / label / icon_code_point / color_value / sort_order / is_builtin / created_at) + RLS 4 정책 + 정렬 인덱스 + Realtime publication. `todos.description` 컬럼 `alter table ... add column if not exists` 으로 idempotent. v1.1 → v1.2 마이그레이션 안내 주석 추가 (schema.sql 전체 재실행 또는 v1.2 섹션만 실행 둘 다 동작). 298/298 PASS 유지.
 - [ ] SupabaseCategoriesApi 신규 — upsert / deleteById / fetchAll. JSON ↔ Category 매핑 + round-trip 테스트. RemoteCategoriesApi 인터페이스 분리.
 - [ ] SyncingCategoriesRepository / outbox 통합 — local + remote 동기화 (SyncingTodoRepository 패턴 답습). 단위 테스트 (upsert/delete → outbox → push 성공 시 비움).
 
