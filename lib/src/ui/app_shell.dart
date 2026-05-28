@@ -216,17 +216,43 @@ class _ShortcutsHost extends StatelessWidget {
       shortcuts: shortcuts,
       child: Actions(
         actions: <Type, Action<Intent>>{
-          _SelectDestinationIntent: CallbackAction<_SelectDestinationIntent>(
-            onInvoke: (intent) {
-              onSelect(category: intent.category);
-              return null;
-            },
+          _SelectDestinationIntent: _SelectDestinationAction(
+            onSelect: onSelect,
           ),
         },
         child: Focus(autofocus: true, child: child),
       ),
     );
   }
+}
+
+/// 0~5 키 카테고리 전환 Action. **TextField focus 시 disabled** 되어 사용자가 todo 제목에
+/// 숫자를 입력할 때 의도치 않은 카테고리 전환이 발생하지 않게 한다.
+class _SelectDestinationAction extends Action<_SelectDestinationIntent> {
+  _SelectDestinationAction({required this.onSelect});
+
+  final void Function({Category? category}) onSelect;
+
+  @override
+  bool isEnabled(_SelectDestinationIntent intent) => !isFocusInEditableText();
+
+  @override
+  Object? invoke(_SelectDestinationIntent intent) {
+    onSelect(category: intent.category);
+    return null;
+  }
+}
+
+/// primaryFocus 가 [EditableText] (TextField 의 내부) 안에 있는지. 위 Action 의 isEnabled 가
+/// 사용. visibleForTesting — 단위 검증 가능.
+@visibleForTesting
+bool isFocusInEditableText() {
+  final focused = FocusManager.instance.primaryFocus;
+  final ctx = focused?.context;
+  if (ctx == null) return false;
+  // EditableText 자기 자신이거나 그 안쪽 (Selection/Toolbar) 일 경우 모두 포착.
+  if (ctx.widget is EditableText) return true;
+  return ctx.findAncestorWidgetOfExactType<EditableText>() != null;
 }
 
 class _Sidebar extends StatelessWidget {

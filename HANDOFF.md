@@ -70,9 +70,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ 카테고리 chip selected outline 강조 (commit `a1735fe`)
 - ✅ 이월 배너 다크 모드 가독성 — alpha 분기 (commit `5541a44`)
 - ✅ Dismissible threshold 0.6 + confirmDismiss 옵션 노출 (commit `f2c2bfc`)
-- ✅ FAB 위치 — mobile endContained / desktop endFloat (commit pending)
+- ✅ FAB 위치 — mobile endContained / desktop endFloat (commit `2cf25c5`)
+- ✅ `_ShortcutsHost` 0~5 키 TextField focus 가드 (commit pending)
 
-다음: § 10-B UI 동작 — `_ShortcutsHost` 의 1~5 키가 TextField focus 시 capture 차단.
+다음: § 10-B UI 동작 마지막 — macOS desktop 분기 의 `bottomNavigationBar: null` 의도 명시 (단순 코드 정리).
 
 ---
 
