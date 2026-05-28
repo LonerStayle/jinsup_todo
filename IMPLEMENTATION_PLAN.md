@@ -153,7 +153,7 @@
 
 **Add / Note UI**
 - [x] AddTodoSheet 에 "할 일 / 메모" 토글 추가 — `_TypeToggle` (segmented chip) 위젯 신규. note 선택 시 dueAt/Calendar 영역 자체를 트리 밖에 두어 (if 분기) UI 노이즈 제거 + state reset. _submit 에서 note 면 dueAt/isAllDay/addToCalendar 강제 null/false. AddTodoSubmission 에 `type` 필드 추가, AddTodoController.add 에서 Todo.create 에 전달. 신규 테스트 4건 (총 245/245 PASS).
-- [ ] TodoTile / DismissibleTodoTile — type=='note' 시 leading 을 체크박스 대신 점·노트 아이콘으로 교체, onToggle no-op, swipe-delete 는 유지. 단위 테스트.
+- [x] TodoTile note 시각 — type=='note' 면 trailing IconButton (체크) 대신 sticky_note_2_outlined 아이콘으로 교체. 제목은 italic 처리로 메모 시각 구분, dueAt 시간 라벨도 hide (note 는 일정 무관). 체크 IconButton 자체가 트리에서 빠지므로 onToggle 호출 불가 (no-op 효과). DismissibleTodoTile 은 TodoTile 을 감싸기만 하므로 swipe-delete 는 자동 유지. 신규 테스트 7건 (총 252/252 PASS).
 
 **Outline view**
 - [ ] AppShell destination 에 "전체보기 (Outline)" 추가 — 5 카테고리 + Today + Outline = 7번째 destination, 단축키 6, sidebar/NavigationBar 등록.

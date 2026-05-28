@@ -20,6 +20,7 @@ class TodoTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isDone = todo.isDone;
+    final isNote = todo.type == TodoType.note;
 
     return Card(
       child: InkWell(
@@ -52,9 +53,10 @@ class TodoTile extends StatelessWidget {
                         color: isDone
                             ? scheme.onSurface.withValues(alpha: 0.45)
                             : null,
+                        fontStyle: isNote ? FontStyle.italic : null,
                       ),
                     ),
-                    if (todo.dueAt != null)
+                    if (todo.dueAt != null && !isNote)
                       Padding(
                         padding: const EdgeInsets.only(top: AppTokens.space2),
                         child: Text(
@@ -65,18 +67,33 @@ class TodoTile extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: onToggle,
-                icon: Icon(
-                  isDone
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked,
-                  color: isDone
-                      ? todo.category.color
-                      : scheme.onSurface.withValues(alpha: 0.35),
+              if (isNote)
+                // note 는 체크 개념이 없어 trailing 을 점·노트 아이콘으로 대체. tap 무동작.
+                Padding(
+                  key: const ValueKey('todo-tile-note-leading'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.space8,
+                  ),
+                  child: Icon(
+                    Icons.sticky_note_2_outlined,
+                    size: 20,
+                    color: scheme.onSurface.withValues(alpha: 0.45),
+                  ),
+                )
+              else
+                IconButton(
+                  key: const ValueKey('todo-tile-check'),
+                  onPressed: onToggle,
+                  icon: Icon(
+                    isDone
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked,
+                    color: isDone
+                        ? todo.category.color
+                        : scheme.onSurface.withValues(alpha: 0.35),
+                  ),
+                  tooltip: isDone ? '완료 취소' : '완료',
                 ),
-                tooltip: isDone ? '완료 취소' : '완료',
-              ),
             ],
           ),
         ),
