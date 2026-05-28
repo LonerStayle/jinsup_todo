@@ -25,8 +25,24 @@ create table if not exists solo_todo.todos (
   done_at           timestamptz,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
-  calendar_event_id text
+  calendar_event_id text,
+  -- v1.1 — 트리 / 메모 모델 컬럼
+  parent_id         text,                                       -- 부모 todo id, null = root
+  type              text not null default 'task',               -- 'task' | 'note'
+  sort_order        integer not null default 0                  -- 같은 parent 내 사용자 정의 순서
 );
+
+-- ─────────────────────────────────────────────────────────────────────
+-- v1.0 → v1.1 마이그레이션 (기존 환경 — schema.sql 이미 실행된 프로젝트)
+--
+-- 이미 v1.0 시점에 위 create table 을 실행한 프로젝트는 컬럼이 빠진 상태이므로
+-- 아래 ALTER 3 줄을 SQL Editor 에서 한 번 실행. idempotent (`if not exists`).
+-- 신규 셋업은 위 create table 이 처음부터 컬럼을 포함해 ALTER 불필요.
+--
+-- alter table solo_todo.todos add column if not exists parent_id  text;
+-- alter table solo_todo.todos add column if not exists type       text not null default 'task';
+-- alter table solo_todo.todos add column if not exists sort_order integer not null default 0;
+-- ─────────────────────────────────────────────────────────────────────
 
 -- 이미 만든 테이블에도 grant (default privileges 는 이후 생성 객체에만 적용)
 grant all on solo_todo.todos to anon, authenticated, service_role;
