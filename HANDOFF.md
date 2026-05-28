@@ -94,9 +94,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ release debugPrint 일관 확인 — 11곳 모두 `[solo_todo]` prefix + non-fatal 경로 (commit `36c72c9`)
 
 **§ 10-B 성능/정리 5/5 완료**. § 10-B 테스트 gap 진행 중 (1/5):
-- ✅ 사이클 통합 (controller-level) — 추가/체크/삭제/restore + calendar warning (commit pending)
+- ✅ 사이클 통합 (controller-level) — 추가/체크/삭제/restore + calendar warning (commit `d00fc02`)
+- ✅ 자정 trigger + outbox flush 결합 테스트 (commit pending)
 
-다음: § 10-B 테스트 gap — 자정 trigger + outbox flush 결합 테스트.
+다음: § 10-B 테스트 gap — 빠른 연속 mutation race test.
 
 ---
 

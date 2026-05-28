@@ -123,7 +123,7 @@
 
 **테스트 gap**
 - [x] 사용자 사이클 (추가 → 체크 → 삭제 → undo) 통합 테스트 추가. AppShell widget mount 는 hotkey/tray/Timer cleanup 가 까다로워 controller + DB 레벨 통합으로 검증. ProviderContainer + in-memory AppDatabase + AddTodoController/todoActionsProvider 사이클을 한 흐름에 묶음. Calendar warning 경로도 함께 검증. 신규 테스트 2건 (총 165/165 PASS).
-- [ ] 자정 trigger 통합 test 는 있지만 outbox flush 와 결합한 case 없음
+- [x] 자정 trigger + outbox flush 결합 테스트 추가 — fakeAsync 로 23:59:30 시작 → 자정 통과 → currentDayProvider 가 다음날 자정으로 갱신 → 어제 todo 를 체크 → SyncingTodoRepository.upsert + outbox flush → fake api 까지 push 도달 검증. flushTimers 가 self-rescheduling Timer 로 무한이라 명시적 elapse + microtask drain 패턴 사용. 166/166 PASS.
 - [ ] 빠른 연속 mutation race test
 - [ ] signOut 후 데이터 정리 test
 - [ ] dueAt null (하루 종일) todo 의 watchToday / CarryoverPolicy 동작 test
