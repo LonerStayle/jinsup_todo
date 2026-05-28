@@ -75,6 +75,29 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
     );
   }
 
+  /// 특정 parent 의 직속 자식들 stream — outline view 의 펼침에 사용.
+  /// 정렬: sortOrder asc → createdAt asc. note 도 포함 (outline 은 트리 전체 표시).
+  Stream<List<domain.Todo>> watchChildrenOf(String parentId) {
+    final q = select(todos)
+      ..where((t) => t.parentId.equals(parentId))
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.sortOrder, mode: OrderingMode.asc),
+        (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.asc),
+      ]);
+    return q.watch().map((rows) => rows.map(_rowToDomain).toList());
+  }
+
+  /// 특정 카테고리의 root 노드들 stream (parent_id IS NULL).
+  Stream<List<domain.Todo>> watchRootsOfCategory(Category category) {
+    final q = select(todos)
+      ..where((t) => t.parentId.isNull() & t.category.equals(category.id))
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.sortOrder, mode: OrderingMode.asc),
+        (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.asc),
+      ]);
+    return q.watch().map((rows) => rows.map(_rowToDomain).toList());
+  }
+
   // --- 매핑 헬퍼 ---------------------------------------------------------
 
   domain.Todo _rowToDomain(TodoRow row) {

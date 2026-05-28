@@ -149,7 +149,7 @@
 
 **도메인 정책 + tree providers**
 - [x] CarryoverPolicy / VisibilityPolicy 재검토 — `type == TodoType.note` 면 둘 다 첫 분기에서 false 반환. note 는 체크 개념이 없어 carryover 자체 성립 X, today 화면도 task 전용 (outline / 카테고리 탭에서만 노출). 부모-자식 관계는 정책 평가에 영향 없음 — 각 todo 가 자기 자신만 평가 (자식 collection 무관, 모델 단순화). 정책 클래스 docstring 에 v1.1 의미 명시. visibility 4건 + carryover 4건 신규 테스트 (note 분리 / type 비교 / 자식 독립 평가). 신규 테스트 8건 (총 229/229 PASS).
-- [ ] Tree query providers — childrenOf(parentId) / rootsOfCategory(category) / subtreeProgress(node) → (doneCount, taskCount) (note 분모 제외). 단위 테스트.
+- [x] Tree query providers — TodosDao 에 watchChildrenOf(parentId) / watchRootsOfCategory(category) 추가 (sortOrder asc + createdAt asc 정렬). `lib/src/features/outline/tree_providers.dart` 신규 — childrenOfProvider / rootsOfCategoryProvider (StreamProvider.family). SubtreeProgress 도메인 클래스 + computeSubtreeProgress(root, all) pure function (parentId 인덱스 1회 구성 + 재귀 walk, note 분모 제외, root 자신 제외). 신규 테스트 12건 (총 241/241 PASS).
 
 **Add / Note UI**
 - [ ] AddTodoSheet 에 "task / note" 토글 추가 — note 선택 시 dueAt/calendar 영역 비활성, AddTodoSubmission.type 전달. 단위 테스트.
