@@ -8,6 +8,7 @@ import 'package:solo_todo/src/data/providers.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/category/category_providers.dart';
 import 'package:solo_todo/src/features/home/today_providers.dart';
+import 'package:solo_todo/src/features/outline/tree_providers.dart';
 
 /// 시스템 다크모드 추종 — MaterialApp.themeMode = ThemeMode.system 이고
 /// AppTheme.mobileLight() / mobileDark() 가 정의되어 있으므로 host OS 의 dark/light
@@ -20,6 +21,8 @@ void main() {
         (_, _) => Stream.value(<Todo>[]),
       ),
       outboxCountProvider.overrideWith((_) => Stream<int>.value(0)),
+      // v1.1 — breadcrumb 가 allTodosProvider 를 watch.
+      allTodosProvider.overrideWith((_) => Stream.value(<Todo>[])),
     ],
     child: const SoloTodoApp(),
   );

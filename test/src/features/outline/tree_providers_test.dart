@@ -166,6 +166,51 @@ void main() {
     });
   });
 
+  group('computeTodoPath', () {
+    test('parentId null — 빈 path (root)', () {
+      final root = make(id: 'r');
+      expect(computeTodoPath(root, [root]), isEmpty);
+    });
+
+    test('직속 부모만 (depth 1) — path = [parent]', () {
+      final parent = make(id: 'p', title: 'JS슈퍼');
+      final child = make(id: 'c', parentId: 'p');
+      final path = computeTodoPath(child, [parent, child]);
+      expect(path.map((t) => t.title), ['JS슈퍼']);
+    });
+
+    test('손자 — path = [root, 직속부모]', () {
+      final root = make(id: 'r', title: '개인 TODO');
+      final mid = make(id: 'm', title: 'JS슈퍼', parentId: 'r');
+      final leaf = make(id: 'l', parentId: 'm');
+      final path = computeTodoPath(leaf, [root, mid, leaf]);
+      expect(path.map((t) => t.title), ['개인 TODO', 'JS슈퍼']);
+    });
+
+    test('parent_id 가 list 에 없음 (dangling) → 거기서 중단', () {
+      // 동기화 race 또는 옛 데이터에서 dangling 가능.
+      final orphan = make(id: 'x', parentId: 'ghost');
+      final path = computeTodoPath(orphan, [orphan]);
+      expect(path, isEmpty);
+    });
+
+    test('사이클 (자기 자신을 부모로) → 무한 loop 없이 중단', () {
+      final self = make(id: 's', parentId: 's');
+      final path = computeTodoPath(self, [self]);
+      expect(path, isEmpty);
+    });
+
+    test('2 노드 사이클 (a→b, b→a) → 한 번만 traverse 후 중단', () {
+      // 데이터 손상 케이스. visited set 이 무한 loop 방지.
+      final a = make(id: 'a', parentId: 'b');
+      final b = make(id: 'b', parentId: 'a');
+      final path = computeTodoPath(a, [a, b]);
+      // 한 번 b 까지만 가고 a 재방문 시 visited 중단.
+      expect(path.length, 1);
+      expect(path.first.id, 'b');
+    });
+  });
+
   group('riverpod providers', () {
     test('childrenOfProvider — DAO stream 그대로 노출', () async {
       final db = AppDatabase.memory();

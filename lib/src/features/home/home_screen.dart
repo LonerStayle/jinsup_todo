@@ -9,6 +9,7 @@ import '../../ui/widgets/animated_todo_list.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/undo_snackbar.dart';
+import '../outline/tree_providers.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import 'today_providers.dart';
 
@@ -20,6 +21,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncTodos = ref.watch(watchTodayTodosProvider);
     final carryoverCount = ref.watch(carryoverCountProvider);
+    final allTodos = ref.watch(allTodosProvider).asData?.value ?? const [];
     final now = ref.watch(nowProvider)();
 
     return asyncTodos.when(
@@ -27,6 +29,7 @@ class HomeScreen extends ConsumerWidget {
       error: (e, _) => _Error(message: '$e'),
       data: (todos) => _Loaded(
         todos: todos,
+        allTodos: allTodos,
         carryoverCount: carryoverCount,
         now: now,
         onToggle: (t) => ref.read(todoActionsProvider).toggle(t),
@@ -48,6 +51,7 @@ class HomeScreen extends ConsumerWidget {
 class _Loaded extends StatelessWidget {
   const _Loaded({
     required this.todos,
+    required this.allTodos,
     required this.carryoverCount,
     required this.now,
     required this.onToggle,
@@ -55,10 +59,20 @@ class _Loaded extends StatelessWidget {
   });
 
   final List<Todo> todos;
+  final List<Todo> allTodos;
   final int carryoverCount;
   final DateTime now;
   final void Function(Todo) onToggle;
   final void Function(Todo) onDelete;
+
+  /// today list 의 각 todo 옆에 표시할 breadcrumb. parentId 가 set 이면 부모 chain
+  /// 의 title 만 (root → 직속부모 순) " / " 로 join. parentId 가 null 이면 카테고리
+  /// 라벨 한 단어. 빈 문자열은 호출자가 null 처럼 다룬다.
+  String _breadcrumbFor(Todo todo) {
+    final path = computeTodoPath(todo, allTodos);
+    if (path.isEmpty) return todo.category.label;
+    return path.map((p) => p.title).join(' / ');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +115,7 @@ class _Loaded extends StatelessWidget {
               todos: todos,
               onToggle: onToggle,
               onDelete: onDelete,
+              breadcrumbBuilder: _breadcrumbFor,
             ),
           ),
       ],

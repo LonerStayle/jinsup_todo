@@ -65,6 +65,28 @@ class SubtreeProgress {
   String toString() => 'SubtreeProgress($doneCount/$taskCount)';
 }
 
+/// [todo] 의 root 까지의 부모 chain (자기 자신 제외) 을 root → 직속부모 순으로 반환.
+///
+/// 예: 회사 > 넥서스 > 캔버스 todo 의 path = ['넥서스']. 회사 > 캔버스 todo (root) = [].
+///
+/// today list 의 breadcrumb 표시 등에 사용. parent_id 가 [all] 에 없으면 (dangling
+/// reference — 동기화 race) 거기서 walk 중단.
+List<Todo> computeTodoPath(Todo todo, List<Todo> all) {
+  // id → Todo 인덱스 1회 구성.
+  final byId = {for (final t in all) t.id: t};
+  final result = <Todo>[];
+  var current = todo;
+  // 사이클 방지 — todo 자신 또는 이미 방문한 id 만나면 중단.
+  final visited = <String>{todo.id};
+  while (current.parentId != null) {
+    final parent = byId[current.parentId];
+    if (parent == null || !visited.add(parent.id)) break;
+    result.insert(0, parent);
+    current = parent;
+  }
+  return result;
+}
+
 /// [root] 의 모든 후손 (재귀적으로 트리 walk) 의 진척률 계산.
 ///
 /// [all] 은 같은 사용자의 전체 todos (또는 적어도 [root] 의 모든 자손 포함). 1인 사용자

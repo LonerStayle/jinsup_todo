@@ -16,11 +16,16 @@ class AnimatedTodoSliver extends StatefulWidget {
     required this.todos,
     required this.onToggle,
     required this.onDelete,
+    this.breadcrumbBuilder,
   });
 
   final List<Todo> todos;
   final void Function(Todo) onToggle;
   final void Function(Todo) onDelete;
+
+  /// 각 todo 위에 표시할 breadcrumb 텍스트 (예: "JS슈퍼 / 울트라 모드"). null 반환 시
+  /// breadcrumb 없음. v1.1 today list 에서 트리 path 시각용.
+  final String? Function(Todo)? breadcrumbBuilder;
 
   @override
   State<AnimatedTodoSliver> createState() => _AnimatedTodoSliverState();
@@ -109,6 +114,7 @@ class _AnimatedTodoSliverState extends State<AnimatedTodoSliver> {
         axisAlignment: -1,
         child: _PaddedTile(
           todo: todo,
+          breadcrumb: widget.breadcrumbBuilder?.call(todo),
           onToggle: () => widget.onToggle(todo),
           onDelete: () => widget.onDelete(todo),
         ),
@@ -134,25 +140,53 @@ class _AnimatedTodoSliverState extends State<AnimatedTodoSliver> {
 }
 
 /// 각 tile 의 하단 spacing 을 통일 — 이전 [SliverList.separated] 대체.
+/// breadcrumb 가 있으면 tile 위에 작은 caption 으로 트리 path 표시.
 class _PaddedTile extends StatelessWidget {
   const _PaddedTile({
     required this.todo,
     required this.onToggle,
     required this.onDelete,
+    this.breadcrumb,
   });
 
   final Todo todo;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
+  final String? breadcrumb;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppTokens.space8),
-      child: DismissibleTodoTile(
-        todo: todo,
-        onToggle: onToggle,
-        onDelete: onDelete,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (breadcrumb != null && breadcrumb!.isNotEmpty)
+            Padding(
+              key: const ValueKey('todo-breadcrumb'),
+              padding: const EdgeInsets.only(
+                left: AppTokens.space16,
+                right: AppTokens.space16,
+                bottom: AppTokens.space2,
+              ),
+              child: Text(
+                breadcrumb!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          DismissibleTodoTile(
+            todo: todo,
+            onToggle: onToggle,
+            onDelete: onDelete,
+          ),
+        ],
       ),
     );
   }

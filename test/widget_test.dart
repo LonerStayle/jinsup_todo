@@ -5,6 +5,7 @@ import 'package:solo_todo/src/app/app.dart';
 import 'package:solo_todo/src/data/providers.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/home/today_providers.dart';
+import 'package:solo_todo/src/features/outline/tree_providers.dart';
 
 void main() {
   testWidgets('App boots — Solo Todo brand + 오늘 헤더 (smoke)', (tester) async {
@@ -14,6 +15,8 @@ void main() {
         overrides: [
           watchTodayTodosProvider.overrideWith((_) => Stream.value(<Todo>[])),
           outboxCountProvider.overrideWith((_) => Stream<int>.value(0)),
+          // v1.1 — HomeScreen breadcrumb 가 allTodosProvider 를 watch.
+          allTodosProvider.overrideWith((_) => Stream.value(<Todo>[])),
         ],
         child: const SoloTodoApp(),
       ),

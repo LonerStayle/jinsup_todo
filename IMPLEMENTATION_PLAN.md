@@ -165,7 +165,7 @@
 - [x] Bulk paste 단위 테스트 — `AddTodoSheet.splitBulkLines` 를 public static 으로 이동 (state 내부 → 클래스). pure 함수 검증 4건 (단순 N줄/공백·빈 줄 무시/단일 줄/전부 빈 줄). widget-level 6건: 멀티라인 → confirm dialog → 확인 시 같은 category/dueAt/type 으로 N건 onSubmit, 취소 시 0건 + lines.join(' ') 복구, 빈 줄만 paste 무시, '\n + 단일 의미줄' dialog 안 뜸, note 모드에서 멀티라인 → N건 모두 type=note + dueAt null, 단일 줄 기존 흐름. 신규 테스트 10건 (총 270/270 PASS).
 
 **Today 화면 결합**
-- [ ] HomeScreen today list 각 todo 옆에 트리 path breadcrumb (예: "JS슈퍼 / 울트라 모드") 표시 — parentId chain walk, parentId null 이면 카테고리 라벨만. 색은 onSurfaceVariant, 작은 typography. widget test 포함.
+- [x] HomeScreen today list 의 breadcrumb — `computeTodoPath(todo, all)` pure 함수 추가 (id 인덱스 + parentId chain walk + 사이클 방지 visited set). AnimatedTodoSliver 에 `breadcrumbBuilder` 옵션 추가, `_PaddedTile` 가 tile 위에 onSurfaceVariant 색 labelSmall 캡션 표시. HomeScreen 이 allTodosProvider watch 후 `_breadcrumbFor` 로 path → " / " join 또는 카테고리 라벨. 회귀 dark_mode_test / widget_test 에 allTodosProvider override 추가. 신규 테스트 10건 (tree_providers 6 + home_screen 4). 총 280/280 PASS.
 
 ---
 
