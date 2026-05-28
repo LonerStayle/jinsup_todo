@@ -64,6 +64,26 @@ class AppDatabase extends _$AppDatabase {
   DriftDatabaseOptions get options =>
       const DriftDatabaseOptions(storeDateTimeAsText: true);
 
+  /// 향후 schema 변경 (컬럼 추가, 인덱스, 새 테이블) 시 [onUpgrade] case 만 추가.
+  ///
+  /// 예시 ─ priority 컬럼 도입 시:
+  /// ```dart
+  /// onUpgrade: (m, from, to) async {
+  ///   if (from < 2) {
+  ///     await m.addColumn(todos, todos.priority);
+  ///   }
+  /// }
+  /// ```
+  ///
+  /// 처음부터 비어 있어도 골격을 두면 `schemaVersion` 만 올리고 case 추가하면 끝.
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      // schemaVersion 1 → ? : case 별 마이그레이션 추가. 현재 1 → 1 이라 no-op.
+    },
+  );
+
   static QueryExecutor _openOnDisk() {
     return LazyDatabase(() async {
       final dir = await getApplicationSupportDirectory();
