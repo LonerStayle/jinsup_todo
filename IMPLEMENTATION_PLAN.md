@@ -180,7 +180,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 **Drift schema + DAO + migration**
 - [x] Drift `categories` 테이블 추가 — id PK / label / icon_code_point int / color_value int / sort_order int default 0 / is_builtin bool default false / created_at. `@DriftDatabase` tables 에 추가, schemaVersion 2→3 bump. onUpgrade 2→3 case 는 stub (다음 task 에서 createTable + seed + description 채움). v1→v2 migration test 의 `expect(version, 2)` 를 `greaterThanOrEqualTo(2)` 로 확장 (현재 schemaVersion 따라). 280/280 PASS.
 - [x] Drift onUpgrade 2→3 — `m.createTable(categories)` + `_seedBuiltinCategories()` (5 builtin seed, id='work' 등 유지). `InsertMode.insertOrIgnore` 로 idempotent. onCreate 도 createAll 후 같은 seed 호출. createdAt 은 epoch 0 통일 (sortOrder asc 가 우선이라 정렬 영향 없음). todos.description ALTER 는 task 16 (description 컬럼 정의 task) 에서 같은 case 에 추가. 280/280 PASS.
-- [ ] Drift schemaVersion 2→3 migration 단위 테스트 — v2 fixture (옛 todos 두 건) → migrate → categories 5건 seed 확인 + 기존 todos row 보존 + description 컬럼이 nullable 추가됨 확인.
+- [x] Drift schemaVersion 2→3 migration 단위 테스트 — `migration_v2_to_v3_test.dart` 신규. v2 fixture (todos 11 컬럼 + outbox) + v2 row 두 건 (root task + child note) → migrate → categories 5건 seed (id/label/iconCodePoint/colorValue/sortOrder/is_builtin) + 옛 todos row 보존 (parent_id/type/sort_order) + user_version ≥ 3. + `InsertMode.insertOrIgnore` 중복 무시 검증. description ALTER 검증은 task 16 (description 컬럼 정의 task) 에서 같은 case 가 채워진 뒤 추가. 282/282 PASS (+2 신규).
 - [ ] CategoriesDao 신규 — watchAll (sortOrder asc, createdAt asc), upsert, deleteById, countTodosOfCategory(id). 단위 테스트 (CRUD + 정렬 + 카운트).
 
 **카테고리 도메인 정책 + Controller**
