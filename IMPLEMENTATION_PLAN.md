@@ -220,3 +220,27 @@
 ## 외부 셋업 (SETUP.html) 갱신
 
 § 10-C 종료 후 SETUP.html 점검 — § 2 / § 6 / § 8 의 매직링크/Deep Link 잔재 제거. OTP 흐름 으로 일관 정리 (§ 6 을 "OTP 인증 (이메일 코드)" 으로 교체).
+
+v1.1 § 11 종료 후 SETUP.html § 2 끝에 "v1.0 → v1.1 마이그레이션 (트리/메모 모델)" 안내 추가 — 기존 환경용 ALTER TABLE 3 줄 (parent_id / type / sort_order) idempotent 형태로.
+
+---
+
+## 자가평가 — v1.1 § 11 종료 시점 (2026-05-29)
+
+§ 11 v1.1 16 tasks 모두 완료. 280/280 PASS. v1.0 → v1.1 backwards-compat (Drift onUpgrade + Supabase ALTER + JSON @Default).
+
+**디자인 점수 — 9.4 / 10** (이전 9.3 → +0.1)
+1. 가독성 (2/2) — 메모장 시나리오의 트리 구조도 outline view 로 자연스러운 표시.
+2. 대비 (2/2) — note 의 italic / sticky_note 아이콘 / breadcrumb onSurfaceVariant 색 등 시각 분리 명확.
+3. 여백 (2/2) — outline 깊이별 16px 일관, 폴더 헤더 [N/M] + progress bar 56×3px.
+4. 정렬 (1.6/2) — chevron / icon / 진척률 정렬 일관. depth 들여쓰기 시 chevron 의 leading 공간 보존.
+5. 일관성 (1.8/2) — note 의 italic 처리가 TodoTile / outline 양쪽 일관. progress badge 가 outline 의 카테고리 / 노드 양쪽 동일 위젯.
+
+**편의성 점수 — 9.6 / 10** (이전 9.5 → +0.1)
+1. 단축 동작 (2/2) — Cmd+N / 0~6 (Outline 단축키 6 추가) / Enter / Esc 모두 유지.
+2. 반응성 (2/2) — bulk paste 후 dialog 즉시, outline 펼침/접힘 즉각 setState.
+3. 학습성 (2/2) — 메모장 → 앱 마이그레이션 시 multi-line paste 한 번으로 N건 일괄 추가.
+4. 오류 회복 (2/2) — bulk paste 취소 시 lines.join(' ') 단일 라인 복구, dangling parent_id 도 안전 fallback (empty path).
+5. 카테고리 전환 비용 (1.6/2) — Outline 의 펼침/접힘 + breadcrumb 으로 트리 navigation 비용 감소.
+
+두 점수 모두 9 이상 유지 — v1.1 비전 충족 유지.

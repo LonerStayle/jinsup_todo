@@ -109,8 +109,19 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 
 총 200/200 PASS. § 10-A + § 10-B + § 10-C 모두 종료.
 
-**자가평가 (2026-05-28)** — 디자인 **9.3** / 편의성 **9.5** (둘 다 ≥ 9, 비전 충족).
-**SETUP.html 갱신** — § 2 / § 6 / § 8 의 매직링크/Deep Link 잔재 제거, OTP 흐름으로 일관 정리.
+**v1.1 § 11 16/16 완료** (2026-05-29) — 폴더 / Outline 트리 / bulk paste / 메모 타입:
+- ✅ Todo 모델 + Drift schema + onUpgrade 1→2 + migration test (commit `b98ab7e`, `2bd5da8`, `d9bf929`, `58e64fc`)
+- ✅ supabase/schema.sql ALTER 안내 + SupabaseTodosApi 매핑 + outbox payload (commit `1402ef8`, `a79b036`)
+- ✅ CarryoverPolicy / VisibilityPolicy note 분리 + Tree query providers + computeSubtreeProgress (commit `5d8b03b`, `fe3bf9d`)
+- ✅ AddTodoSheet task/note 토글 + TodoTile note 시각 (commit `7689454`, `a2a4b55`)
+- ✅ AppShell Outline destination (단축키 6) + OutlineScreen + widget test (commit `5c5f940`, `50d9abc`, `0ed54be`)
+- ✅ Bulk paste 멀티라인 감지 + confirm dialog + 단위 테스트 (commit `c0074d7`, `b8c1ce5`)
+- ✅ HomeScreen today breadcrumb — computeTodoPath + AnimatedTodoSliver breadcrumbBuilder (commit `2277c68`)
+
+총 **280/280 PASS**. v1.0 → v1.1 backwards-compat (Drift onUpgrade + Supabase ALTER + JSON @Default).
+
+**자가평가 (2026-05-29)** — 디자인 **9.4** / 편의성 **9.6** (이전 9.3 / 9.5 → 둘 다 +0.1, 비전 충족 유지).
+**SETUP.html v1.1 갱신** — § 2 끝에 'v1.0 → v1.1 마이그레이션 (트리/메모)' ALTER TABLE 3 줄 idempotent 안내 추가.
 
 PROMPT.md §2 + CLAUDE.md §7 조건 만족 → **PROJECT_DONE**.
 
