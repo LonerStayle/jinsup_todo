@@ -93,13 +93,16 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ Drift MigrationStrategy 골격 (commit `5d0d263`)
 - ✅ release debugPrint 일관 확인 — 11곳 모두 `[solo_todo]` prefix + non-fatal 경로 (commit `36c72c9`)
 
-**§ 10-B 성능/정리 5/5 완료**. § 10-B 테스트 gap 진행 중 (1/5):
+**§ 10-B 테스트 gap 5/5 완료** — § 10-B 전 영역 종료:
 - ✅ 사이클 통합 (controller-level) — 추가/체크/삭제/restore + calendar warning (commit `d00fc02`)
 - ✅ 자정 trigger + outbox flush 결합 테스트 (commit `7749b43`)
 - ✅ 빠른 연속 mutation race 테스트 — 같은 todo toggle + upsert→delete (commit `3f61974`)
-- ✅ signOut/user-전환/idempotent reemit 데이터 정리 테스트 보강 (commit pending)
+- ✅ signOut/user-전환/idempotent reemit 데이터 정리 테스트 보강 (commit `ceedf76`)
+- ✅ dueAt null (하루 종일) todo 의 watchToday / CarryoverPolicy 동작 test — LocalTodoRepository.watchToday 분기 2건 + today_providers_test 신규 4건 (commit pending)
 
-다음: § 10-B 테스트 gap 마지막 — dueAt null (하루 종일) todo 의 watchToday / CarryoverPolicy 동작 test.
+총 176/176 PASS.
+
+다음: § 10-C UI/UX 보강 첫 항목 — 체크 토글 후 부드러운 reorder 애니메이션 (AnimatedList 또는 implicitly animated).
 
 ---
 

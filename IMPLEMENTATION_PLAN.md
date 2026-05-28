@@ -126,7 +126,7 @@
 - [x] 자정 trigger + outbox flush 결합 테스트 추가 — fakeAsync 로 23:59:30 시작 → 자정 통과 → currentDayProvider 가 다음날 자정으로 갱신 → 어제 todo 를 체크 → SyncingTodoRepository.upsert + outbox flush → fake api 까지 push 도달 검증. flushTimers 가 self-rescheduling Timer 로 무한이라 명시적 elapse + microtask drain 패턴 사용. 166/166 PASS.
 - [x] 빠른 연속 mutation race test 추가 — 같은 todo 의 빠른 toggle 두 번 (두 mutation 모두 push 되고 최종 doneAt 보존), upsert 후 즉시 delete (순서 보존 + remote 도 최종 delete 반영). 신규 테스트 2건 (총 168/168 PASS).
 - [x] signOut 후 데이터 정리 test 보강 — 기존 `signOut 전이 + clearAllUserData` + `SignOutController.signOutAndClear` 두 케이스에 추가로 (a) 다른 user id 로 sign-in 전환 시 옛 데이터 clear, (b) 동일 user id reemit (토큰 갱신) 은 cleanup 트리거 X (idempotent). 신규 테스트 2건 (총 170/170 PASS).
-- [ ] dueAt null (하루 종일) todo 의 watchToday / CarryoverPolicy 동작 test
+- [x] dueAt null (하루 종일) todo 의 watchToday / CarryoverPolicy 동작 test — LocalTodoRepository.watchToday 의 dueAt null 분기 (createdAt 어제/오늘/내일 + 어제 done / 오늘 done) 케이스 2건 추가, 신규 today_providers_test.dart 에 carryoverCountProvider 결합 검증 4건 (visible+carry 1, visible+carry 0, 어제 체크 hide, 다건 누적). 신규 테스트 6건 (총 176/176 PASS).
 
 #### 10-C. UI/UX 보강 (디자인·편의성 점수 추가 향상)
 - [ ] 체크 토글 후 부드러운 reorder 애니메이션 (AnimatedList 또는 implicitly animated)
