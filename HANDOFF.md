@@ -68,9 +68,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ watchAll 의 doneAt 정렬에 `NullsOrder.first` 명시 (commit `f58a130`)
 - ✅ AddTodoSheet 더블 submit 가드 — `_submitted` 플래그 (commit `66fa819`)
 - ✅ 카테고리 chip selected outline 강조 (commit `a1735fe`)
-- ✅ 이월 배너 다크 모드 가독성 — alpha 분기 (commit pending)
+- ✅ 이월 배너 다크 모드 가독성 — alpha 분기 (commit `5541a44`)
+- ✅ Dismissible threshold 0.6 + confirmDismiss 옵션 노출 (commit pending)
 
-다음: § 10-B UI 동작 다섯 번째 — Dismissible 의 `confirmDismiss` (실수 swipe 방지) + threshold 보강.
+다음: § 10-B UI 동작 — FAB 위치 (Android BottomNavigationBar 와 겹침) 조정.
 
 ---
 
