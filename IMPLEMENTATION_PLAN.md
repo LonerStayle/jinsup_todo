@@ -105,7 +105,7 @@
 **에러 처리 / UX**
 - [x] 네트워크 끊김 시 사용자 피드백. **fix**: outbox 큐 길이를 `OutboxDao.watchCount()` stream 으로 노출, `outboxCountProvider` (StreamProvider) 추가. HomeScreen 헤더 우측에 `_SyncPendingChip` 표시 — count > 0 일 때 "동기화 대기 N건" tertiary tonal chip. push 성공 시 자동 사라짐. count 0/N 두 케이스 widget test + 기존 widget tests 의 provider override 갱신 (총 152/152 PASS).
 - [x] Supabase rate limit (1분 1번 OTP) 시 사용자에게 명확한 안내. **fix**: `friendlyAuthErrorMessage(err, {forVerify})` 헬퍼 추가 — HTTP 429 / "over_email_send_rate_limit" / "rate limit" 매칭 → "1분에 한 번만…" 안내. invalid email / verify 단계의 만료 토큰 별도 분기. `_sendCode` / `_verify` 가 모두 사용. 헬퍼 단위 테스트 6건 (총 158/158 PASS).
-- [ ] Calendar 권한 거부 시 사용자에게 안내 (현재 silent debugPrint)
+- [x] Calendar 권한 거부 시 사용자 안내. **fix**: `AddTodoController.add()` 반환을 `AddTodoResult { todo, calendarWarning? }` 으로 확장. calendar 미설정 / 권한 거부 / 예외 분기별 한글 warning 메시지 set. `_openAddTodo` 가 sheet 닫힘 후 결과 받아 `ScaffoldMessenger` 의 SnackBar (floating) 로 안내. 신규 controller 테스트 2건 (총 160/160 PASS).
 - [ ] 인증 토큰 만료 자동 갱신 검증 — supabase_flutter default 동작 신뢰만 하고 있음. 만료 시 sign-in 강제 흐름
 
 **시스템 / macOS**

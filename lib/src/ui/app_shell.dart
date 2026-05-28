@@ -107,13 +107,24 @@ class _AppShellState extends ConsumerState<AppShell> {
   Future<void> _openAddTodo() async {
     final dest = AppDestination.all[_index];
     final initialCategory = dest.category ?? Category.daily;
+
+    // sheet 가 닫힌 후 controller 를 호출해 결과(Calendar 경고 등)를 처리한다.
+    AddTodoSubmission? submitted;
     await AddTodoSheet.show(
       context,
       initialCategory: initialCategory,
-      onSubmit: (submission) {
-        ref.read(addTodoControllerProvider).add(submission);
-      },
+      onSubmit: (s) => submitted = s,
     );
+    if (submitted == null || !mounted) return;
+
+    final result = await ref.read(addTodoControllerProvider).add(submitted!);
+    if (!mounted) return;
+    final warning = result.calendarWarning;
+    if (warning != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(warning), behavior: SnackBarBehavior.floating),
+      );
+    }
   }
 
   @override
