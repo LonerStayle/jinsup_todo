@@ -158,7 +158,7 @@
 **Outline view**
 - [x] AppShell destination 에 "전체보기 (Outline)" 추가 — `DestinationKind` enum 도입 (today/category/outline), AppDestination.all 에 outline 추가 (shortcutDigit 6, account_tree_outlined). _SelectDestinationIntent / _digitKeys 를 digit-based 로 단순화 (Category? → int). _MainArea 에 isOutline 분기 + placeholder OutlineScreen (다음 task 에서 본격 트리). 신규 테스트 1건 (총 253/253 PASS).
 - [x] OutlineScreen 본격 구현 — 5 카테고리 root + 자식 트리 재귀 렌더. `_OutlineCategory` (ConsumerWidget) → `_OutlineNode` (ConsumerWidget, depth 깊이별 16px 들여쓰기). 펼침/접힘 상태는 `_collapsed: Set<String>` (default 펼침, 접힌 id 만 set). 카테고리 헤더 'cat:{id}' 접두로 todo id 와 분리. 카테고리 row + 노드 row 모두 chevron + [N/M] + 얇은 progress bar (`_ProgressBadge`). note 는 sticky_note 아이콘 + italic, task 는 check icon. allTodosProvider 신규 추가 (tree_providers). shortcuts test 가 outline stream override 도 함께 처리 (Drift timer leak 회피). 회귀 없음 (총 253/253 PASS).
-- [ ] OutlineScreen widget test — 펼침/접힘 토글, 진척률 카운트, note 가 분모에서 제외되는지 검증.
+- [x] OutlineScreen widget test — stream provider 3 종 (allTodos / rootsOfCategory / childrenOf) 을 in-memory list 로 override 하는 mount 헬퍼. 5 frame pump 로 손자까지 stream emit 흐름 확보. 검증: 빈 트리 (5 헤더 + progress 0), task 2건 [1/2], 카테고리 row tap 으로 펼침/접힘, 자식 트리 [done/total] 누적 + 노드 tap 으로 자식만 접힘, note 분모 제외 (task 1 done + note 2 → 1/1), 손자까지 walk (depth 3 트리 [1/4]), leaf 의 InkWell.onTap null. 신규 테스트 7건 (총 260/260 PASS).
 
 **Bulk paste**
 - [ ] AddTodoSheet bulk paste — title TextField onChanged 가 줄바꿈 N≥2 감지 → confirm dialog "N개 항목으로 일괄 추가?" → 확인 시 같은 category/parent/dueAt 으로 batch insert. 트리화는 v1.2 (이번 cut 평탄 만).
