@@ -135,6 +135,38 @@
 - [x] Snackbar undo 시간 시각 표시 — UndoSnackbar 의 content 영역에 `_UndoContent` (Text + LinearProgressIndicator) 삽입. TweenAnimationBuilder(1.0 → 0.0, linear, duration=SnackBar duration) 으로 "남은 undo 시간" 시각화. 색은 onInverseSurface (배경 22% alpha + bar 100%) 라 SnackBar 톤과 일관. 신규 테스트 3건 (총 196/196 PASS).
 - [x] OTP 입력 시 자동 검증 — `_onOtpChanged` 가 length ≥ 6 일 때 `_autoVerifyTimer` (300ms debounce) 를 set. 빠른 6→7→8자리 입력 시 매 keystroke 마다 timer cancel + 재설정 → 마지막 입력 후 idle 일 때만 fire. Supabase OTP 길이 6~10 가변에 대응 (정확한 길이를 클라이언트가 모르므로 idle 기반 trigger). _backToEmail / dispose 에서 timer cancel. AuthService 를 implements 한 _FakeAuthService 로 SupabaseClient 의존 없이 검증. 신규 테스트 4건 (총 200/200 PASS).
 
+### 11. v1.1 — 폴더 / Outline 트리 / bulk paste / 메모 타입
+
+대표님이 메모장에서 쓰던 다층 구조를 앱에 도입. 무한 트리 (Outline) + 메모 타입 + bulk paste + outline view 결정 (A2 + B1+B2+B3). 5 고정 카테고리 유지, 그 안에 사용자 정의 폴더(트리) 무제한 깊이.
+
+**데이터 모델 / 마이그레이션**
+- [ ] Todo 도메인 모델 확장 — parentId (String?) + TodoType enum (task/note) + sortOrder (int) 필드 추가, freezed/json 재생성. 기본값 (parentId=null, type=task, sortOrder=0) + round-trip 테스트.
+- [ ] Drift `todos` 테이블에 parent_id text nullable / type text default 'task' / sort_order int default 0 컬럼 추가 (schemaVersion 1 → 2). TodosDao 매핑 + 정렬 키 갱신 (sortOrder asc, createdAt fallback).
+- [ ] Drift MigrationStrategy 의 onUpgrade 1→2 case 구현 — ALTER TABLE ADD COLUMN x3, 기존 row 의 parent_id=null / type='task' / sort_order=0 채움.
+- [ ] Drift schemaVersion 1→2 migration 단위 테스트 — v1 fixture 삽입 → migrate → 기존 row 데이터 보존 + 신규 컬럼 기본값 확인.
+- [ ] `supabase/schema.sql` 의 `solo_todo.todos` 에 parent_id text / type text default 'task' / sort_order int default 0 컬럼 추가 + 기존 환경용 ALTER TABLE migration SQL 주석.
+- [ ] SupabaseTodosApi / Todo JSON serialization 에 parent_id / type / sort_order 매핑 추가 + round-trip 테스트 (LWW / outbox push payload 포함 검증).
+
+**도메인 정책 + tree providers**
+- [ ] CarryoverPolicy / VisibilityPolicy 재검토 — type='note' 는 carryover/visibility 대상에서 분리 (note 자체의 hide 룰 별도). 부모는 자기 자신만 평가 (자식 collection 무관, 모델 단순화). 기존 정책 단위 테스트 갱신 + note 케이스 추가.
+- [ ] Tree query providers — childrenOf(parentId) / rootsOfCategory(category) / subtreeProgress(node) → (doneCount, taskCount) (note 분모 제외). 단위 테스트.
+
+**Add / Note UI**
+- [ ] AddTodoSheet 에 "task / note" 토글 추가 — note 선택 시 dueAt/calendar 영역 비활성, AddTodoSubmission.type 전달. 단위 테스트.
+- [ ] TodoTile / DismissibleTodoTile — type=='note' 시 leading 을 체크박스 대신 점·노트 아이콘으로 교체, onToggle no-op, swipe-delete 는 유지. 단위 테스트.
+
+**Outline view**
+- [ ] AppShell destination 에 "전체보기 (Outline)" 추가 — 5 카테고리 + Today + Outline = 7번째 destination, 단축키 6, sidebar/NavigationBar 등록.
+- [ ] OutlineScreen — 5 카테고리 root 펼침/접힘, 깊이별 16px 들여쓰기, 폴더 헤더 [N/M] + progress bar (note 분모 제외).
+- [ ] OutlineScreen widget test — 펼침/접힘 토글, 진척률 카운트, note 가 분모에서 제외되는지 검증.
+
+**Bulk paste**
+- [ ] AddTodoSheet bulk paste — title TextField onChanged 가 줄바꿈 N≥2 감지 → confirm dialog "N개 항목으로 일괄 추가?" → 확인 시 같은 category/parent/dueAt 으로 batch insert. 트리화는 v1.2 (이번 cut 평탄 만).
+- [ ] Bulk paste 단위 테스트 — 멀티라인 입력 → split + 빈 줄 무시 + N건 submission, 단일 줄은 기존 흐름 유지.
+
+**Today 화면 결합**
+- [ ] HomeScreen today list 각 todo 옆에 트리 path breadcrumb (예: "JS슈퍼 / 울트라 모드") 표시 — parentId chain walk, parentId null 이면 카테고리 라벨만. 색은 onSurfaceVariant, 작은 typography. widget test 포함.
+
 ---
 
 ## 점수 측정 프로토콜
