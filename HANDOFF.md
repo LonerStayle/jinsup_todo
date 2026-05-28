@@ -109,7 +109,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 
 총 200/200 PASS. § 10-A + § 10-B + § 10-C 모두 종료.
 
-다음: IMPLEMENTATION_PLAN.md 의 잔여 [ ] 항목 점검 (있으면 진행, 없으면 PROJECT_DONE 직전 점수 자가평가).
+**자가평가 (2026-05-28)** — 디자인 **9.3** / 편의성 **9.5** (둘 다 ≥ 9, 비전 충족).
+**SETUP.html 갱신** — § 2 / § 6 / § 8 의 매직링크/Deep Link 잔재 제거, OTP 흐름으로 일관 정리.
+
+PROMPT.md §2 + CLAUDE.md §7 조건 만족 → **PROJECT_DONE**.
 
 ---
 

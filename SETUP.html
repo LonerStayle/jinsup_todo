@@ -177,7 +177,7 @@ flutter build apk --release --dart-define-from-file=.env.local</code></pre>
 
   <ol>
     <li>Supabase Dashboard 에서 새 프로젝트 생성 (region: <code>ap-northeast-2</code> 서울 권장).</li>
-    <li>좌측 메뉴 <strong>Authentication → Providers → Email</strong> 활성화. "Magic Link" 사용.</li>
+    <li>좌측 메뉴 <strong>Authentication → Providers → Email</strong> 활성화. 매직링크가 아니라 <strong>OTP 코드 (6~10자리)</strong> 흐름으로 사용 — SignInScreen 이 코드 입력 UI 제공.</li>
     <li><strong>Database → SQL Editor</strong> 에서 아래 SQL 실행. 저장소에도 파일로 있습니다:
       <ul>
         <li>신규 셋업: <code>supabase/schema.sql</code></li>
@@ -381,34 +381,25 @@ adb install build/app/outputs/flutter-apk/app-release.apk
 
 <!-- ============================================ -->
 <section>
-  <h2><span class="num">6</span> Deep Link (매직링크 콜백)</h2>
+  <h2><span class="num">6</span> OTP 인증 (이메일 코드)</h2>
 
-  <p>이메일 매직링크 클릭 후 OS 가 앱으로 되돌아오게 하려면 URL scheme 등록이 필요합니다.</p>
+  <p>본 앱은 <strong>매직링크가 아니라 OTP 코드 흐름</strong>을 사용합니다. 사용자는 이메일로 받은 6~10자리 코드를 SignInScreen 에 입력. URL scheme / deep link 등록 <strong>불필요</strong>.</p>
 
-  <h3>macOS — <code>macos/Runner/Info.plist</code></h3>
-<pre><code>&lt;key&gt;CFBundleURLTypes&lt;/key&gt;
-&lt;array&gt;
-  &lt;dict&gt;
-    &lt;key&gt;CFBundleURLSchemes&lt;/key&gt;
-    &lt;array&gt;&lt;string&gt;io.supabase.solo_todo&lt;/string&gt;&lt;/array&gt;
-  &lt;/dict&gt;
-&lt;/array&gt;</code></pre>
+  <h3>Supabase 이메일 템플릿 — <code>{{ .Token }}</code> 노출</h3>
+  <p>좌측 메뉴 <strong>Authentication → Email Templates</strong> 에서 두 템플릿을 OTP 표시용으로 수정:</p>
+  <ul>
+    <li><strong>Confirm signup</strong>: 본문에 <code>{{ .Token }}</code> 포함되도록 편집 (기본은 <code>{{ .ConfirmationURL }}</code> 만 있음).</li>
+    <li><strong>Magic Link</strong>: 같은 방식 — <code>{{ .Token }}</code> 추가.</li>
+  </ul>
+  <p>예: <code>당신의 인증 코드는 &lt;strong&gt;{{ .Token }}&lt;/strong&gt; 입니다.</code></p>
 
-  <h3>Android — <code>android/app/src/main/AndroidManifest.xml</code></h3>
-<pre><code>&lt;activity ...&gt;
-  ...
-  &lt;intent-filter&gt;
-    &lt;action android:name="android.intent.action.VIEW"/&gt;
-    &lt;category android:name="android.intent.category.DEFAULT"/&gt;
-    &lt;category android:name="android.intent.category.BROWSABLE"/&gt;
-    &lt;data android:scheme="com.goldenplanet.solo_todo" android:host="login-callback"/&gt;
-  &lt;/intent-filter&gt;
-&lt;/activity&gt;</code></pre>
+  <h3>OTP 길이 (선택)</h3>
+  <p>Supabase 의 OTP 길이는 프로젝트 설정에서 6~10 자리 가변. 앱은 6자리 이상이면 모두 수용 (입력 후 300ms idle 시 자동 verify).</p>
 
   <ul>
-    <li class="check">macOS Info.plist 의 CFBundleURLTypes 등록</li>
-    <li class="check">Android intent-filter 등록</li>
-    <li class="check">Supabase Dashboard 의 Redirect URLs 와 일치하는지 확인</li>
+    <li class="check">Email Templates 의 Confirm signup 에 <code>{{ .Token }}</code> 노출</li>
+    <li class="check">Email Templates 의 Magic Link 에 <code>{{ .Token }}</code> 노출</li>
+    <li class="check">테스트 — 빈 이메일로 "코드 받기" → 메일 도착 → 6~10자리 코드 입력 → 세션 생성</li>
   </ul>
 </section>
 
@@ -461,8 +452,8 @@ dart analyze && dart format --output=none --set-exit-if-changed . && flutter tes
     <li class="check"><code>.env.local</code> 4 키 채움</li>
     <li class="check">Supabase RLS SQL 실행 + Realtime 활성</li>
     <li class="check">Google OAuth 2 client id 발급 + .env.local 반영</li>
-    <li class="check">Deep link URL scheme 두 OS 등록</li>
-    <li class="check">macOS .app 빌드 + 첫 sign-in (매직링크 이메일 도착 확인)</li>
+    <li class="check">Supabase Email Templates (Confirm signup + Magic Link) 에 <code>{{ .Token }}</code> 노출</li>
+    <li class="check">macOS .app 빌드 + 첫 sign-in (이메일 → OTP 코드 입력 → 세션 생성)</li>
     <li class="check">Android .apk 설치 + 같은 계정 sign-in</li>
     <li class="check">양방향 동기화 확인 (Supabase Realtime)</li>
     <li class="check">Calendar 토글 1번 → Google Calendar 에 이벤트 자동 등록</li>
