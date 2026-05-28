@@ -101,6 +101,67 @@ void main() {
         reason: 'sign-out (newId == null) 시 clearAllUserData 가 호출되어야 함',
       );
     });
+
+    test('다른 user 로 sign-in 전환 시 옛 user 의 데이터 clear', () async {
+      final db = AppDatabase.memory();
+      addTearDown(() async => db.close());
+      final fakeUserState = StateController<User?>(fakeUser('u1'));
+      addTearDown(fakeUserState.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          currentUserProvider.overrideWith((ref) => fakeUserState.value),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await seed(db);
+      container.read(userChangeCleanupProvider);
+      await Future<void>.delayed(Duration.zero);
+      expect(await db.todosDao.getById('seed'), isNotNull);
+
+      // u1 → u2 직접 전환 (sign-out 없이).
+      fakeUserState.value = fakeUser('u2');
+      container.invalidate(currentUserProvider);
+      container.read(currentUserProvider);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        await db.todosDao.getById('seed'),
+        isNull,
+        reason: '다른 user id 로 바뀌면 옛 데이터가 자동 정리되어야 함',
+      );
+    });
+
+    test('동일 user id 로 reemit → clear 안 됨 (idempotent)', () async {
+      final db = AppDatabase.memory();
+      addTearDown(() async => db.close());
+      final fakeUserState = StateController<User?>(fakeUser('u1'));
+      addTearDown(fakeUserState.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          currentUserProvider.overrideWith((ref) => fakeUserState.value),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await seed(db);
+      container.read(userChangeCleanupProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      // 토큰 갱신 등으로 같은 user 가 다시 emit 되는 경우.
+      container.invalidate(currentUserProvider);
+      container.read(currentUserProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        await db.todosDao.getById('seed'),
+        isNotNull,
+        reason: '같은 user id reemit 은 cleanup 트리거 X',
+      );
+    });
   });
 }
 
