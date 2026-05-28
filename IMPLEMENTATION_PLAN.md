@@ -140,7 +140,7 @@
 대표님이 메모장에서 쓰던 다층 구조를 앱에 도입. 무한 트리 (Outline) + 메모 타입 + bulk paste + outline view 결정 (A2 + B1+B2+B3). 5 고정 카테고리 유지, 그 안에 사용자 정의 폴더(트리) 무제한 깊이.
 
 **데이터 모델 / 마이그레이션**
-- [ ] Todo 도메인 모델 확장 — parentId (String?) + TodoType enum (task/note) + sortOrder (int) 필드 추가, freezed/json 재생성. 기본값 (parentId=null, type=task, sortOrder=0) + round-trip 테스트.
+- [x] Todo 도메인 모델 확장 — parentId (String?) + TodoType enum (task/note) + sortOrder (int) 필드 추가. `@Default(TodoType.task)` / `@Default(0)` 으로 backwards-compat (옛 v1.0 JSON payload 도 정상 복원). isDone 가 type 분기 (note 는 항상 false). toggleDone 도 note 에서 no-op. freezed/json 재생성 + Todo.create 매개변수 확장. 신규 테스트 7건 (총 207/207 PASS).
 - [ ] Drift `todos` 테이블에 parent_id text nullable / type text default 'task' / sort_order int default 0 컬럼 추가 (schemaVersion 1 → 2). TodosDao 매핑 + 정렬 키 갱신 (sortOrder asc, createdAt fallback).
 - [ ] Drift MigrationStrategy 의 onUpgrade 1→2 case 구현 — ALTER TABLE ADD COLUMN x3, 기존 row 의 parent_id=null / type='task' / sort_order=0 채움.
 - [ ] Drift schemaVersion 1→2 migration 단위 테스트 — v1 fixture 삽입 → migrate → 기존 row 데이터 보존 + 신규 컬럼 기본값 확인.

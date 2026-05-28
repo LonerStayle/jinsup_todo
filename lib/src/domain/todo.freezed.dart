@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Todo {
 
- String get id; String get title; Category get category; DateTime? get dueAt; DateTime? get doneAt; DateTime get createdAt; DateTime get updatedAt; String? get calendarEventId;
+ String get id; String get title; Category get category; DateTime? get dueAt; DateTime? get doneAt; DateTime get createdAt; DateTime get updatedAt; String? get calendarEventId; String? get parentId; TodoType get type; int get sortOrder;
 /// Create a copy of Todo
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $TodoCopyWith<Todo> get copyWith => _$TodoCopyWithImpl<Todo>(this as Todo, _$ide
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Todo&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.category, category) || other.category == category)&&(identical(other.dueAt, dueAt) || other.dueAt == dueAt)&&(identical(other.doneAt, doneAt) || other.doneAt == doneAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.calendarEventId, calendarEventId) || other.calendarEventId == calendarEventId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Todo&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.category, category) || other.category == category)&&(identical(other.dueAt, dueAt) || other.dueAt == dueAt)&&(identical(other.doneAt, doneAt) || other.doneAt == doneAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.calendarEventId, calendarEventId) || other.calendarEventId == calendarEventId)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.type, type) || other.type == type)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,category,dueAt,doneAt,createdAt,updatedAt,calendarEventId);
+int get hashCode => Object.hash(runtimeType,id,title,category,dueAt,doneAt,createdAt,updatedAt,calendarEventId,parentId,type,sortOrder);
 
 @override
 String toString() {
-  return 'Todo(id: $id, title: $title, category: $category, dueAt: $dueAt, doneAt: $doneAt, createdAt: $createdAt, updatedAt: $updatedAt, calendarEventId: $calendarEventId)';
+  return 'Todo(id: $id, title: $title, category: $category, dueAt: $dueAt, doneAt: $doneAt, createdAt: $createdAt, updatedAt: $updatedAt, calendarEventId: $calendarEventId, parentId: $parentId, type: $type, sortOrder: $sortOrder)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $TodoCopyWith<$Res>  {
   factory $TodoCopyWith(Todo value, $Res Function(Todo) _then) = _$TodoCopyWithImpl;
 @useResult
 $Res call({
- String id, String title, Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId
+ String id, String title, Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId, String? parentId, TodoType type, int sortOrder
 });
 
 
@@ -65,7 +65,7 @@ class _$TodoCopyWithImpl<$Res>
 
 /// Create a copy of Todo
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? category = null,Object? dueAt = freezed,Object? doneAt = freezed,Object? createdAt = null,Object? updatedAt = null,Object? calendarEventId = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? category = null,Object? dueAt = freezed,Object? doneAt = freezed,Object? createdAt = null,Object? updatedAt = null,Object? calendarEventId = freezed,Object? parentId = freezed,Object? type = null,Object? sortOrder = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -75,7 +75,10 @@ as DateTime?,doneAt: freezed == doneAt ? _self.doneAt : doneAt // ignore: cast_n
 as DateTime?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,calendarEventId: freezed == calendarEventId ? _self.calendarEventId : calendarEventId // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,parentId: freezed == parentId ? _self.parentId : parentId // ignore: cast_nullable_to_non_nullable
+as String?,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
+as TodoType,sortOrder: null == sortOrder ? _self.sortOrder : sortOrder // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
@@ -160,10 +163,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Todo() when $default != null:
-return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId);case _:
+return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder);case _:
   return orElse();
 
 }
@@ -181,10 +184,10 @@ return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder)  $default,) {final _that = this;
 switch (_that) {
 case _Todo():
-return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId);case _:
+return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -201,10 +204,10 @@ return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder)?  $default,) {final _that = this;
 switch (_that) {
 case _Todo() when $default != null:
-return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId);case _:
+return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder);case _:
   return null;
 
 }
@@ -216,7 +219,7 @@ return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_th
 @JsonSerializable()
 
 class _Todo extends Todo {
-  const _Todo({required this.id, required this.title, required this.category, this.dueAt, this.doneAt, required this.createdAt, required this.updatedAt, this.calendarEventId}): super._();
+  const _Todo({required this.id, required this.title, required this.category, this.dueAt, this.doneAt, required this.createdAt, required this.updatedAt, this.calendarEventId, this.parentId, this.type = TodoType.task, this.sortOrder = 0}): super._();
   factory _Todo.fromJson(Map<String, dynamic> json) => _$TodoFromJson(json);
 
 @override final  String id;
@@ -227,6 +230,9 @@ class _Todo extends Todo {
 @override final  DateTime createdAt;
 @override final  DateTime updatedAt;
 @override final  String? calendarEventId;
+@override final  String? parentId;
+@override@JsonKey() final  TodoType type;
+@override@JsonKey() final  int sortOrder;
 
 /// Create a copy of Todo
 /// with the given fields replaced by the non-null parameter values.
@@ -241,16 +247,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Todo&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.category, category) || other.category == category)&&(identical(other.dueAt, dueAt) || other.dueAt == dueAt)&&(identical(other.doneAt, doneAt) || other.doneAt == doneAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.calendarEventId, calendarEventId) || other.calendarEventId == calendarEventId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Todo&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.category, category) || other.category == category)&&(identical(other.dueAt, dueAt) || other.dueAt == dueAt)&&(identical(other.doneAt, doneAt) || other.doneAt == doneAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.calendarEventId, calendarEventId) || other.calendarEventId == calendarEventId)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.type, type) || other.type == type)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,category,dueAt,doneAt,createdAt,updatedAt,calendarEventId);
+int get hashCode => Object.hash(runtimeType,id,title,category,dueAt,doneAt,createdAt,updatedAt,calendarEventId,parentId,type,sortOrder);
 
 @override
 String toString() {
-  return 'Todo(id: $id, title: $title, category: $category, dueAt: $dueAt, doneAt: $doneAt, createdAt: $createdAt, updatedAt: $updatedAt, calendarEventId: $calendarEventId)';
+  return 'Todo(id: $id, title: $title, category: $category, dueAt: $dueAt, doneAt: $doneAt, createdAt: $createdAt, updatedAt: $updatedAt, calendarEventId: $calendarEventId, parentId: $parentId, type: $type, sortOrder: $sortOrder)';
 }
 
 
@@ -261,7 +267,7 @@ abstract mixin class _$TodoCopyWith<$Res> implements $TodoCopyWith<$Res> {
   factory _$TodoCopyWith(_Todo value, $Res Function(_Todo) _then) = __$TodoCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String title, Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId
+ String id, String title, Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId, String? parentId, TodoType type, int sortOrder
 });
 
 
@@ -278,7 +284,7 @@ class __$TodoCopyWithImpl<$Res>
 
 /// Create a copy of Todo
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? category = null,Object? dueAt = freezed,Object? doneAt = freezed,Object? createdAt = null,Object? updatedAt = null,Object? calendarEventId = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? category = null,Object? dueAt = freezed,Object? doneAt = freezed,Object? createdAt = null,Object? updatedAt = null,Object? calendarEventId = freezed,Object? parentId = freezed,Object? type = null,Object? sortOrder = null,}) {
   return _then(_Todo(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -288,7 +294,10 @@ as DateTime?,doneAt: freezed == doneAt ? _self.doneAt : doneAt // ignore: cast_n
 as DateTime?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,calendarEventId: freezed == calendarEventId ? _self.calendarEventId : calendarEventId // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,parentId: freezed == parentId ? _self.parentId : parentId // ignore: cast_nullable_to_non_nullable
+as String?,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
+as TodoType,sortOrder: null == sortOrder ? _self.sortOrder : sortOrder // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 

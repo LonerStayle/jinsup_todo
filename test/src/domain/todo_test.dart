@@ -144,4 +144,127 @@ void main() {
     expect(a, b);
     expect(a.hashCode, b.hashCode);
   });
+
+  group('v1.1 — parentId / type / sortOrder', () {
+    test('Todo.create 기본값 — parentId null, type task, sortOrder 0', () {
+      final t = Todo.create(
+        title: 'x',
+        category: Category.daily,
+        now: fixedNow,
+        idGen: fixedId,
+      );
+      expect(t.parentId, isNull);
+      expect(t.type, TodoType.task);
+      expect(t.sortOrder, 0);
+    });
+
+    test('Todo.create — parentId / type=note / sortOrder 전달 시 보존', () {
+      final t = Todo.create(
+        title: '메모',
+        category: Category.idea,
+        now: fixedNow,
+        idGen: fixedId,
+        parentId: 'parent-123',
+        type: TodoType.note,
+        sortOrder: 5,
+      );
+      expect(t.parentId, 'parent-123');
+      expect(t.type, TodoType.note);
+      expect(t.sortOrder, 5);
+    });
+
+    test('note 타입은 isDone 항상 false + toggleDone 무시', () {
+      final note = Todo.create(
+        title: '→ KV 캐싱 ...',
+        category: Category.idea,
+        now: fixedNow,
+        idGen: fixedId,
+        type: TodoType.note,
+      );
+      // doneAt 을 명시 set 해도 isDone false (note 는 체크 개념 X).
+      final withDone = note.copyWith(doneAt: DateTime.utc(2026, 5, 28));
+      expect(withDone.isDone, isFalse);
+
+      // toggleDone 도 no-op.
+      final toggled = note.toggleDone(now: () => DateTime.utc(2026, 5, 28));
+      expect(toggled, note, reason: 'note 타입에 toggleDone 은 idempotent');
+    });
+
+    test('task 타입은 기존 toggleDone 동작 유지 (회귀 검증)', () {
+      final t = Todo.create(
+        title: 'x',
+        category: Category.daily,
+        now: () => DateTime.utc(2026, 5, 1),
+        idGen: fixedId,
+      );
+      final later = DateTime.utc(2026, 5, 27);
+      final toggled = t.toggleDone(now: () => later);
+      expect(toggled.isDone, isTrue);
+      expect(toggled.doneAt, later);
+    });
+
+    test('JSON round-trip — parentId/type/sortOrder 보존 (task)', () {
+      final original = Todo(
+        id: 'abc',
+        title: 'PR 리뷰',
+        category: Category.personalDev,
+        dueAt: null,
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+        parentId: 'parent-xyz',
+        type: TodoType.task,
+        sortOrder: 3,
+      );
+      final json = original.toJson();
+      expect(json['parentId'], 'parent-xyz');
+      expect(json['type'], 'task');
+      expect(json['sortOrder'], 3);
+
+      final restored = Todo.fromJson(json);
+      expect(restored, original);
+    });
+
+    test('JSON round-trip — note 타입', () {
+      final original = Todo(
+        id: 'note-1',
+        title: '→ 코기토 설계 메모',
+        category: Category.work,
+        dueAt: null,
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+        parentId: 'project-cogito',
+        type: TodoType.note,
+        sortOrder: 0,
+      );
+      final json = original.toJson();
+      expect(json['type'], 'note');
+      final restored = Todo.fromJson(json);
+      expect(restored, original);
+    });
+
+    test(
+      'JSON 역호환 — 옛 v1.0 payload (parentId/type/sortOrder 누락) → 기본값으로 복원',
+      () {
+        // v1.0 시점의 Supabase row 가 신규 컬럼 없이 client 에 내려오는 케이스.
+        final legacyJson = <String, dynamic>{
+          'id': 'legacy',
+          'title': '옛 todo',
+          'category': 'work',
+          'dueAt': null,
+          'doneAt': null,
+          'createdAt': '2026-05-01T09:00:00.000Z',
+          'updatedAt': '2026-05-01T09:00:00.000Z',
+          'calendarEventId': null,
+        };
+        final restored = Todo.fromJson(legacyJson);
+        expect(restored.parentId, isNull);
+        expect(restored.type, TodoType.task);
+        expect(restored.sortOrder, 0);
+      },
+    );
+  });
 }

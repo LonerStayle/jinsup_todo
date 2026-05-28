@@ -17,6 +17,9 @@ _Todo _$TodoFromJson(Map<String, dynamic> json) => _Todo(
   createdAt: DateTime.parse(json['createdAt'] as String),
   updatedAt: DateTime.parse(json['updatedAt'] as String),
   calendarEventId: json['calendarEventId'] as String?,
+  parentId: json['parentId'] as String?,
+  type: $enumDecodeNullable(_$TodoTypeEnumMap, json['type']) ?? TodoType.task,
+  sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
 );
 
 Map<String, dynamic> _$TodoToJson(_Todo instance) => <String, dynamic>{
@@ -28,6 +31,9 @@ Map<String, dynamic> _$TodoToJson(_Todo instance) => <String, dynamic>{
   'createdAt': instance.createdAt.toIso8601String(),
   'updatedAt': instance.updatedAt.toIso8601String(),
   'calendarEventId': instance.calendarEventId,
+  'parentId': instance.parentId,
+  'type': _$TodoTypeEnumMap[instance.type]!,
+  'sortOrder': instance.sortOrder,
 };
 
 const _$CategoryEnumMap = {
@@ -37,3 +43,5 @@ const _$CategoryEnumMap = {
   Category.longterm: 'longterm',
   Category.idea: 'idea',
 };
+
+const _$TodoTypeEnumMap = {TodoType.task: 'task', TodoType.note: 'note'};
