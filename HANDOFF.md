@@ -39,10 +39,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 
 **§ 10-A (사용자 직접 보고 4 건)** 진행 현황:
 
-1. ~~체크 풀림~~ ✅ **fix 됨** (commit pending) — `SupabaseRealtimeSync` 의 `localRepo` 가 `SyncingTodoRepository` 였던 게 원인. self-receive payload → outbox 재enqueue → 또 push → 또 broadcast 의 무한 사이클이 빠른 토글 race 와 결합해 옛 값 self-overwrite 유발.
-2. ~~삭제 불가~~ ✅ **fix 됨** (commit pending) — 동일 원인. realtime DELETE 가 SyncingRepo.deleteById 로 들어가 outbox 에 다시 enqueue.
-3. ~~무한 호출~~ ✅ **fix 됨** (commit pending) — 위 self-receive 사이클이 가장 강력한 원인. 다른 후보 (`currentDayProvider` / `flushPending` 30s retry) 는 §10-B 잠재 결함 task 로 관찰.
-4. **dueAt 종일 옵션** — 시간 picker 강제 제거 (다음 iter)
+1. ~~체크 풀림~~ ✅ **fix 됨** (commit `554c44e`) — realtime self-receive → outbox 재enqueue 무한 사이클 차단.
+2. ~~삭제 불가~~ ✅ **fix 됨** (commit `554c44e`) — 동일 원인 통합 패치.
+3. ~~무한 호출~~ ✅ **fix 됨** (commit `554c44e`) — 위 사이클이 가장 강력한 원인.
+4. ~~dueAt 종일 옵션~~ ✅ **fix 됨** (commit pending) — `_pickDueDate` 가 date 만 받고 기본 종일. `_DueRow` 에 "시간 추가" / "시간 변경" / "하루 종일" 액션. `AddTodoSubmission.isAllDay` + `CalendarService` 종일 event 분기.
 
 **fix 요지** (`lib/src/data/remote/supabase_realtime_sync.dart`):
 - `localApply: TodoRepository` 가 **outbox 우회** repository (LocalTodoRepository) 여야 한다고 명시.
@@ -58,7 +58,8 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 
 총 126/126 PASS (이전 123 + 3).
 
-다음 task: § 10-A 의 4번 (dueAt 종일 옵션) → § 10-B (잠재 결함 24건) → § 10-C (UX 5건).
+**§ 10-A 모두 완료**. 다음 task: § 10-B (잠재 결함 24건) → § 10-C (UX 5건).
+첫 § 10-B 항목 = "currentDayProvider 의 자정 Timer 안정성" (race 가드).
 
 ---
 

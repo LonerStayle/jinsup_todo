@@ -17,12 +17,22 @@ class AddTodoSheet extends StatefulWidget {
     this.initialCategory = Category.daily,
     required this.onSubmit,
     this.now,
+    this.initialDueAt,
+    this.initialAllDay = true,
   });
 
   final Category initialCategory;
 
   /// 테스트 결정성을 위해 주입 가능. 기본 [DateTime.now].
   final DateTime Function()? now;
+
+  /// 초기 dueAt 값. 위젯 테스트에서 picker dialog 우회용. null 이면 일정 없음.
+  @visibleForTesting
+  final DateTime? initialDueAt;
+
+  /// [initialDueAt] 가 종일 의미인지. 기본 true.
+  @visibleForTesting
+  final bool initialAllDay;
 
   final void Function(AddTodoSubmission submission) onSubmit;
 
@@ -56,6 +66,10 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
   late final TextEditingController _titleCtrl;
   late Category _category;
   DateTime? _dueAt;
+
+  /// dueAt 의 시간 지정 여부. true = 하루 종일 (시간 부분 의미 없음, 00:00 보관).
+  /// false = 시간이 의미 있는 todo (`_dueAt` 의 시각 그대로).
+  bool _allDay = true;
   bool _addToCalendar = false;
 
   @override
@@ -63,6 +77,8 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
     super.initState();
     _titleCtrl = TextEditingController();
     _category = widget.initialCategory;
+    _dueAt = widget.initialDueAt;
+    _allDay = widget.initialAllDay;
   }
 
   @override
@@ -80,15 +96,18 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
         title: _titleCtrl.text.trim(),
         category: _category,
         dueAt: _dueAt,
+        isAllDay: _dueAt != null && _allDay,
         addToCalendar: _dueAt != null && _addToCalendar,
       ),
     );
     Navigator.of(context).maybePop();
   }
 
-  Future<void> _pickDueAt() async {
+  /// 날짜만 받는다 — 시간 picker 는 강제하지 않고, 기본은 "하루 종일".
+  /// 사용자가 시간이 필요하면 [_pickTime] 액션 또는 [_DueRow] 의 시간 칩으로 추가.
+  Future<void> _pickDueDate() async {
     final nowFn = widget.now ?? DateTime.now;
-    final base = _dueAt ?? nowFn().add(const Duration(hours: 1));
+    final base = _dueAt ?? nowFn();
     final date = await showDatePicker(
       context: context,
       initialDate: base,
@@ -96,25 +115,50 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
       lastDate: DateTime(nowFn().year + 3),
     );
     if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(base),
-    );
+    setState(() {
+      // 시간을 이미 지정해 둔 채로 날짜만 다시 고르는 경우 → 시간 보존.
+      if (_dueAt != null && !_allDay) {
+        _dueAt = DateTime(
+          date.year,
+          date.month,
+          date.day,
+          _dueAt!.hour,
+          _dueAt!.minute,
+        );
+      } else {
+        _dueAt = DateTime(date.year, date.month, date.day);
+        _allDay = true;
+      }
+    });
+  }
+
+  Future<void> _pickTime() async {
+    final base = _dueAt ?? (widget.now ?? DateTime.now)();
+    final initial = _allDay
+        ? const TimeOfDay(hour: 9, minute: 0)
+        : TimeOfDay.fromDateTime(base);
+    final time = await showTimePicker(context: context, initialTime: initial);
     if (time == null || !mounted) return;
     setState(() {
-      _dueAt = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
+      final d = _dueAt ?? base;
+      _dueAt = DateTime(d.year, d.month, d.day, time.hour, time.minute);
+      _allDay = false;
+    });
+  }
+
+  void _makeAllDay() {
+    final d = _dueAt;
+    if (d == null) return;
+    setState(() {
+      _dueAt = DateTime(d.year, d.month, d.day);
+      _allDay = true;
     });
   }
 
   void _clearDueAt() {
     setState(() {
       _dueAt = null;
+      _allDay = true;
       _addToCalendar = false;
     });
   }
@@ -192,7 +236,10 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
                   const SizedBox(height: AppTokens.space8),
                   _DueRow(
                     dueAt: _dueAt,
-                    onTap: _pickDueAt,
+                    allDay: _allDay,
+                    onPickDate: _pickDueDate,
+                    onPickTime: _pickTime,
+                    onMakeAllDay: _makeAllDay,
                     onClear: _clearDueAt,
                   ),
                   AnimatedSize(
@@ -340,12 +387,18 @@ class _CategoryChip extends StatelessWidget {
 class _DueRow extends StatelessWidget {
   const _DueRow({
     required this.dueAt,
-    required this.onTap,
+    required this.allDay,
+    required this.onPickDate,
+    required this.onPickTime,
+    required this.onMakeAllDay,
     required this.onClear,
   });
 
   final DateTime? dueAt;
-  final VoidCallback onTap;
+  final bool allDay;
+  final VoidCallback onPickDate;
+  final VoidCallback onPickTime;
+  final VoidCallback onMakeAllDay;
   final VoidCallback onClear;
 
   @override
@@ -353,52 +406,115 @@ class _DueRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final hasDue = dueAt != null;
-    final label = hasDue
-        ? '${KoDate.pretty(dueAt!)} · ${KoDate.time(dueAt!)}'
-        : '날짜·시간 없음 (지금 추가)';
+    final label = !hasDue
+        ? '날짜 추가 (선택)'
+        : (allDay
+              ? '${KoDate.pretty(dueAt!)} · 하루 종일'
+              : '${KoDate.pretty(dueAt!)} · ${KoDate.time(dueAt!)}');
 
-    return Material(
-      color: scheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(AppTokens.radiusM),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTokens.radiusM),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space16,
-            vertical: AppTokens.space12,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.event_outlined,
-                size: 18,
-                color: hasDue
-                    ? scheme.primary
-                    : scheme.onSurface.withValues(alpha: 0.55),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          child: InkWell(
+            onTap: onPickDate,
+            borderRadius: BorderRadius.circular(AppTokens.radiusM),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTokens.space16,
+                vertical: AppTokens.space12,
               ),
-              const SizedBox(width: AppTokens.space12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.event_outlined,
+                    size: 18,
                     color: hasDue
-                        ? scheme.onSurface
+                        ? scheme.primary
                         : scheme.onSurface.withValues(alpha: 0.55),
                   ),
-                ),
+                  const SizedBox(width: AppTokens.space12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: hasDue
+                            ? scheme.onSurface
+                            : scheme.onSurface.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+                  if (hasDue)
+                    IconButton(
+                      onPressed: onClear,
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      tooltip: '일정 비우기',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                ],
               ),
-              if (hasDue)
-                IconButton(
-                  onPressed: onClear,
-                  icon: const Icon(Icons.close_rounded, size: 18),
-                  tooltip: '일정 비우기',
-                  visualDensity: VisualDensity.compact,
-                ),
-            ],
+            ),
           ),
         ),
-      ),
+        if (hasDue) ...[
+          const SizedBox(height: AppTokens.space8),
+          Row(
+            children: [
+              if (allDay)
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onPickTime,
+                    icon: const Icon(Icons.schedule_outlined, size: 16),
+                    label: const Text('시간 추가'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppTokens.space8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTokens.radiusM),
+                      ),
+                    ),
+                  ),
+                )
+              else ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onPickTime,
+                    icon: const Icon(Icons.schedule_outlined, size: 16),
+                    label: const Text('시간 변경'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppTokens.space8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTokens.radiusM),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppTokens.space8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onMakeAllDay,
+                    icon: const Icon(Icons.wb_sunny_outlined, size: 16),
+                    label: const Text('하루 종일'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppTokens.space8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTokens.radiusM),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -479,11 +595,17 @@ class AddTodoSubmission {
     required this.title,
     required this.category,
     required this.dueAt,
+    this.isAllDay = false,
     required this.addToCalendar,
   });
 
   final String title;
   final Category category;
   final DateTime? dueAt;
+
+  /// dueAt 이 "하루 종일" 의미인지. dueAt 이 null 이면 의미 없음 (false).
+  /// AddTodoController 가 CalendarService.createEventForTodo 에 전달.
+  final bool isAllDay;
+
   final bool addToCalendar;
 }

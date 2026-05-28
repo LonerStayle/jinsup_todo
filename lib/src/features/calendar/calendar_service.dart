@@ -16,16 +16,17 @@ class CalendarService {
 
   final GoogleAuthService _auth;
 
-  /// Todo 의 dueAt 기반 1 시간짜리 이벤트 생성. dueAt 이 null 이면 null 반환.
+  /// Todo 의 dueAt 기반 이벤트 생성. dueAt 이 null 이면 null 반환.
+  /// [isAllDay] true 면 시간 없는 종일 이벤트로 등록 (Google Calendar 의 `date` 필드).
   /// 사용자가 OAuth 인증을 거부/실패하면 예외 전파 — 호출자가 graceful 처리.
-  Future<String?> createEventForTodo(Todo todo) async {
+  Future<String?> createEventForTodo(Todo todo, {bool isAllDay = false}) async {
     if (todo.dueAt == null) return null;
 
     final account = await _auth.tryRestore() ?? await _auth.signIn();
     final api = await _apiFor(account);
     if (api == null) return null;
 
-    final event = _toEvent(todo);
+    final event = _toEvent(todo, isAllDay: isAllDay);
     try {
       final created = await api.events.insert(event, 'primary');
       return created.id;
@@ -75,12 +76,25 @@ class CalendarService {
     return _AuthedCalendarApi(gcal.CalendarApi(client), client);
   }
 
-  gcal.Event _toEvent(Todo todo) {
+  gcal.Event _toEvent(Todo todo, {bool isAllDay = false}) {
+    final desc = '${todo.category.label} · Solo Todo 자동 등록';
+    if (isAllDay) {
+      // Google Calendar 의 종일 이벤트는 `date` (날짜만, end 는 exclusive 다음날) 사용.
+      final local = todo.dueAt!.toLocal();
+      final startDate = DateTime(local.year, local.month, local.day);
+      final endDate = startDate.add(const Duration(days: 1));
+      return gcal.Event(
+        summary: todo.title,
+        description: desc,
+        start: gcal.EventDateTime(date: startDate),
+        end: gcal.EventDateTime(date: endDate),
+      );
+    }
     final start = todo.dueAt!.toUtc();
     final end = start.add(const Duration(hours: 1));
     return gcal.Event(
       summary: todo.title,
-      description: '${todo.category.label} · Solo Todo 자동 등록',
+      description: desc,
       start: gcal.EventDateTime(dateTime: start, timeZone: 'UTC'),
       end: gcal.EventDateTime(dateTime: end, timeZone: 'UTC'),
     );

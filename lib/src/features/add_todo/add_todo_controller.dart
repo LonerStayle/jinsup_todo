@@ -36,7 +36,10 @@ class AddTodoController {
 
     if (s.addToCalendar && s.dueAt != null && calendar != null) {
       try {
-        final eventId = await calendar!.createEventForTodo(todo);
+        final eventId = await calendar!.createEventForTodo(
+          todo,
+          isAllDay: s.isAllDay,
+        );
         if (eventId != null) {
           todo = todo.withCalendarEvent(eventId, now: now);
           await repo.upsert(todo);

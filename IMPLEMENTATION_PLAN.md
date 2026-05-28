@@ -80,7 +80,7 @@
 - [x] **체크 풀림 버그** — 원인 확정: `SupabaseRealtimeSync` 가 `todoRepositoryProvider` (=`SyncingTodoRepository`) 를 직접 `localRepo` 로 받아, 자기 자신의 push 결과 realtime payload 가 다시 outbox 에 enqueue → 또 push → 또 broadcast 의 무한 사이클. 빠른 토글 race 시 옛 값으로 self-overwrite. **fix**: realtime sync 의 `localApply` 를 outbox 우회 `LocalTodoRepository` 로 교체, `flushOutbox` 콜백 별도 분리. `applyInsertOrUpdate` / `applyDelete` 분리 + 단위 테스트 3건 추가.
 - [x] **삭제 불가** — 위와 동일 원인. realtime DELETE event 가 `SyncingTodoRepository.deleteById` 로 들어가 outbox 에 또 delete enqueue → 자기 자신을 또 delete 요청. 동시에 outbox 에 옛 upsert 가 남아 있었다면 row 재생성 가능. **fix**: 동일 패치로 해소.
 - [x] **무한 호출 버그** — 위 self-receive 무한 broadcast/enqueue 루프가 가장 강력한 원인. **fix**: 동일 패치로 차단. 다른 원인 (`currentDayProvider` Timer 자기재예약 / `flushPending` 30s retry) 은 §10-B 의 별도 task 로 관찰 예정.
-- [ ] **dueAt 시간 필수 제거** — "하루 종일" 옵션 추가. 현재 `_pickDueAt` 가 date → time 순서로 두 picker 강제. 시간 없이 종일 todo 가능하도록 토글 추가
+- [x] **dueAt 시간 필수 제거** — "하루 종일" 옵션 추가. 시간 picker 더 이상 강제 X. `_pickDueDate` 가 date 만 받고 기본 종일로 설정. `_DueRow` 가 종일/시간 토글 + "시간 추가" / "시간 변경" / "하루 종일" 액션 노출. `AddTodoSubmission.isAllDay` 필드 추가, `CalendarService._toEvent` 에 종일 분기 (`gcal.EventDateTime(date: ...)`). widget test 5 건 추가 (총 131/131 PASS).
 
 #### 10-B. 코드 재검토에서 발견된 잠재 결함
 
