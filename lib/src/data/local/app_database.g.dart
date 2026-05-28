@@ -1485,6 +1485,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CategoriesTable categories = $CategoriesTable(this);
   late final $OutboxEntriesTable outboxEntries = $OutboxEntriesTable(this);
   late final TodosDao todosDao = TodosDao(this as AppDatabase);
+  late final CategoriesDao categoriesDao = CategoriesDao(this as AppDatabase);
   late final OutboxDao outboxDao = OutboxDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>

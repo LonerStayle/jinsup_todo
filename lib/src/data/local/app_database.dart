@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../domain/category.dart' as domain;
+import 'categories_dao.dart';
 import 'outbox_dao.dart';
 import 'todos_dao.dart';
 
@@ -79,7 +80,7 @@ class OutboxEntries extends Table {
 
 @DriftDatabase(
   tables: [Todos, Categories, OutboxEntries],
-  daos: [TodosDao, OutboxDao],
+  daos: [TodosDao, CategoriesDao, OutboxDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openOnDisk());
