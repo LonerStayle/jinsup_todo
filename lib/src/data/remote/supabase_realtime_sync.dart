@@ -64,16 +64,16 @@ class SupabaseRealtimeSync {
       return;
     }
     try {
-      // 1) 초기 풀백 — 원격 todos 를 local 로 복제. LWW 로 local 이 더 최신이면 skip.
-      final remoteAll = await api.fetchAll(userId);
-      for (final remote in remoteAll) {
-        await applyInsertOrUpdate(remote);
-      }
-
-      // 2) 오프라인 동안 쌓였을 outbox 즉시 flush.
-      await flushOutbox();
-
-      // 3) 변경 구독.
+      // 순서 주의 — race 회피를 위해 subscribe 를 먼저 활성화한다.
+      //
+      // 옛 순서 (fetchAll → flushOutbox → subscribe) 는 fetchAll snapshot 과 subscribe
+      // 활성 시각 사이의 변경을 누락할 수 있다 (다른 client 가 그 사이 mutation 시).
+      //
+      // 새 순서:
+      //   1) subscribe — 이후의 모든 변경은 _handle 로 수신
+      //   2) fetchAll → applyInsertOrUpdate — snapshot 풀백. subscribe 후 받은 변경과
+      //      중복돼도 LWW strict > 로 멱등 처리.
+      //   3) flushOutbox — local 이 갖고 있던 미push mutation 을 원격으로.
       _channel = c
           .channel('solo_todo:todos:$userId')
           .onPostgresChanges(
@@ -89,7 +89,14 @@ class SupabaseRealtimeSync {
           )
           .subscribe();
 
-      // 4) 주기 retry — 일시 단절 후 자동 복구. 30 초마다 flush 시도 (큐 비어 있으면 no-op).
+      final remoteAll = await api.fetchAll(userId);
+      for (final remote in remoteAll) {
+        await applyInsertOrUpdate(remote);
+      }
+
+      await flushOutbox();
+
+      // 주기 retry — 일시 단절 후 자동 복구. 30 초마다 flush 시도 (큐 비어 있으면 no-op).
       _flushTimer = Timer.periodic(
         const Duration(seconds: 30),
         (_) => flushOutbox(),
