@@ -66,9 +66,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ `SupabaseRealtimeSync.start` 순서 재배치 — subscribe 먼저 (commit `e70652f`)
 - ✅ signOut + user 변경 시 옛 데이터 cleanup (commit `4fcbcc8`)
 - ✅ watchAll 의 doneAt 정렬에 `NullsOrder.first` 명시 (commit `f58a130`)
-- ✅ AddTodoSheet 더블 submit 가드 — `_submitted` 플래그 (commit pending)
+- ✅ AddTodoSheet 더블 submit 가드 — `_submitted` 플래그 (commit `66fa819`)
+- ✅ 카테고리 chip selected outline 강조 (commit pending)
 
-다음: § 10-B UI 동작 세 번째 — 카테고리 chip selected 시 시각 차이 미묘 (alpha 0.18 만) → outline 또는 weight 추가.
+다음: § 10-B UI 동작 네 번째 — 이월 배너 다크모드 가독성 검증.
 
 ---
 

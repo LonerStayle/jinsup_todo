@@ -354,15 +354,23 @@ class _CategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bg = selected
-        ? category.color.withValues(alpha: 0.18)
+        ? category.color.withValues(alpha: 0.22)
         : theme.colorScheme.surfaceContainerHighest;
     final fg = selected
         ? category.color
         : theme.colorScheme.onSurface.withValues(alpha: 0.78);
 
+    // 선택 시 outline 도 함께 적용 — alpha 변화만으로는 시각 대비가 약했다.
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+      side: selected
+          ? BorderSide(color: category.color, width: 1.6)
+          : BorderSide.none,
+    );
+
     return Material(
       color: bg,
-      borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+      shape: shape,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTokens.radiusFull),

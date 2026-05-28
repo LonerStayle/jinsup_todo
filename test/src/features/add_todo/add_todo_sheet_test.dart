@@ -82,6 +82,33 @@ void main() {
     expect(submissions.first.category, Category.personalDev);
   });
 
+  testWidgets('선택된 카테고리 chip 은 outline 으로 강조 (alpha 차이 X)', (tester) async {
+    // initialCategory 가 daily → "일상" chip 이 selected.
+    await mount(tester);
+    await tester.pump();
+
+    // "일상" 텍스트가 들어 있는 Material 위젯이 selected chip 의 컨테이너.
+    final materialFinder = find.ancestor(
+      of: find.text('일상'),
+      matching: find.byType(Material),
+    );
+    // 첫 번째 매치 (가장 가까운 Material) 가 chip 의 Material.
+    final selectedMaterial = tester.widget<Material>(materialFinder.first);
+
+    final shape = selectedMaterial.shape;
+    expect(
+      shape,
+      isA<RoundedRectangleBorder>(),
+      reason: 'selected chip 은 RoundedRectangleBorder shape 를 가져야 함',
+    );
+    final rrb = shape! as RoundedRectangleBorder;
+    expect(
+      rrb.side.width,
+      greaterThan(0),
+      reason: 'selected chip 은 visible BorderSide 가 있어야 함 (outline 강조)',
+    );
+  });
+
   testWidgets('일정 비어 있을 때 Calendar 토글이 안 보임', (tester) async {
     await mount(tester);
     expect(find.text('Google Calendar 에 등록'), findsNothing);
