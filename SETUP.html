@@ -212,18 +212,31 @@ create table if not exists solo_todo.todos (
 -- 이미 만든 테이블에도 grant (default privileges 는 새 객체에만 적용되므로 명시)
 grant all on solo_todo.todos to anon, authenticated, service_role;
 
--- RLS — 본인 row 만
+-- RLS — 본인 row 만. drop-then-create 로 재실행 안전.
 alter table solo_todo.todos enable row level security;
-create policy "user_read_own"   on solo_todo.todos for select  using (auth.uid() = user_id);
-create policy "user_insert_own" on solo_todo.todos for insert  with check (auth.uid() = user_id);
-create policy "user_update_own" on solo_todo.todos for update  using (auth.uid() = user_id);
-create policy "user_delete_own" on solo_todo.todos for delete  using (auth.uid() = user_id);
+drop policy if exists "user_read_own"   on solo_todo.todos;
+drop policy if exists "user_insert_own" on solo_todo.todos;
+drop policy if exists "user_update_own" on solo_todo.todos;
+drop policy if exists "user_delete_own" on solo_todo.todos;
+create policy "user_read_own"   on solo_todo.todos for select using (auth.uid() = user_id);
+create policy "user_insert_own" on solo_todo.todos for insert with check (auth.uid() = user_id);
+create policy "user_update_own" on solo_todo.todos for update using (auth.uid() = user_id);
+create policy "user_delete_own" on solo_todo.todos for delete using (auth.uid() = user_id);
 
 -- 동기화 정렬용 인덱스
-create index todos_user_updated on solo_todo.todos (user_id, updated_at desc);
+create index if not exists todos_user_updated on solo_todo.todos (user_id, updated_at desc);
 
--- Realtime publication 에 추가 (Dashboard 의 Database → Replication 토글과 동등)
-alter publication supabase_realtime add table solo_todo.todos;</code></pre>
+-- Realtime publication 에 추가. 이미 멤버면 42710 에러나므로 조건부.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'solo_todo' and tablename = 'todos'
+  ) then
+    alter publication supabase_realtime add table solo_todo.todos;
+  end if;
+end $$;</code></pre>
 
   <div class="warn">
     <strong>Supabase Dashboard → Settings → API → Exposed schemas</strong> 에
@@ -231,39 +244,27 @@ alter publication supabase_realtime add table solo_todo.todos;</code></pre>
     만이라 새 schema 는 명시해 줘야 PostgREST 가 인식합니다.)
   </div>
 
-  <h3>이미 이전 버전 SQL 을 실행했었다면 (마이그레이션)</h3>
-  <p>예전에 <code>public.todos</code> 또는 <code>public.solo_todo_todos</code> 로 실행한 적이 있다면
-     아래 마이그레이션 SQL 을 추가 실행해 주십시오. 두 경우 모두 <code>solo_todo.todos</code> 로 이동합니다.
-     해당 테이블이 없으면 no-op 으로 안전.</p>
-<pre><code>-- (위 메인 SQL 의 'create schema if not exists solo_todo;' 가 이미 실행된 뒤에 호출하세요)
-
+  <h3>이전 버전에서 <code>public</code> 에 테이블을 만들었었다면 (정리)</h3>
+  <p>예전에 <code>public.todos</code> 또는 <code>public.solo_todo_todos</code> 를 만든 적이 있다면
+     아래 정리 SQL 을 <strong>위 메인 SQL 보다 먼저</strong> 실행해 옛 테이블을 삭제하십시오.
+     초기 셋업이라 실데이터가 없다는 전제 — 데이터 보존이 필요하면 drop 대신
+     <code>alter table … set schema solo_todo</code> 로 옮겨야 합니다. (파일: <code>supabase/migrate.sql</code>)</p>
+<pre><code>-- 1) publication 에서 먼저 제거 (ALTER PUBLICATION 은 IF EXISTS 미지원 → 조건부)
 do $$
 begin
-  -- Case A: public.todos (가장 첫 버전)
-  if exists (
-    select 1 from information_schema.tables
-    where table_schema = 'public' and table_name = 'todos'
-  ) then
-    alter table public.todos set schema solo_todo;
+  if exists (select 1 from pg_publication_tables
+             where pubname='supabase_realtime' and schemaname='public' and tablename='todos') then
+    alter publication supabase_realtime drop table public.todos;
   end if;
-
-  -- Case B: public.solo_todo_todos (prefix 버전)
-  if exists (
-    select 1 from information_schema.tables
-    where table_schema = 'public' and table_name = 'solo_todo_todos'
-  ) then
-    alter table public.solo_todo_todos set schema solo_todo;
-    alter table solo_todo.solo_todo_todos rename to todos;
+  if exists (select 1 from pg_publication_tables
+             where pubname='supabase_realtime' and schemaname='public' and tablename='solo_todo_todos') then
+    alter publication supabase_realtime drop table public.solo_todo_todos;
   end if;
 end $$;
 
--- 옮긴 객체들도 새 grant 부여
-grant all on solo_todo.todos to anon, authenticated, service_role;
-
--- 옛 publication 매핑 정리 후 새 schema 의 테이블 등록 (이미 있으면 no-op)
-alter publication supabase_realtime drop table if exists public.todos;
-alter publication supabase_realtime drop table if exists public.solo_todo_todos;
-alter publication supabase_realtime add  table solo_todo.todos;</code></pre>
+-- 2) 옛 테이블 삭제 (policy / index 함께 cascade). 없으면 no-op.
+drop table if exists public.todos cascade;
+drop table if exists public.solo_todo_todos cascade;</code></pre>
 
   <ol start="4">
     <li><strong>Settings → API → Exposed schemas</strong> 에 <code>solo_todo</code> 추가
