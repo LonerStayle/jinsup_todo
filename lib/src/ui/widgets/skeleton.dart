@@ -80,6 +80,12 @@ class TodoTileSkeleton extends StatelessWidget {
 }
 
 /// [itemCount] 개의 [TodoTileSkeleton] 을 부드러운 pulse 로 묶어 보여준다.
+///
+/// **AnimationController vsync 안전성**:
+///   - [SingleTickerProviderStateMixin] 의 vsync 는 [TickerMode] 를 자동 감지한다.
+///     `Visibility(visible: false)` (default `maintainAnimation: false`) 또는 Navigator
+///     route 전환으로 화면 밖에 있을 때 ticker 가 자동 mute 되어 vsync overhead 발생 X.
+///   - widget unmount 시 [State.dispose] 에서 controller 도 즉시 dispose 되어 leak 없음.
 class TodoListSkeleton extends StatefulWidget {
   const TodoListSkeleton({super.key, this.itemCount = 4});
 

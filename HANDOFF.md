@@ -86,10 +86,11 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ 시스템 단축키 비충돌 점검 + AppShell doc 명시 (commit `224ae41`)
 - ✅ tray "종료" — outbox pending 시 confirm dialog (commit `5a1456a`)
 
-**§ 10-B 시스템 4/4 완료**. § 10-B 성능/정리 진행 중 (1/5):
-- ✅ FpsMonitor.start — release 빌드 default skip + force 옵션 (commit pending)
+**§ 10-B 시스템 4/4 완료**. § 10-B 성능/정리 진행 중 (2/5):
+- ✅ FpsMonitor.start — release 빌드 default skip + force 옵션 (commit `b83914b`)
+- ✅ TodoListSkeleton AnimationController vsync 안전성 검증 (commit pending)
 
-다음: § 10-B 성능/정리 — TodoListSkeleton 의 AnimationController vsync 검증.
+다음: § 10-B 성능/정리 — `nowProvider` 호출 시점 unify 검토.
 
 ---
 

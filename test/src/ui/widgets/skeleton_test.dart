@@ -29,4 +29,17 @@ void main() {
     expect(find.byType(TodoTileSkeleton), findsNWidgets(2));
     await pump(tester, const SizedBox.shrink());
   });
+
+  testWidgets('Visibility(visible: false) 로 가려진 채 mount/unmount 해도 leak 없음', (
+    tester,
+  ) async {
+    // maintainAnimation 미지정(default false) → ticker 자동 mute + 자식 build skip.
+    await pump(
+      tester,
+      const Visibility(visible: false, child: TodoListSkeleton(itemCount: 2)),
+    );
+    // build 가 안 됐으니 tile 도 0.
+    expect(find.byType(TodoTileSkeleton), findsNothing);
+    await pump(tester, const SizedBox.shrink());
+  });
 }

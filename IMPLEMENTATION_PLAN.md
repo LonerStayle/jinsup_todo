@@ -116,7 +116,7 @@
 
 **성능 / 정리**
 - [x] `FpsMonitor.start` 가 release 빌드에서도 동작 — frame timing callback 의 overhead. **fix**: `start({bool force = false})` 시그니처 + `kReleaseMode && !force` 분기로 release 빌드 default skip. 테스트/프로파일이 강제 활성 시 `force: true`. 신규 테스트 1건 (총 162/162 PASS).
-- [ ] `TodoListSkeleton` 의 AnimationController 가 화면 안 보일 때도 vsync — Visibility / dispose 시점 확인
+- [x] `TodoListSkeleton` AnimationController vsync 안전성 검증 — `SingleTickerProviderStateMixin` 의 vsync 가 `TickerMode` 자동 감지하여 `Visibility(visible: false)` (default `maintainAnimation: false`) 안에서 자동 mute, unmount 시 `_ctrl.dispose()` 로 leak 없음. 클래스 doc 에 명시 + Visibility 가드 widget test 1건 추가 (총 163/163 PASS).
 - [ ] `nowProvider` = `DateTime.now` 자체 callable — `ref.read(nowProvider)()` 호출 시점이 분산되어 동일 frame 내 다른 값. 단일 frame 의 unify 필요한지 검토
 - [ ] Drift schemaVersion 1 — 향후 컬럼 추가 대비 migration helper (`MigrationStrategy`) 작성
 - [ ] release 빌드의 `debugPrint` 모두 — release 에선 no-op 이지만 일관 확인
