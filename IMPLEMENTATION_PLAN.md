@@ -72,6 +72,72 @@
 - [x] 편의성 점수 ≥ 9 도달 — 단축 1.9 / 반응성 1.8 / 학습성 1.9 (tooltip 보강) / 오류 회복 1.8 / 카테고리 전환 2.0 = **9.4 / 10**
 - [x] SETUP.html 생성 (8 섹션: env / Supabase RLS SQL / Google OAuth / macOS 빌드 / Android 빌드 / Deep Link / 운영 메모 / 최종 체크리스트)
 
+### 10. v1.0.0 후속 — 사용자 보고 결함 + 코드 검토 결과
+
+대표님 실사용 중 발견된 문제 + 전체 코드 재검토에서 도출된 잠재 결함. 모두 처리되어야 진짜 v1.0.0.
+
+#### 10-A. 대표님 직접 보고 (재현 필수)
+- [ ] **체크 풀림 버그** — TodoTile 체크 즉시 다시 미체크로 돌아옴. 추정: `repo.upsert(toggleDone)` 후 Drift watch stream 의 re-emit 시점에 어떤 stale 값이 덮어쓰기. 원인 후보: (a) `SyncingTodoRepository.upsert` 가 outbox enqueue 후 unawaited flushPending → Supabase realtime LWW 로 자기 자신이 옛 row 로 self-overwrite. (b) Riverpod stream provider 의 캐시된 옛 값 잠깐 노출
+- [ ] **삭제 불가** — Dismissible swipe 해도 항목이 다시 나타나거나 안 사라짐. 추정: realtime LWW 가 옛 row 를 다시 가져오는 것 또는 outbox 의 delete entry 처리 실패. 동일 원인 가능성
+- [ ] **무한 호출 버그** — 어딘가에서 발생. 위치/조건 재현 후 로그. 추정 후보:
+  - `currentDayProvider` 의 `_scheduleNext` 가 자정에 fire 후 다시 _scheduleNext → 자정이 같은 시점이면 Timer 0ms → 즉시 fire → 무한
+  - `nowProvider` 가 `DateTime.now` 자체 (callable) 라 호출 시점마다 다른 값 → `ref.watch(nowProvider)` 가 의존성 그래프에서 매 build 마다 invalidate? (실제 호출은 ref.read 라 영향 적지만 transitive 체인 의심)
+  - `SyncingTodoRepository.flushPending` 의 break 후 다시 Timer 30s 호출이 무한 retry
+- [ ] **dueAt 시간 필수 제거** — "하루 종일" 옵션 추가. 현재 `_pickDueAt` 가 date → time 순서로 두 picker 강제. 시간 없이 종일 todo 가능하도록 토글 추가
+
+#### 10-B. 코드 재검토에서 발견된 잠재 결함
+
+**상태 / 동기화**
+- [ ] `currentDayProvider` 의 자정 Timer 안정성 — `_tick` 이후 _scheduleNext 가 동일 시점에 다시 시도 시 0ms Timer → 무한 재예약. 가드 추가 (이미 다음 자정 시점 도달 후 1초 safety margin 있지만 race 가능)
+- [ ] `SyncingTodoRepository.flushPending` 의 `unawaited` 호출이 매 mutation 마다 → 빠르게 토글 시 동시 flush race. mutex / debounce 필요
+- [ ] LWW 의 `>=` 동일 시각 처리가 race 시 옛 값으로 self-overwrite 위험 — `toggleDone` 등 빠른 연속 mutation 시 updatedAt 동률 가능. ms 단위 unique 보장 필요 또는 client_revision 컬럼 도입 검토
+- [ ] Realtime payload 의 INSERT/UPDATE 가 자기 자신의 push 결과를 다시 받아 local upsert — 이미 LWW 로 막혀 있지만 timestamp 동률 시 stomp 가능 (위 항목과 연결)
+- [ ] `SupabaseRealtimeSync.start` 의 초기 풀백 + outbox flush + channel subscribe 순서 race — 풀백 중 mutation 들어오면 누락 가능
+- [ ] `signOut` 후 Drift / outbox 의 다른 user 데이터 잔존 — 다음 user 가 sign-in 시 옛 데이터 보임
+
+**UI 동작**
+- [ ] Drift `watchAll` 의 `OrderingTerm(doneAt, asc)` 가 SQLite default NULLS LAST 로 동작 → 미체크 (doneAt null) 가 뒤로 갈 수 있음. NULLS FIRST 명시 또는 `isDone` 가상 컬럼 추가
+- [ ] AddTodoSheet 에서 빠르게 두 번 submit → 두 todo 생성. submit 시 `_busy` 가드 누락 (이미 enabled 검사 있지만 race 가능)
+- [ ] 카테고리 chip selected 시 alpha 0.18 만 변화 — 시각 차이 너무 미묘. outline 또는 weight 추가
+- [ ] HomeScreen 이월 배너의 색이 light/dark 모두 동일 alpha — 다크에서 가독성 검증
+- [ ] Dismissible 의 `confirmDismiss` 없음 — 실수 swipe 로 즉시 삭제. UndoSnackbar 있지만 0.4 threshold 도 낮은 편
+- [ ] FAB 가 BottomNavigationBar (Android) 와 겹쳐 가독성 떨어짐 — `FloatingActionButtonLocation.endDocked` 또는 위치 조정
+- [ ] `_ShortcutsHost` 의 1~5 키가 TextField 안에서도 발화될 수 있음 — Focus 위계 검증, TextField focus 시 capture 차단
+- [ ] macOS desktop 분기에서 `bottomNavigationBar` 가 null 인데 코드는 ternary 로 남아 있음. 정상이지만 의도 명시
+
+**에러 처리 / UX**
+- [ ] 네트워크 끊김 시 사용자 피드백 0 — 오프라인 배너 또는 토스트
+- [ ] Supabase rate limit (1분 1번 OTP) 시 사용자에게 명확한 안내. 현재는 generic 에러
+- [ ] Calendar 권한 거부 시 사용자에게 안내 (현재 silent debugPrint)
+- [ ] 인증 토큰 만료 자동 갱신 검증 — supabase_flutter default 동작 신뢰만 하고 있음. 만료 시 sign-in 강제 흐름
+
+**시스템 / macOS**
+- [ ] `hotkey_manager.unregisterAll()` 이 다른 앱의 글로벌 단축키도 제거할 위험 → 우리 hotkey 만 unregister
+- [ ] Tray icon 이 dark/light 모드에서 단색 placeholder — macOS template image 로 자동 색 추종은 isTemplate true 로 OK 하지만 디자인 보강 필요
+- [ ] Cmd+W 등 시스템 단축키와 충돌 점검 (현재 0~5, Cmd+N 만 사용)
+- [ ] tray menu 의 "종료" 가 `SystemNavigator.pop()` — macOS 에서 confirm 없이 즉시 종료. 미저장 데이터 안전성 확인
+
+**성능 / 정리**
+- [ ] `FpsMonitor.start` 가 release 빌드에서도 동작 — frame timing callback 의 overhead 측정 + release 비활성 옵션
+- [ ] `TodoListSkeleton` 의 AnimationController 가 화면 안 보일 때도 vsync — Visibility / dispose 시점 확인
+- [ ] `nowProvider` = `DateTime.now` 자체 callable — `ref.read(nowProvider)()` 호출 시점이 분산되어 동일 frame 내 다른 값. 단일 frame 의 unify 필요한지 검토
+- [ ] Drift schemaVersion 1 — 향후 컬럼 추가 대비 migration helper (`MigrationStrategy`) 작성
+- [ ] release 빌드의 `debugPrint` 모두 — release 에선 no-op 이지만 일관 확인
+
+**테스트 gap**
+- [ ] AppShell 전체 흐름 integration test 부족 — sign-in → 추가 → 체크 → 삭제 → undo 사이클
+- [ ] 자정 trigger 통합 test 는 있지만 outbox flush 와 결합한 case 없음
+- [ ] 빠른 연속 mutation race test
+- [ ] signOut 후 데이터 정리 test
+- [ ] dueAt null (하루 종일) todo 의 watchToday / CarryoverPolicy 동작 test
+
+#### 10-C. UI/UX 보강 (디자인·편의성 점수 추가 향상)
+- [ ] 체크 토글 후 부드러운 reorder 애니메이션 (AnimatedList 또는 implicitly animated)
+- [ ] AddTodoSheet 의 dueAt — "오늘 / 내일 / 다음주 / 시간 지정" 빠른 칩
+- [ ] 사이드바 selected 상태에 키보드 focus ring 추가
+- [ ] Snackbar undo 시간 시각 표시 (5초 progress bar)
+- [ ] OTP 입력 시 자동 검증 (6/8자리 모두 채워지면 자동 verify)
+
 ---
 
 ## 점수 측정 프로토콜
