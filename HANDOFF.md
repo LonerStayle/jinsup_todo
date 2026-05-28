@@ -88,9 +88,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 
 **§ 10-B 시스템 4/4 완료**. § 10-B 성능/정리 진행 중 (2/5):
 - ✅ FpsMonitor.start — release 빌드 default skip + force 옵션 (commit `b83914b`)
-- ✅ TodoListSkeleton AnimationController vsync 안전성 검증 (commit pending)
+- ✅ TodoListSkeleton AnimationController vsync 안전성 검증 (commit `6b66a9a`)
+- ✅ nowProvider callable 검토 — 현재 디자인 유지 + doc 보강 (commit pending)
 
-다음: § 10-B 성능/정리 — `nowProvider` 호출 시점 unify 검토.
+다음: § 10-B 성능/정리 — Drift schemaVersion migration helper 작성.
 
 ---
 
