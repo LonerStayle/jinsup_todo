@@ -184,7 +184,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] CategoriesDao 신규 — watchAll/getAll (sortOrder asc → createdAt asc), getById, upsert (insertOnConflictUpdate), deleteById (builtin 도 hard delete 가능), countTodosOfCategory (todos.category 카운트). AppDatabase 의 daos 리스트에 등록. 단위 테스트 6건 (onCreate seed + 신규 upsert + update + builtin delete + 카운트 + watchAll 재emit). 288/288 PASS (+6 신규).
 
 **카테고리 도메인 정책 + Controller**
-- [ ] 카테고리 삭제 차단 정책 — `CategoryDeletePolicy.canDelete(category, todoCount)` → `DeleteCheck.ok` 또는 `DeleteCheck.blockedByTodos(count)`. 단위 테스트 (todoCount 0 = ok, ≥1 = blocked).
+- [x] 카테고리 삭제 차단 정책 — `CategoryDeletePolicy.canDelete(category, todoCount)` pure 함수 + `sealed class DeleteCheck` (`ok` / `blockedByTodos(count)`). builtin / 사용자 구분 없이 동일 정책. 단위 테스트 5건. 293/293 PASS (+5 신규).
 - [ ] CategoriesController (Riverpod Notifier) — add(category) / delete(id) + 정책 호출 + 호출자에게 결과 반환. 단위 테스트 (in-memory DB + 차단 시 todos 가 그대로 유지되는지).
 
 **Supabase 동기화**
