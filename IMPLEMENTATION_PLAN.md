@@ -115,7 +115,7 @@
 - [x] tray menu 의 "종료" — outbox pending > 0 시 confirm dialog. **fix**: TrayService.onQuit 가 AppShell._confirmQuit 호출. outbox pending 이 비어 있으면 즉시 `SystemNavigator.pop`, 있으면 AlertDialog 로 "동기화 안 된 N건이 있어요. 다음 실행 시 자동 동기화…" 안내 + 취소/종료 선택. todo 자체는 Drift `await upsert` 로 commit 되므로 손실 없음 — confirm 은 동기화 인식을 위한 1회 가드.
 
 **성능 / 정리**
-- [ ] `FpsMonitor.start` 가 release 빌드에서도 동작 — frame timing callback 의 overhead 측정 + release 비활성 옵션
+- [x] `FpsMonitor.start` 가 release 빌드에서도 동작 — frame timing callback 의 overhead. **fix**: `start({bool force = false})` 시그니처 + `kReleaseMode && !force` 분기로 release 빌드 default skip. 테스트/프로파일이 강제 활성 시 `force: true`. 신규 테스트 1건 (총 162/162 PASS).
 - [ ] `TodoListSkeleton` 의 AnimationController 가 화면 안 보일 때도 vsync — Visibility / dispose 시점 확인
 - [ ] `nowProvider` = `DateTime.now` 자체 callable — `ref.read(nowProvider)()` 호출 시점이 분산되어 동일 frame 내 다른 값. 단일 frame 의 unify 필요한지 검토
 - [ ] Drift schemaVersion 1 — 향후 컬럼 추가 대비 migration helper (`MigrationStrategy`) 작성

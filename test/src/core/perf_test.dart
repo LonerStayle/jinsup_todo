@@ -3,6 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:solo_todo/src/core/perf.dart';
 
 void main() {
+  // SchedulerBinding.instance 접근을 위해 binding 초기화.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('ColdStartProbe.instance 접근 시 stopwatch 가 즉시 시작', () {
     final probe = ColdStartProbe.instance;
     expect(probe.elapsed, isNull); // markFirstFrame 전엔 null
@@ -46,6 +49,15 @@ void main() {
       expect(snap.janky, 0);
       expect(snap.rate, 0);
       expect(m.totalFrames, 0);
+    });
+
+    test('start() — force 파라미터 + stop() 멱등 동작', () {
+      // test 환경(kReleaseMode == false)에서는 start() 가 attached 됨.
+      // force 파라미터가 시그니처에 존재하고 호출에 영향이 없음을 회귀 가드.
+      FpsMonitor.instance.stop();
+      FpsMonitor.instance.start(force: true);
+      FpsMonitor.instance.stop();
+      FpsMonitor.instance.stop(); // 멱등
     });
   });
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
@@ -68,8 +69,13 @@ class FpsMonitor {
   int _janky = 0;
   bool _attached = false;
 
-  void start() {
+  /// frame timings callback 등록. **release 빌드에서는 default skip** — frame budget
+  /// 감시는 디버그/프로파일 빌드 전용.
+  ///
+  /// 테스트 등 강제 활성화는 [force] 로.
+  void start({bool force = false}) {
     if (_attached) return;
+    if (kReleaseMode && !force) return;
     SchedulerBinding.instance.addTimingsCallback(_onTimings);
     _attached = true;
   }
