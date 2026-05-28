@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,8 +29,18 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   bool _busy = false;
   String? _error;
 
+  /// OTP 자동 verify debounce timer — 사용자가 입력을 멈춘 후 [_autoVerifyDelay] 가
+  /// 지나면 자동으로 [_verify] 호출. 빠르게 6→10자리 모두 입력하는 동안에는 매 keystroke
+  /// 마다 cancel + 재설정되어 중간 길이 (예: 6) 에서 잘못 fire 하지 않는다.
+  Timer? _autoVerifyTimer;
+
+  /// 디바운스 길이 — 입력 후 잠깐 멈췄음을 인지하기엔 충분히 짧고, 빠른 8자리 타이핑
+  /// 도중 중간 fire 되기엔 충분히 길다.
+  static const Duration _autoVerifyDelay = Duration(milliseconds: 300);
+
   @override
   void dispose() {
+    _autoVerifyTimer?.cancel();
     _emailCtrl.dispose();
     _otpCtrl.dispose();
     super.dispose();
@@ -86,11 +98,25 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   }
 
   void _backToEmail() {
+    _autoVerifyTimer?.cancel();
     setState(() {
       _step = _Step.email;
       _otpCtrl.clear();
       _error = null;
     });
+  }
+
+  /// OTP TextField onChanged 콜백. 입력 길이가 6 이상이면 [_autoVerifyDelay] 후 자동
+  /// verify. Supabase OTP 길이는 6~10 가변이라 정확한 길이를 client 가 모르므로
+  /// 디바운스로 사용자가 입력을 멈출 때까지 기다리는 방식.
+  void _onOtpChanged(String value) {
+    setState(() {});
+    _autoVerifyTimer?.cancel();
+    if (value.trim().length >= 6 && !_busy) {
+      _autoVerifyTimer = Timer(_autoVerifyDelay, () {
+        if (mounted && _canVerify) _verify();
+      });
+    }
   }
 
   @override
@@ -223,7 +249,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         enabled: !_busy,
         maxLength: 10,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        onChanged: (_) => setState(() {}),
+        onChanged: _onOtpChanged,
         onSubmitted: (_) => _verify(),
         textAlign: TextAlign.center,
         style: theme.textTheme.headlineMedium?.copyWith(

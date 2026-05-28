@@ -133,7 +133,7 @@
 - [x] AddTodoSheet 의 dueAt — "오늘 / 내일 / 다음주 / 시간 지정" 빠른 칩. `_QuickDueChips` 위젯 신규 — 일정 섹션 라벨 바로 아래에 위치, 4 종 칩 (오늘/내일/다음주/시간 지정). "다음주" = 오늘+7일 자정 (모호함 회피). 같은 날짜 칩 다시 탭하면 toggle 해제. selected 상태는 primaryContainer + outline 으로 시각 강조. "시간 지정" 은 기존 `_pickTime` 재사용. 신규 테스트 7건 (총 189/189 PASS).
 - [x] 사이드바 selected 상태에 키보드 focus ring 추가 — `_SidebarItem` → `SidebarItem` (public, @visibleForTesting) stateful 위젯으로 변환. InkWell.onFocusChange 로 `_focused` state 추적, true 면 Material shape 의 BorderSide(width: 2, color: primary) ring 노출. focusColor 는 transparent 로 default tint 끔. selected 와 focus 는 독립 — selected 배경 + focus outline 동시 표현 가능. 신규 테스트 4건 (총 193/193 PASS).
 - [x] Snackbar undo 시간 시각 표시 — UndoSnackbar 의 content 영역에 `_UndoContent` (Text + LinearProgressIndicator) 삽입. TweenAnimationBuilder(1.0 → 0.0, linear, duration=SnackBar duration) 으로 "남은 undo 시간" 시각화. 색은 onInverseSurface (배경 22% alpha + bar 100%) 라 SnackBar 톤과 일관. 신규 테스트 3건 (총 196/196 PASS).
-- [ ] OTP 입력 시 자동 검증 (6/8자리 모두 채워지면 자동 verify)
+- [x] OTP 입력 시 자동 검증 — `_onOtpChanged` 가 length ≥ 6 일 때 `_autoVerifyTimer` (300ms debounce) 를 set. 빠른 6→7→8자리 입력 시 매 keystroke 마다 timer cancel + 재설정 → 마지막 입력 후 idle 일 때만 fire. Supabase OTP 길이 6~10 가변에 대응 (정확한 길이를 클라이언트가 모르므로 idle 기반 trigger). _backToEmail / dispose 에서 timer cancel. AuthService 를 implements 한 _FakeAuthService 로 SupabaseClient 의존 없이 검증. 신규 테스트 4건 (총 200/200 PASS).
 
 ---
 
