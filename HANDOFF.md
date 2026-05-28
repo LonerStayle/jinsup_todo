@@ -77,9 +77,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 **§ 10-B UI 동작 8/8 완료**. § 10-B 에러 처리 진행 중 (1/4 완료):
 - ✅ outbox count 기반 "동기화 대기" chip — HomeScreen 헤더 (commit `3e765ac`)
 - ✅ Supabase auth 에러 분류 — rate limit / invalid email / OTP 만료 친화 메시지 (commit `61e218d`)
-- ✅ Calendar 권한 거부 → AddTodoResult.calendarWarning + SnackBar (commit pending)
+- ✅ Calendar 권한 거부 → AddTodoResult.calendarWarning + SnackBar (commit `a5dd0a4`)
+- ✅ 토큰 만료/외부 sign-out 자동 cleanup (commit pending)
 
-다음: § 10-B 에러 처리 — 인증 토큰 만료 자동 갱신 검증.
+**§ 10-B 에러 처리 4/4 완료**. 다음: § 10-B **시스템 / macOS** 그룹 첫 — `hotkey_manager.unregisterAll()` 의 다른 앱 단축키 제거 위험 (우리 hotkey 만 unregister).
 
 ---
 

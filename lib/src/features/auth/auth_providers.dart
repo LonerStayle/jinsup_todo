@@ -53,8 +53,12 @@ final signOutControllerProvider = Provider<SignOutController>(
 /// **자동 cleanup listener** — currentUser id 가 바뀌면 옛 데이터 삭제.
 ///
 /// 시나리오:
-///   - sign-out (newId == null): 다음 sign-in 시 또 한 번 비교되므로 여기서 굳이 clear 안 함.
-///   - 다른 user sign-in (lastId != null, newId != lastId): 옛 user 의 데이터 삭제.
+///   - 다른 user 로 sign-in (lastId != null, newId != lastId, 둘 다 non-null): 옛 데이터 삭제.
+///   - 토큰 만료 / 외부 sign-out (lastId != null, newId == null): supabase_flutter 의 자동
+///     refresh 가 실패하면 onAuthStateChange 가 signedOut 을 emit → currentUserProvider 가
+///     null 로 떨어진다. outbox 에 남은 옛 user 의 미push 변경이 다음 sign-in 시 다른
+///     계정으로 push 되는 사고를 막기 위해 여기서도 clearAllUserData.
+///   - 첫 sign-in (lastId == null, newId != null): 정상 진입 — clear 안 함.
 ///
 /// in-memory 한정 — 앱 재시작 후엔 lastId 가 reset 되므로 같은 세션 안에서만 동작.
 /// 1인 사용자 비전이라 충분.
@@ -64,7 +68,10 @@ final userChangeCleanupProvider = Provider<void>((ref) {
   String? lastId;
   ref.listen<User?>(currentUserProvider, (prev, next) async {
     final newId = next?.id;
-    if (lastId != null && newId != null && newId != lastId) {
+    // 이전이 sign-in 상태였는데 user 가 바뀌었거나(다른 계정) sign-out 됐다면 clear.
+    final wasSignedIn = lastId != null;
+    final userChanged = newId != lastId;
+    if (wasSignedIn && userChanged) {
       final db = ref.read(appDatabaseProvider);
       await db.clearAllUserData();
     }
