@@ -37,27 +37,28 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 
 ## 3. 다음 진행 우선순위 — § 10-A 부터
 
-**§ 10-A (사용자 직접 보고 4 건)** 가 최우선:
+**§ 10-A (사용자 직접 보고 4 건)** 진행 현황:
 
-1. **체크 풀림** — TodoTile 체크 즉시 다시 미체크로 되돌아옴
-2. **삭제 불가** — Dismissible swipe 해도 항목이 다시 나타남
-3. **무한 호출 버그** — 위치 불명, 재현 필요
-4. **dueAt 종일 옵션** — 시간 picker 강제 제거
+1. ~~체크 풀림~~ ✅ **fix 됨** (commit pending) — `SupabaseRealtimeSync` 의 `localRepo` 가 `SyncingTodoRepository` 였던 게 원인. self-receive payload → outbox 재enqueue → 또 push → 또 broadcast 의 무한 사이클이 빠른 토글 race 와 결합해 옛 값 self-overwrite 유발.
+2. ~~삭제 불가~~ ✅ **fix 됨** (commit pending) — 동일 원인. realtime DELETE 가 SyncingRepo.deleteById 로 들어가 outbox 에 다시 enqueue.
+3. ~~무한 호출~~ ✅ **fix 됨** (commit pending) — 위 self-receive 사이클이 가장 강력한 원인. 다른 후보 (`currentDayProvider` / `flushPending` 30s retry) 는 §10-B 잠재 결함 task 로 관찰.
+4. **dueAt 종일 옵션** — 시간 picker 강제 제거 (다음 iter)
 
-**1+2 는 같은 원인 가능성 매우 높음** (LWW self-stomp / Realtime self-receive / outbox race 중 하나).
-→ 한 번에 잡으면 효율적.
+**fix 요지** (`lib/src/data/remote/supabase_realtime_sync.dart`):
+- `localApply: TodoRepository` 가 **outbox 우회** repository (LocalTodoRepository) 여야 한다고 명시.
+- `flushOutbox: Future<void> Function()` 별도 콜백으로 분리 — realtime sync 가 outbox 를 직접 알지 않음.
+- `applyInsertOrUpdate` / `applyDelete` 메서드 분리 (`@visibleForTesting`).
+- `forApplyOnly` 명명 생성자 추가 — 단위 테스트가 SupabaseClient mocking 없이 apply 동작만 검증.
+- provider 에서 `LocalTodoRepository(db.todosDao)` 를 별도 생성해 주입.
 
-근거: `SyncingTodoRepository.upsert` → `localRepo.upsert(t)` → Drift stream emit → UI 갱신 ✓
-→ 동시에 outbox enqueue → `unawaited(flushPending())` → Supabase upsert → Realtime broadcast → `SupabaseRealtimeSync._handle` 가 same row 다시 수신 → LWW 의 `>=` 동일 시각 처리로 idempotent 라 OK 일 것 같지만, 시간 동률 시 잘못된 stomp 가능. 또는 자기 자신의 변경이 다른 client 처럼 처리됨.
+테스트 (`test/src/data/remote/supabase_realtime_sync_test.dart`): 3 개 신규 케이스.
+- self-receive 반복 broadcast → outbox count 0 유지 + local doneAt 유지
+- delete self-receive → outbox 0 + local 삭제 유지
+- stale updatedAt remote → LWW 가 local 채택 (체크 풀림 X)
 
-체크 / 삭제 액션의 자기-수신 차단 필요. 후보 방안:
-- Supabase realtime payload 의 `commit_timestamp` 가 우리 push 시간보다 작으면 skip
-- 또는 local 에서 최근 mutation id 를 set 으로 보관해서 그 id 의 payload 는 skip
-- 또는 realtime 채널 자체에 `presence` / `client_id` filter
+총 126/126 PASS (이전 123 + 3).
 
-진행 시 두 케이스 통합 재현 → 패치 → integration test 추가.
-
-§ 10-B (24 건) / § 10-C (5 건) 는 그 다음.
+다음 task: § 10-A 의 4번 (dueAt 종일 옵션) → § 10-B (잠재 결함 24건) → § 10-C (UX 5건).
 
 ---
 

@@ -77,12 +77,9 @@
 대표님 실사용 중 발견된 문제 + 전체 코드 재검토에서 도출된 잠재 결함. 모두 처리되어야 진짜 v1.0.0.
 
 #### 10-A. 대표님 직접 보고 (재현 필수)
-- [ ] **체크 풀림 버그** — TodoTile 체크 즉시 다시 미체크로 돌아옴. 추정: `repo.upsert(toggleDone)` 후 Drift watch stream 의 re-emit 시점에 어떤 stale 값이 덮어쓰기. 원인 후보: (a) `SyncingTodoRepository.upsert` 가 outbox enqueue 후 unawaited flushPending → Supabase realtime LWW 로 자기 자신이 옛 row 로 self-overwrite. (b) Riverpod stream provider 의 캐시된 옛 값 잠깐 노출
-- [ ] **삭제 불가** — Dismissible swipe 해도 항목이 다시 나타나거나 안 사라짐. 추정: realtime LWW 가 옛 row 를 다시 가져오는 것 또는 outbox 의 delete entry 처리 실패. 동일 원인 가능성
-- [ ] **무한 호출 버그** — 어딘가에서 발생. 위치/조건 재현 후 로그. 추정 후보:
-  - `currentDayProvider` 의 `_scheduleNext` 가 자정에 fire 후 다시 _scheduleNext → 자정이 같은 시점이면 Timer 0ms → 즉시 fire → 무한
-  - `nowProvider` 가 `DateTime.now` 자체 (callable) 라 호출 시점마다 다른 값 → `ref.watch(nowProvider)` 가 의존성 그래프에서 매 build 마다 invalidate? (실제 호출은 ref.read 라 영향 적지만 transitive 체인 의심)
-  - `SyncingTodoRepository.flushPending` 의 break 후 다시 Timer 30s 호출이 무한 retry
+- [x] **체크 풀림 버그** — 원인 확정: `SupabaseRealtimeSync` 가 `todoRepositoryProvider` (=`SyncingTodoRepository`) 를 직접 `localRepo` 로 받아, 자기 자신의 push 결과 realtime payload 가 다시 outbox 에 enqueue → 또 push → 또 broadcast 의 무한 사이클. 빠른 토글 race 시 옛 값으로 self-overwrite. **fix**: realtime sync 의 `localApply` 를 outbox 우회 `LocalTodoRepository` 로 교체, `flushOutbox` 콜백 별도 분리. `applyInsertOrUpdate` / `applyDelete` 분리 + 단위 테스트 3건 추가.
+- [x] **삭제 불가** — 위와 동일 원인. realtime DELETE event 가 `SyncingTodoRepository.deleteById` 로 들어가 outbox 에 또 delete enqueue → 자기 자신을 또 delete 요청. 동시에 outbox 에 옛 upsert 가 남아 있었다면 row 재생성 가능. **fix**: 동일 패치로 해소.
+- [x] **무한 호출 버그** — 위 self-receive 무한 broadcast/enqueue 루프가 가장 강력한 원인. **fix**: 동일 패치로 차단. 다른 원인 (`currentDayProvider` Timer 자기재예약 / `flushPending` 30s retry) 은 §10-B 의 별도 task 로 관찰 예정.
 - [ ] **dueAt 시간 필수 제거** — "하루 종일" 옵션 추가. 현재 `_pickDueAt` 가 date → time 순서로 두 picker 강제. 시간 없이 종일 todo 가능하도록 토글 추가
 
 #### 10-B. 코드 재검토에서 발견된 잠재 결함
