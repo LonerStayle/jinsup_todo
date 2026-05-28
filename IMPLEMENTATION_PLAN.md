@@ -132,7 +132,7 @@
 - [x] 체크 토글 후 부드러운 reorder 애니메이션 — `AnimatedTodoSliver` 신규 (SliverAnimatedList 기반 id-diff stateful widget). 외부에서는 평범한 List<Todo> 받고, didUpdateWidget 에서 (삭제/위치이동/추가/in-place 갱신) 4 케이스를 SliverAnimatedListState.removeItem/insertItem 로 발화. FadeTransition + SizeTransition + motionMid (200ms) duration. HomeScreen `SliverList.separated` → `AnimatedTodoSliver` 교체. 신규 테스트 6건 (총 182/182 PASS).
 - [x] AddTodoSheet 의 dueAt — "오늘 / 내일 / 다음주 / 시간 지정" 빠른 칩. `_QuickDueChips` 위젯 신규 — 일정 섹션 라벨 바로 아래에 위치, 4 종 칩 (오늘/내일/다음주/시간 지정). "다음주" = 오늘+7일 자정 (모호함 회피). 같은 날짜 칩 다시 탭하면 toggle 해제. selected 상태는 primaryContainer + outline 으로 시각 강조. "시간 지정" 은 기존 `_pickTime` 재사용. 신규 테스트 7건 (총 189/189 PASS).
 - [x] 사이드바 selected 상태에 키보드 focus ring 추가 — `_SidebarItem` → `SidebarItem` (public, @visibleForTesting) stateful 위젯으로 변환. InkWell.onFocusChange 로 `_focused` state 추적, true 면 Material shape 의 BorderSide(width: 2, color: primary) ring 노출. focusColor 는 transparent 로 default tint 끔. selected 와 focus 는 독립 — selected 배경 + focus outline 동시 표현 가능. 신규 테스트 4건 (총 193/193 PASS).
-- [ ] Snackbar undo 시간 시각 표시 (5초 progress bar)
+- [x] Snackbar undo 시간 시각 표시 — UndoSnackbar 의 content 영역에 `_UndoContent` (Text + LinearProgressIndicator) 삽입. TweenAnimationBuilder(1.0 → 0.0, linear, duration=SnackBar duration) 으로 "남은 undo 시간" 시각화. 색은 onInverseSurface (배경 22% alpha + bar 100%) 라 SnackBar 톤과 일관. 신규 테스트 3건 (총 196/196 PASS).
 - [ ] OTP 입력 시 자동 검증 (6/8자리 모두 채워지면 자동 verify)
 
 ---

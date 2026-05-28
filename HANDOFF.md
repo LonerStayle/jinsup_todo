@@ -100,14 +100,15 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ signOut/user-전환/idempotent reemit 데이터 정리 테스트 보강 (commit `ceedf76`)
 - ✅ dueAt null (하루 종일) todo 의 watchToday / CarryoverPolicy 동작 test (commit `1baf8cc`)
 
-**§ 10-C UI/UX 보강** 진행 중 (3/5):
+**§ 10-C UI/UX 보강** 진행 중 (4/5):
 - ✅ 체크 토글 후 부드러운 reorder 애니메이션 — AnimatedTodoSliver (SliverAnimatedList + id-diff) (commit `fdd29f9`)
 - ✅ AddTodoSheet dueAt 빠른 칩 — 오늘/내일/다음주(=오늘+7일)/시간 지정 (commit `15025f4`)
-- ✅ 사이드바 selected 상태에 키보드 focus ring — SidebarItem (InkWell.onFocusChange + BorderSide outline) (commit pending)
+- ✅ 사이드바 selected 상태에 키보드 focus ring — SidebarItem (InkWell.onFocusChange + BorderSide outline) (commit `a8797a4`)
+- ✅ Snackbar undo progress bar — _UndoContent + TweenAnimationBuilder(1.0→0.0) + LinearProgressIndicator (commit pending)
 
-총 193/193 PASS.
+총 196/196 PASS.
 
-다음: § 10-C 네번째 — Snackbar undo 시간 시각 표시 (5초 progress bar).
+다음: § 10-C 다섯번째 (마지막) — OTP 입력 시 자동 검증 (6/8자리 모두 채워지면 자동 verify).
 
 ---
 
