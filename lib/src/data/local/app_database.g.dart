@@ -88,6 +88,39 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _parentIdMeta = const VerificationMeta(
+    'parentId',
+  );
+  @override
+  late final GeneratedColumn<String> parentId = GeneratedColumn<String>(
+    'parent_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('task'),
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -98,6 +131,9 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
     createdAt,
     updatedAt,
     calendarEventId,
+    parentId,
+    type,
+    sortOrder,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -169,6 +205,24 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
         ),
       );
     }
+    if (data.containsKey('parent_id')) {
+      context.handle(
+        _parentIdMeta,
+        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
+      );
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
     return context;
   }
 
@@ -210,6 +264,18 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
         DriftSqlType.string,
         data['${effectivePrefix}calendar_event_id'],
       ),
+      parentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_id'],
+      ),
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
     );
   }
 
@@ -228,6 +294,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? calendarEventId;
+  final String? parentId;
+  final String type;
+  final int sortOrder;
   const TodoRow({
     required this.id,
     required this.title,
@@ -237,6 +306,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     required this.createdAt,
     required this.updatedAt,
     this.calendarEventId,
+    this.parentId,
+    required this.type,
+    required this.sortOrder,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -255,6 +327,11 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     if (!nullToAbsent || calendarEventId != null) {
       map['calendar_event_id'] = Variable<String>(calendarEventId);
     }
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<String>(parentId);
+    }
+    map['type'] = Variable<String>(type);
+    map['sort_order'] = Variable<int>(sortOrder);
     return map;
   }
 
@@ -274,6 +351,11 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       calendarEventId: calendarEventId == null && nullToAbsent
           ? const Value.absent()
           : Value(calendarEventId),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
+      type: Value(type),
+      sortOrder: Value(sortOrder),
     );
   }
 
@@ -291,6 +373,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       calendarEventId: serializer.fromJson<String?>(json['calendarEventId']),
+      parentId: serializer.fromJson<String?>(json['parentId']),
+      type: serializer.fromJson<String>(json['type']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
     );
   }
   @override
@@ -305,6 +390,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'calendarEventId': serializer.toJson<String?>(calendarEventId),
+      'parentId': serializer.toJson<String?>(parentId),
+      'type': serializer.toJson<String>(type),
+      'sortOrder': serializer.toJson<int>(sortOrder),
     };
   }
 
@@ -317,6 +405,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     DateTime? createdAt,
     DateTime? updatedAt,
     Value<String?> calendarEventId = const Value.absent(),
+    Value<String?> parentId = const Value.absent(),
+    String? type,
+    int? sortOrder,
   }) => TodoRow(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -328,6 +419,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     calendarEventId: calendarEventId.present
         ? calendarEventId.value
         : this.calendarEventId,
+    parentId: parentId.present ? parentId.value : this.parentId,
+    type: type ?? this.type,
+    sortOrder: sortOrder ?? this.sortOrder,
   );
   TodoRow copyWithCompanion(TodosCompanion data) {
     return TodoRow(
@@ -341,6 +435,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       calendarEventId: data.calendarEventId.present
           ? data.calendarEventId.value
           : this.calendarEventId,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      type: data.type.present ? data.type.value : this.type,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
     );
   }
 
@@ -354,7 +451,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           ..write('doneAt: $doneAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('calendarEventId: $calendarEventId')
+          ..write('calendarEventId: $calendarEventId, ')
+          ..write('parentId: $parentId, ')
+          ..write('type: $type, ')
+          ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
   }
@@ -369,6 +469,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     createdAt,
     updatedAt,
     calendarEventId,
+    parentId,
+    type,
+    sortOrder,
   );
   @override
   bool operator ==(Object other) =>
@@ -381,7 +484,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           other.doneAt == this.doneAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
-          other.calendarEventId == this.calendarEventId);
+          other.calendarEventId == this.calendarEventId &&
+          other.parentId == this.parentId &&
+          other.type == this.type &&
+          other.sortOrder == this.sortOrder);
 }
 
 class TodosCompanion extends UpdateCompanion<TodoRow> {
@@ -393,6 +499,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<String?> calendarEventId;
+  final Value<String?> parentId;
+  final Value<String> type;
+  final Value<int> sortOrder;
   final Value<int> rowid;
   const TodosCompanion({
     this.id = const Value.absent(),
@@ -403,6 +512,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.calendarEventId = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TodosCompanion.insert({
@@ -414,6 +526,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     required DateTime createdAt,
     required DateTime updatedAt,
     this.calendarEventId = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -429,6 +544,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<String>? calendarEventId,
+    Expression<String>? parentId,
+    Expression<String>? type,
+    Expression<int>? sortOrder,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -440,6 +558,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (calendarEventId != null) 'calendar_event_id': calendarEventId,
+      if (parentId != null) 'parent_id': parentId,
+      if (type != null) 'type': type,
+      if (sortOrder != null) 'sort_order': sortOrder,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -453,6 +574,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<String?>? calendarEventId,
+    Value<String?>? parentId,
+    Value<String>? type,
+    Value<int>? sortOrder,
     Value<int>? rowid,
   }) {
     return TodosCompanion(
@@ -464,6 +588,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       calendarEventId: calendarEventId ?? this.calendarEventId,
+      parentId: parentId ?? this.parentId,
+      type: type ?? this.type,
+      sortOrder: sortOrder ?? this.sortOrder,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -495,6 +622,15 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     if (calendarEventId.present) {
       map['calendar_event_id'] = Variable<String>(calendarEventId.value);
     }
+    if (parentId.present) {
+      map['parent_id'] = Variable<String>(parentId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -512,6 +648,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('calendarEventId: $calendarEventId, ')
+          ..write('parentId: $parentId, ')
+          ..write('type: $type, ')
+          ..write('sortOrder: $sortOrder, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -895,6 +1034,9 @@ typedef $$TodosTableCreateCompanionBuilder =
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<String?> calendarEventId,
+      Value<String?> parentId,
+      Value<String> type,
+      Value<int> sortOrder,
       Value<int> rowid,
     });
 typedef $$TodosTableUpdateCompanionBuilder =
@@ -907,6 +1049,9 @@ typedef $$TodosTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<String?> calendarEventId,
+      Value<String?> parentId,
+      Value<String> type,
+      Value<int> sortOrder,
       Value<int> rowid,
     });
 
@@ -955,6 +1100,21 @@ class $$TodosTableFilterComposer extends Composer<_$AppDatabase, $TodosTable> {
 
   ColumnFilters<String> get calendarEventId => $composableBuilder(
     column: $table.calendarEventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentId => $composableBuilder(
+    column: $table.parentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1007,6 +1167,21 @@ class $$TodosTableOrderingComposer
     column: $table.calendarEventId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get parentId => $composableBuilder(
+    column: $table.parentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TodosTableAnnotationComposer
@@ -1043,6 +1218,15 @@ class $$TodosTableAnnotationComposer
     column: $table.calendarEventId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get parentId =>
+      $composableBuilder(column: $table.parentId, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
 }
 
 class $$TodosTableTableManager
@@ -1081,6 +1265,9 @@ class $$TodosTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<String?> calendarEventId = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodosCompanion(
                 id: id,
@@ -1091,6 +1278,9 @@ class $$TodosTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 calendarEventId: calendarEventId,
+                parentId: parentId,
+                type: type,
+                sortOrder: sortOrder,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1103,6 +1293,9 @@ class $$TodosTableTableManager
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<String?> calendarEventId = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodosCompanion.insert(
                 id: id,
@@ -1113,6 +1306,9 @@ class $$TodosTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 calendarEventId: calendarEventId,
+                parentId: parentId,
+                type: type,
+                sortOrder: sortOrder,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

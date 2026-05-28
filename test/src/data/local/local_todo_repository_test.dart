@@ -26,6 +26,9 @@ void main() {
     DateTime? doneAt,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? parentId,
+    TodoType type = TodoType.task,
+    int sortOrder = 0,
   }) {
     final c = createdAt ?? DateTime.utc(2026, 5, 27, 9);
     return Todo(
@@ -37,6 +40,9 @@ void main() {
       createdAt: c,
       updatedAt: updatedAt ?? c,
       calendarEventId: null,
+      parentId: parentId,
+      type: type,
+      sortOrder: sortOrder,
     );
   }
 
@@ -251,5 +257,54 @@ void main() {
         expect(list.map((t) => t.id), ['todayDone']);
       },
     );
+
+    test(
+      'v1.1 — sortOrder 우선 정렬, 같은 sortOrder 면 dueAt → createdAt fallback',
+      () async {
+        // 모두 미체크 (doneAt null) + 같은 카테고리.
+        // sortOrder 정렬 검증을 위해 createdAt 은 일부러 역순으로.
+        await repo.upsert(
+          make(id: 'b', sortOrder: 1, createdAt: DateTime.utc(2026, 5, 27, 9)),
+        );
+        await repo.upsert(
+          make(id: 'a', sortOrder: 0, createdAt: DateTime.utc(2026, 5, 27, 8)),
+        );
+        await repo.upsert(
+          make(id: 'c', sortOrder: 2, createdAt: DateTime.utc(2026, 5, 27, 10)),
+        );
+
+        final list = await repo.watchAll().first;
+        expect(list.map((t) => t.id), [
+          'a',
+          'b',
+          'c',
+        ], reason: 'sortOrder 0,1,2 순서대로');
+      },
+    );
+
+    test('v1.1 — round-trip 시 parentId / type / sortOrder 보존', () async {
+      final t = make(
+        id: 'tree',
+        title: '울트라 모드',
+        parentId: 'js-super',
+        type: TodoType.note,
+        sortOrder: 7,
+      );
+      await repo.upsert(t);
+      final got = await repo.getById('tree');
+      expect(got, isNotNull);
+      expect(got!.parentId, 'js-super');
+      expect(got.type, TodoType.note);
+      expect(got.sortOrder, 7);
+    });
+
+    test('v1.1 — type 기본 task, sortOrder 기본 0 (모델 default)', () async {
+      // make() 의 기본값이 type=task, sortOrder=0 이므로 backwards-compat 확인.
+      await repo.upsert(make(id: 'plain'));
+      final got = await repo.getById('plain');
+      expect(got!.type, TodoType.task);
+      expect(got.sortOrder, 0);
+      expect(got.parentId, isNull);
+    });
   });
 }

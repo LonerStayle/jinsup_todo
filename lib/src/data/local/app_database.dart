@@ -25,6 +25,13 @@ class Todos extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   TextColumn get calendarEventId => text().nullable()();
+  // v1.1 — 트리 노드 부모 id. null = 카테고리 직속 root.
+  // FK 제약은 두지 않음 — Supabase 양방향 동기화 도중 일시적 dangling 가능 + LWW 가 자정 처리.
+  TextColumn get parentId => text().nullable()();
+  // v1.1 — TodoType.name ('task' | 'note'). 기본 'task'.
+  TextColumn get type => text().withDefault(const Constant('task'))();
+  // v1.1 — 같은 parent 내 사용자 정의 순서. 작은 값 먼저. drag-reorder 는 v1.2 후속.
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {id};

@@ -30,7 +30,11 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
     return (delete(todos)..where((t) => t.id.equals(id))).go();
   }
 
-  /// 미체크 우선 + dueAt 오름 + createdAt 내림 정렬.
+  /// 미체크 우선 + sortOrder 오름 + dueAt 오름 + createdAt 내림 정렬.
+  ///
+  /// v1.1 — sortOrder 가 사용자 정의 순서 (drag-reorder 는 v1.2 후속). 같은 sortOrder
+  /// 인 경우 dueAt → createdAt 으로 자연 fallback. 모두 기본값 0 일 때는 기존 v1.0
+  /// 정렬과 동일하게 동작.
   Stream<List<domain.Todo>> watchAll() {
     final q = select(todos)
       ..orderBy([
@@ -41,6 +45,7 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
           mode: OrderingMode.asc,
           nulls: NullsOrder.first,
         ),
+        (t) => OrderingTerm(expression: t.sortOrder, mode: OrderingMode.asc),
         (t) => OrderingTerm(expression: t.dueAt, mode: OrderingMode.asc),
         (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
       ]);
@@ -52,6 +57,7 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
       ..where((t) => t.category.equals(category.id))
       ..orderBy([
         (t) => OrderingTerm(expression: t.doneAt, mode: OrderingMode.asc),
+        (t) => OrderingTerm(expression: t.sortOrder, mode: OrderingMode.asc),
         (t) => OrderingTerm(expression: t.dueAt, mode: OrderingMode.asc),
         (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
       ]);
@@ -81,7 +87,21 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       calendarEventId: row.calendarEventId,
+      parentId: row.parentId,
+      type: _parseType(row.type),
+      sortOrder: row.sortOrder,
     );
+  }
+
+  /// 옛 row 또는 외부에서 미지의 type 문자열이 들어와도 안전하게 task 로 fallback.
+  static domain.TodoType _parseType(String raw) {
+    switch (raw) {
+      case 'note':
+        return domain.TodoType.note;
+      case 'task':
+      default:
+        return domain.TodoType.task;
+    }
   }
 
   TodosCompanion _domainToCompanion(domain.Todo t) {
@@ -94,6 +114,9 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
       createdAt: Value(t.createdAt),
       updatedAt: Value(t.updatedAt),
       calendarEventId: Value(t.calendarEventId),
+      parentId: Value(t.parentId),
+      type: Value(t.type.name),
+      sortOrder: Value(t.sortOrder),
     );
   }
 }
