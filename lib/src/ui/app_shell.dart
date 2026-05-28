@@ -156,6 +156,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       onSelect: _selectByDestination,
       child: Scaffold(
         floatingActionButton: fab,
+        // 모바일은 NavigationBar 위에 자연스럽게 정렬되는 endContained — 6 destination 라벨과
+        // FAB 가 겹치지 않음. desktop 은 NavigationBar 자체가 없어 기본 endFloat.
+        floatingActionButtonLocation: AppPlatform.isDesktop
+            ? FloatingActionButtonLocation.endFloat
+            : FloatingActionButtonLocation.endContained,
         body: body,
         bottomNavigationBar: AppPlatform.isDesktop
             ? null

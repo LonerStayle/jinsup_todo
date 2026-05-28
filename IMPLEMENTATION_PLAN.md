@@ -98,7 +98,7 @@
 - [x] 카테고리 chip selected 시 시각 대비 보강 — bg alpha 0.18→0.22 + `RoundedRectangleBorder` 의 `BorderSide(width: 1.6, color: category.color)` outline 적용. 선택 chip 의 outline 검증 테스트 1건 추가 (총 143/143 PASS).
 - [x] HomeScreen 이월 배너 — 다크에서 bg alpha 가 너무 옅어 가독성 떨어짐. **fix**: `theme.brightness` 분기, dark 에선 bg alpha 0.18 / border 0.40, light 에선 기존 0.08 / 0.20 유지. light + dark 별도 검증 테스트 2건 추가 (총 145/145 PASS).
 - [x] Dismissible — threshold 0.4 → 0.6 으로 상향 (실수 swipe 1차 가드) + 호출자가 원할 때 dialog 등을 띄울 수 있도록 `confirmDismiss: Future<bool> Function()?` 옵션 노출. threshold + confirmDismiss 검증 widget test 3건 추가 (총 148/148 PASS).
-- [ ] FAB 가 BottomNavigationBar (Android) 와 겹쳐 가독성 떨어짐 — `FloatingActionButtonLocation.endDocked` 또는 위치 조정
+- [x] FAB 가 BottomNavigationBar (Android) 와 겹쳐 가독성 떨어짐. **fix**: `floatingActionButtonLocation` 을 platform 분기 — mobile = `endContained` (M3 의 NavigationBar 친화 위치), desktop = `endFloat` 유지.
 - [ ] `_ShortcutsHost` 의 1~5 키가 TextField 안에서도 발화될 수 있음 — Focus 위계 검증, TextField focus 시 capture 차단
 - [ ] macOS desktop 분기에서 `bottomNavigationBar` 가 null 인데 코드는 ternary 로 남아 있음. 정상이지만 의도 명시
 
