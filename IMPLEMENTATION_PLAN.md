@@ -152,7 +152,7 @@
 - [x] Tree query providers — TodosDao 에 watchChildrenOf(parentId) / watchRootsOfCategory(category) 추가 (sortOrder asc + createdAt asc 정렬). `lib/src/features/outline/tree_providers.dart` 신규 — childrenOfProvider / rootsOfCategoryProvider (StreamProvider.family). SubtreeProgress 도메인 클래스 + computeSubtreeProgress(root, all) pure function (parentId 인덱스 1회 구성 + 재귀 walk, note 분모 제외, root 자신 제외). 신규 테스트 12건 (총 241/241 PASS).
 
 **Add / Note UI**
-- [ ] AddTodoSheet 에 "task / note" 토글 추가 — note 선택 시 dueAt/calendar 영역 비활성, AddTodoSubmission.type 전달. 단위 테스트.
+- [x] AddTodoSheet 에 "할 일 / 메모" 토글 추가 — `_TypeToggle` (segmented chip) 위젯 신규. note 선택 시 dueAt/Calendar 영역 자체를 트리 밖에 두어 (if 분기) UI 노이즈 제거 + state reset. _submit 에서 note 면 dueAt/isAllDay/addToCalendar 강제 null/false. AddTodoSubmission 에 `type` 필드 추가, AddTodoController.add 에서 Todo.create 에 전달. 신규 테스트 4건 (총 245/245 PASS).
 - [ ] TodoTile / DismissibleTodoTile — type=='note' 시 leading 을 체크박스 대신 점·노트 아이콘으로 교체, onToggle no-op, swipe-delete 는 유지. 단위 테스트.
 
 **Outline view**

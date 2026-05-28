@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
+import '../../domain/todo.dart' show TodoType;
 
 /// "빠른 추가" 입력 패널.
 ///
@@ -72,6 +73,9 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
   bool _allDay = true;
   bool _addToCalendar = false;
 
+  /// v1.1 — 추가할 항목의 종류. note 면 일정/캘린더 영역은 비활성 (의미 없음).
+  TodoType _type = TodoType.task;
+
   /// 더블 submit race 가드. _submit 이 한 번이라도 호출되면 true 로 set 되어 후속
   /// tap / Enter 가 추가 onSubmit 콜백 호출을 못 하게 막는다. Navigator.maybePop 이
   /// 동기적으로 처리되지만 그 직전 frame 에 두 번째 tap 이 들어와 두 todo 가 생성되던
@@ -98,16 +102,32 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
   void _submit() {
     if (_submitted || _titleCtrl.text.trim().isEmpty) return;
     _submitted = true;
+    // note 는 일정 무관 — dueAt / Calendar 모두 강제 null/false.
+    final isNote = _type == TodoType.note;
     widget.onSubmit(
       AddTodoSubmission(
         title: _titleCtrl.text.trim(),
         category: _category,
-        dueAt: _dueAt,
-        isAllDay: _dueAt != null && _allDay,
-        addToCalendar: _dueAt != null && _addToCalendar,
+        dueAt: isNote ? null : _dueAt,
+        isAllDay: !isNote && _dueAt != null && _allDay,
+        addToCalendar: !isNote && _dueAt != null && _addToCalendar,
+        type: _type,
       ),
     );
     Navigator.of(context).maybePop();
+  }
+
+  /// task ↔ note 토글. note 로 바꿀 때는 일정 관련 state 를 안전하게 reset.
+  void _setType(TodoType t) {
+    if (t == _type) return;
+    setState(() {
+      _type = t;
+      if (t == TodoType.note) {
+        _dueAt = null;
+        _allDay = true;
+        _addToCalendar = false;
+      }
+    });
   }
 
   /// 날짜만 받는다 — 시간 picker 는 강제하지 않고, 기본은 "하루 종일".
@@ -263,40 +283,47 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
                     onSelect: (c) => setState(() => _category = c),
                   ),
                   const SizedBox(height: AppTokens.space16),
-                  _SectionLabel(text: '일정'),
+                  _SectionLabel(text: '종류'),
                   const SizedBox(height: AppTokens.space8),
-                  _QuickDueChips(
-                    today: _today(),
-                    dueAt: _dueAt,
-                    allDay: _allDay,
-                    onSelectDate: _setQuickDate,
-                    onPickTime: _pickTime,
-                  ),
-                  const SizedBox(height: AppTokens.space8),
-                  _DueRow(
-                    dueAt: _dueAt,
-                    allDay: _allDay,
-                    onPickDate: _pickDueDate,
-                    onPickTime: _pickTime,
-                    onMakeAllDay: _makeAllDay,
-                    onClear: _clearDueAt,
-                  ),
-                  AnimatedSize(
-                    duration: AppTokens.motionFast,
-                    alignment: Alignment.topCenter,
-                    child: _dueAt == null
-                        ? const SizedBox.shrink()
-                        : Padding(
-                            padding: const EdgeInsets.only(
-                              top: AppTokens.space12,
+                  _TypeToggle(selected: _type, onSelect: _setType),
+                  const SizedBox(height: AppTokens.space16),
+                  // note 면 일정 영역 자체를 숨김 — 의미 없음.
+                  if (_type == TodoType.task) ...[
+                    _SectionLabel(text: '일정'),
+                    const SizedBox(height: AppTokens.space8),
+                    _QuickDueChips(
+                      today: _today(),
+                      dueAt: _dueAt,
+                      allDay: _allDay,
+                      onSelectDate: _setQuickDate,
+                      onPickTime: _pickTime,
+                    ),
+                    const SizedBox(height: AppTokens.space8),
+                    _DueRow(
+                      dueAt: _dueAt,
+                      allDay: _allDay,
+                      onPickDate: _pickDueDate,
+                      onPickTime: _pickTime,
+                      onMakeAllDay: _makeAllDay,
+                      onClear: _clearDueAt,
+                    ),
+                    AnimatedSize(
+                      duration: AppTokens.motionFast,
+                      alignment: Alignment.topCenter,
+                      child: _dueAt == null
+                          ? const SizedBox.shrink()
+                          : Padding(
+                              padding: const EdgeInsets.only(
+                                top: AppTokens.space12,
+                              ),
+                              child: _CalendarToggle(
+                                value: _addToCalendar,
+                                onChanged: (v) =>
+                                    setState(() => _addToCalendar = v),
+                              ),
                             ),
-                            child: _CalendarToggle(
-                              value: _addToCalendar,
-                              onChanged: (v) =>
-                                  setState(() => _addToCalendar = v),
-                            ),
-                          ),
-                  ),
+                    ),
+                  ],
                   const SizedBox(height: AppTokens.space20),
                   _Actions(canSubmit: _canSubmit, onSubmit: _submit),
                 ],
@@ -636,6 +663,100 @@ class _Actions extends StatelessWidget {
   }
 }
 
+/// v1.1 — task / note segmented 토글. note 면 일정 영역이 사라지고 단순 메모로 저장된다.
+class _TypeToggle extends StatelessWidget {
+  const _TypeToggle({required this.selected, required this.onSelect});
+
+  final TodoType selected;
+  final ValueChanged<TodoType> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppTokens.space8,
+      runSpacing: AppTokens.space8,
+      children: [
+        _TypeChip(
+          key: const ValueKey('type-task'),
+          label: '할 일',
+          icon: Icons.check_box_outline_blank_rounded,
+          selected: selected == TodoType.task,
+          onTap: () => onSelect(TodoType.task),
+        ),
+        _TypeChip(
+          key: const ValueKey('type-note'),
+          label: '메모',
+          icon: Icons.sticky_note_2_outlined,
+          selected: selected == TodoType.note,
+          onTap: () => onSelect(TodoType.note),
+        ),
+      ],
+    );
+  }
+}
+
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final bg = selected
+        ? scheme.primaryContainer
+        : scheme.surfaceContainerHighest;
+    final fg = selected
+        ? scheme.onPrimaryContainer
+        : scheme.onSurface.withValues(alpha: 0.78);
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+      side: selected
+          ? BorderSide(color: scheme.primary, width: 1.4)
+          : BorderSide.none,
+    );
+
+    return Material(
+      color: bg,
+      shape: shape,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space12,
+            vertical: AppTokens.space8,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: fg),
+              const SizedBox(width: AppTokens.space8),
+              Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: fg,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 빠른 dueAt 선택 칩 — "오늘 / 내일 / 다음주 / 시간 지정".
 ///
 /// "다음주" 는 오늘로부터 7일 후 자정 (= 1주일 뒤) 으로 정의 — "다음주 월요일" 처럼
@@ -779,6 +900,7 @@ class AddTodoSubmission {
     required this.dueAt,
     this.isAllDay = false,
     required this.addToCalendar,
+    this.type = TodoType.task,
   });
 
   final String title;
@@ -790,4 +912,7 @@ class AddTodoSubmission {
   final bool isAllDay;
 
   final bool addToCalendar;
+
+  /// v1.1 — task / note 구분. note 면 dueAt/addToCalendar 는 강제로 무효 처리됨.
+  final TodoType type;
 }

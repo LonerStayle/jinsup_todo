@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:solo_todo/src/core/theme.dart';
 import 'package:solo_todo/src/domain/category.dart';
+import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/add_todo/add_todo_sheet.dart';
 
 void main() {
@@ -387,6 +388,75 @@ void main() {
       await tester.pump();
 
       expect(submissions.first.dueAt, DateTime(2026, 6, 1));
+    });
+  });
+
+  group('v1.1 — task / note 토글', () {
+    testWidgets('초기는 task 선택 — task chip 이 outline 강조', (tester) async {
+      await mount(tester);
+      final material = tester.widget<Material>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('type-task')),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      final shape = material.shape! as RoundedRectangleBorder;
+      expect(shape.side.width, greaterThan(0));
+    });
+
+    testWidgets('"메모" 탭 → submission.type = note + dueAt 강제 null', (
+      tester,
+    ) async {
+      final submissions = await mount(tester, fixedNow: DateTime(2026, 5, 27));
+
+      // 먼저 "오늘" 칩으로 dueAt 설정한 뒤 메모로 전환 — note 가 dueAt 을 null 로 강제하는지 검증.
+      await tester.tap(find.byKey(const ValueKey('quick-due-today')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('type-note')));
+      await tester.pump();
+
+      // 일정 영역 자체가 사라져야 함.
+      expect(find.byKey(const ValueKey('quick-due-today')), findsNothing);
+      expect(find.text('일정'), findsNothing);
+
+      await tester.enterText(find.byKey(const ValueKey('add-todo-title')), 'x');
+      await tester.pump();
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '추가'))
+          .onPressed!();
+      await tester.pump();
+
+      expect(submissions, hasLength(1));
+      expect(submissions.first.type, TodoType.note);
+      expect(submissions.first.dueAt, isNull, reason: 'note 는 dueAt 강제 null');
+      expect(submissions.first.addToCalendar, isFalse);
+      expect(submissions.first.isAllDay, isFalse);
+    });
+
+    testWidgets('note → task 다시 전환하면 일정 영역 복원', (tester) async {
+      await mount(tester);
+      await tester.tap(find.byKey(const ValueKey('type-note')));
+      await tester.pump();
+      expect(find.text('일정'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('type-task')));
+      await tester.pump();
+      expect(find.text('일정'), findsOneWidget);
+      expect(find.byKey(const ValueKey('quick-due-today')), findsOneWidget);
+    });
+
+    testWidgets('task 선택 그대로 추가 → submission.type = task', (tester) async {
+      final submissions = await mount(tester);
+      await tester.enterText(find.byKey(const ValueKey('add-todo-title')), 'a');
+      await tester.pump();
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '추가'))
+          .onPressed!();
+      await tester.pump();
+
+      expect(submissions.first.type, TodoType.task);
     });
   });
 }

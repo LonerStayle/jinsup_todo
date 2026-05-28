@@ -32,6 +32,7 @@ class AddTodoController {
       category: s.category,
       dueAt: s.dueAt,
       now: now,
+      type: s.type,
     );
     await repo.upsert(todo);
 
