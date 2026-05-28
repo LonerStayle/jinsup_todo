@@ -111,7 +111,7 @@
 **시스템 / macOS**
 - [x] `hotkey_manager.unregisterAll()` 의 broad scope 제거 — process 단위지만 향후 우리 앱이 hotkey 추가 시 함께 날아갈 위험. **fix**: `unregisterAll()` 대신 우리 Cmd+N hotkey 만 `unregister(hotkey)` 후 `register`. 등록 안 된 경우엔 catch 로 무시. 161/161 PASS.
 - [x] Tray icon 디자인 보강 — 의미있는 체크박스 outline SVG (`assets/tray_icon.svg`) 를 sips 로 22/44/66 PNG 멀티 해상도 생성 (`assets/tray_icon.png`, `assets/2.0x/tray_icon.png`, `assets/3.0x/tray_icon.png`). Flutter resolution-aware variants 구조로 retina/디스플레이 자동 선택. `isTemplate: true` 유지로 macOS 가 dark/light 자동 추종. 161/161 PASS.
-- [ ] Cmd+W 등 시스템 단축키와 충돌 점검 (현재 0~5, Cmd+N 만 사용)
+- [x] Cmd+W 등 시스템 단축키와 충돌 점검 — 우리가 잡는 modifier+key 조합은 Cmd+N 뿐. Cmd+W/Q/M/H/, 등 macOS 시스템 단축키와 비충돌 확인. 0~5 는 modifier 없는 digit 이고 TextField focus 시 가드로 양보. Esc 는 AddTodoSheet 의 _DismissIntent (관행 일치). AppShell 클래스 doc 에 점검 결과 명시.
 - [ ] tray menu 의 "종료" 가 `SystemNavigator.pop()` — macOS 에서 confirm 없이 즉시 종료. 미저장 데이터 안전성 확인
 
 **성능 / 정리**

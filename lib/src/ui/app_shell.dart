@@ -20,6 +20,15 @@ import 'destination.dart';
 ///
 /// 단축키: `0` = Today, `1` = work, `2` = personalDev, `3` = daily, `4` = longterm, `5` = idea.
 /// macOS 데스크탑 global Cmd+N 은 phase 6 의 hotkey_manager task 에서 연결.
+///
+/// **시스템 단축키 비충돌 점검** (macOS):
+///   - 우리가 잡는 modifier+key 조합은 **Cmd+N (글로벌)** 뿐. Cmd+W (Close window) /
+///     Cmd+Q (Quit) / Cmd+M (Minimize) / Cmd+H (Hide) / Cmd+, (Preferences) 등은
+///     macOS 가 그대로 처리하도록 둠.
+///   - 0~5 는 modifier 없는 plain digit — TextField focus 시 [isFocusInEditableText] 가드로
+///     숫자 입력에 양보 (text 입력 가능).
+///   - Esc 는 AddTodoSheet 의 _DismissIntent (sheet 닫기) — macOS 의 dialog 닫기와
+///     관행 일치, 충돌 없음.
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
