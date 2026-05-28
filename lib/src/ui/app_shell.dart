@@ -14,6 +14,7 @@ import '../features/auth/auth_providers.dart';
 import '../features/category/category_view.dart';
 import '../features/home/home_screen.dart';
 import '../features/home/today_providers.dart';
+import '../features/outline/outline_screen.dart';
 import '../features/system/tray_service.dart';
 import 'destination.dart';
 
@@ -153,9 +154,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     setState(() => _index = i);
   }
 
-  /// 단축키 → category null (Today) 또는 특정 [Category] 를 받아 destination index 로 매핑.
-  void _selectByDestination({Category? category}) {
-    final idx = AppDestination.all.indexWhere((d) => d.category == category);
+  /// 단축키 digit (0~6) → destination index 매핑. 0 Today, 1~5 카테고리, 6 Outline.
+  void _selectByDigit(int digit) {
+    final idx = AppDestination.all.indexWhere((d) => d.shortcutDigit == digit);
     if (idx >= 0 && idx != _index) _select(idx);
   }
 
@@ -219,7 +220,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     return _ShortcutsHost(
-      onSelect: _selectByDestination,
+      onSelect: _selectByDigit,
       child: Scaffold(
         floatingActionButton: fab,
         // 모바일은 NavigationBar 위에 자연스럽게 정렬되는 endContained — 6 destination 라벨과
@@ -250,25 +251,27 @@ class _AppShellState extends ConsumerState<AppShell> {
 }
 
 class _SelectDestinationIntent extends Intent {
-  const _SelectDestinationIntent(this.category);
+  const _SelectDestinationIntent(this.digit);
 
-  /// null 이면 Today.
-  final Category? category;
+  /// 0~6 단축키 digit. AppDestination.all 의 shortcutDigit 과 매핑.
+  final int digit;
 }
 
 class _ShortcutsHost extends StatelessWidget {
   const _ShortcutsHost({required this.onSelect, required this.child});
 
-  final void Function({Category? category}) onSelect;
+  final void Function(int digit) onSelect;
   final Widget child;
 
-  static final _digitKeys = <LogicalKeyboardKey, Category?>{
-    LogicalKeyboardKey.digit0: null,
-    LogicalKeyboardKey.digit1: Category.work,
-    LogicalKeyboardKey.digit2: Category.personalDev,
-    LogicalKeyboardKey.digit3: Category.daily,
-    LogicalKeyboardKey.digit4: Category.longterm,
-    LogicalKeyboardKey.digit5: Category.idea,
+  /// 0 = Today, 1~5 = 카테고리, 6 = Outline.
+  static final _digitKeys = <LogicalKeyboardKey, int>{
+    LogicalKeyboardKey.digit0: 0,
+    LogicalKeyboardKey.digit1: 1,
+    LogicalKeyboardKey.digit2: 2,
+    LogicalKeyboardKey.digit3: 3,
+    LogicalKeyboardKey.digit4: 4,
+    LogicalKeyboardKey.digit5: 5,
+    LogicalKeyboardKey.digit6: 6,
   };
 
   @override
@@ -294,19 +297,19 @@ class _ShortcutsHost extends StatelessWidget {
   }
 }
 
-/// 0~5 키 카테고리 전환 Action. **TextField focus 시 disabled** 되어 사용자가 todo 제목에
-/// 숫자를 입력할 때 의도치 않은 카테고리 전환이 발생하지 않게 한다.
+/// 0~6 키 destination 전환 Action. **TextField focus 시 disabled** 되어 사용자가 todo
+/// 제목에 숫자를 입력할 때 의도치 않은 전환이 발생하지 않게 한다.
 class _SelectDestinationAction extends Action<_SelectDestinationIntent> {
   _SelectDestinationAction({required this.onSelect});
 
-  final void Function({Category? category}) onSelect;
+  final void Function(int digit) onSelect;
 
   @override
   bool isEnabled(_SelectDestinationIntent intent) => !isFocusInEditableText();
 
   @override
   Object? invoke(_SelectDestinationIntent intent) {
-    onSelect(category: intent.category);
+    onSelect(intent.digit);
     return null;
   }
 }
@@ -477,6 +480,7 @@ class _MainArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (destination.isToday) return const HomeScreen();
+    if (destination.isOutline) return const OutlineScreen();
     return CategoryView(category: destination.category!);
   }
 }

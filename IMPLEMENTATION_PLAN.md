@@ -156,7 +156,7 @@
 - [x] TodoTile note 시각 — type=='note' 면 trailing IconButton (체크) 대신 sticky_note_2_outlined 아이콘으로 교체. 제목은 italic 처리로 메모 시각 구분, dueAt 시간 라벨도 hide (note 는 일정 무관). 체크 IconButton 자체가 트리에서 빠지므로 onToggle 호출 불가 (no-op 효과). DismissibleTodoTile 은 TodoTile 을 감싸기만 하므로 swipe-delete 는 자동 유지. 신규 테스트 7건 (총 252/252 PASS).
 
 **Outline view**
-- [ ] AppShell destination 에 "전체보기 (Outline)" 추가 — 5 카테고리 + Today + Outline = 7번째 destination, 단축키 6, sidebar/NavigationBar 등록.
+- [x] AppShell destination 에 "전체보기 (Outline)" 추가 — `DestinationKind` enum 도입 (today/category/outline), AppDestination.all 에 outline 추가 (shortcutDigit 6, account_tree_outlined). _SelectDestinationIntent / _digitKeys 를 digit-based 로 단순화 (Category? → int). _MainArea 에 isOutline 분기 + placeholder OutlineScreen (다음 task 에서 본격 트리). 신규 테스트 1건 (총 253/253 PASS).
 - [ ] OutlineScreen — 5 카테고리 root 펼침/접힘, 깊이별 16px 들여쓰기, 폴더 헤더 [N/M] + progress bar (note 분모 제외).
 - [ ] OutlineScreen widget test — 펼침/접힘 토글, 진척률 카운트, note 가 분모에서 제외되는지 검증.
 

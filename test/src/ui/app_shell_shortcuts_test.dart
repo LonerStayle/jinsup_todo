@@ -61,4 +61,11 @@ void main() {
     await tester.pump();
     expect(find.text('오늘'), findsAtLeastNWidgets(1));
   });
+
+  testWidgets('v1.1 — 숫자 6 → Outline 화면 (전체보기) 노출', (tester) async {
+    await pump(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit6);
+    await tester.pump();
+    expect(find.text('전체보기 (Outline)'), findsAtLeastNWidgets(1));
+  });
 }
