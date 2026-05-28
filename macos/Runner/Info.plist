@@ -28,5 +28,18 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.goldenplanet.solo_todo.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>io.supabase.solo_todo</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
