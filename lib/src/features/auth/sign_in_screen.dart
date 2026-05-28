@@ -38,7 +38,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     return v.contains('@') && v.length >= 5 && !_busy;
   }
 
-  bool get _canVerify => _otpCtrl.text.trim().length == 6 && !_busy;
+  /// Supabase 의 OTP length 가 프로젝트 설정에 따라 6~10 가변이므로 6 이상만 검사.
+  bool get _canVerify => _otpCtrl.text.trim().length >= 6 && !_busy;
 
   Future<void> _sendCode() async {
     final auth = ref.read(authServiceProvider);
@@ -219,16 +220,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         autofillHints: const [AutofillHints.oneTimeCode],
         autofocus: true,
         enabled: !_busy,
-        maxLength: 6,
+        maxLength: 10,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         onChanged: (_) => setState(() {}),
         onSubmitted: (_) => _verify(),
         textAlign: TextAlign.center,
         style: theme.textTheme.headlineMedium?.copyWith(
-          letterSpacing: 8,
+          letterSpacing: 6,
           fontWeight: FontWeight.w700,
         ),
-        decoration: const InputDecoration(hintText: '000000', counterText: ''),
+        decoration: const InputDecoration(hintText: '코드 입력', counterText: ''),
       ),
       const SizedBox(height: AppTokens.space12),
       FilledButton(
