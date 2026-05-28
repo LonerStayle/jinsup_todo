@@ -5,7 +5,7 @@ import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../data/providers.dart';
 import '../../domain/todo.dart';
-import '../../ui/widgets/dismissible_todo_tile.dart';
+import '../../ui/widgets/animated_todo_list.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/undo_snackbar.dart';
@@ -97,15 +97,10 @@ class _Loaded extends StatelessWidget {
               AppTokens.space24,
               AppTokens.space48,
             ),
-            sliver: SliverList.separated(
-              itemCount: todos.length,
-              itemBuilder: (_, i) => DismissibleTodoTile(
-                todo: todos[i],
-                onToggle: () => onToggle(todos[i]),
-                onDelete: () => onDelete(todos[i]),
-              ),
-              separatorBuilder: (_, _) =>
-                  const SizedBox(height: AppTokens.space8),
+            sliver: AnimatedTodoSliver(
+              todos: todos,
+              onToggle: onToggle,
+              onDelete: onDelete,
             ),
           ),
       ],

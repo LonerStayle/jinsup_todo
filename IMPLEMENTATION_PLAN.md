@@ -129,7 +129,7 @@
 - [x] dueAt null (하루 종일) todo 의 watchToday / CarryoverPolicy 동작 test — LocalTodoRepository.watchToday 의 dueAt null 분기 (createdAt 어제/오늘/내일 + 어제 done / 오늘 done) 케이스 2건 추가, 신규 today_providers_test.dart 에 carryoverCountProvider 결합 검증 4건 (visible+carry 1, visible+carry 0, 어제 체크 hide, 다건 누적). 신규 테스트 6건 (총 176/176 PASS).
 
 #### 10-C. UI/UX 보강 (디자인·편의성 점수 추가 향상)
-- [ ] 체크 토글 후 부드러운 reorder 애니메이션 (AnimatedList 또는 implicitly animated)
+- [x] 체크 토글 후 부드러운 reorder 애니메이션 — `AnimatedTodoSliver` 신규 (SliverAnimatedList 기반 id-diff stateful widget). 외부에서는 평범한 List<Todo> 받고, didUpdateWidget 에서 (삭제/위치이동/추가/in-place 갱신) 4 케이스를 SliverAnimatedListState.removeItem/insertItem 로 발화. FadeTransition + SizeTransition + motionMid (200ms) duration. HomeScreen `SliverList.separated` → `AnimatedTodoSliver` 교체. 신규 테스트 6건 (총 182/182 PASS).
 - [ ] AddTodoSheet 의 dueAt — "오늘 / 내일 / 다음주 / 시간 지정" 빠른 칩
 - [ ] 사이드바 selected 상태에 키보드 focus ring 추가
 - [ ] Snackbar undo 시간 시각 표시 (5초 progress bar)
