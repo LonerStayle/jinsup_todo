@@ -117,6 +117,86 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
     Navigator.of(context).maybePop();
   }
 
+  /// 멀티라인 paste 시 줄바꿈으로 split + 빈 줄 제거 → 의미 있는 줄.
+  @visibleForTesting
+  static List<String> splitBulkLines(String raw) =>
+      raw.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+
+  /// 같은 카테고리 / parent / dueAt / type 으로 N건 일괄 추가. _submitted race 가드.
+  /// v1.1 첫 cut — 평탄 (들여쓰기 인식 X). 들여쓰기 자동 트리화는 v1.2.
+  void _submitBulk(List<String> titles) {
+    if (_submitted || titles.isEmpty) return;
+    _submitted = true;
+    final isNote = _type == TodoType.note;
+    for (final t in titles) {
+      widget.onSubmit(
+        AddTodoSubmission(
+          title: t,
+          category: _category,
+          dueAt: isNote ? null : _dueAt,
+          isAllDay: !isNote && _dueAt != null && _allDay,
+          addToCalendar: !isNote && _dueAt != null && _addToCalendar,
+          type: _type,
+        ),
+      );
+    }
+    if (mounted) Navigator.of(context).maybePop();
+  }
+
+  /// TextField onChanged 콜백. 멀티라인 paste 면 confirm dialog → bulk submit.
+  /// 단일 라인 입력은 일반 setState 만 (추가 버튼 활성화 토글).
+  Future<void> _onTitleChanged(String value) async {
+    if (!value.contains('\n')) {
+      setState(() {});
+      return;
+    }
+    final lines = splitBulkLines(value);
+    if (lines.length < 2) {
+      // 빈 줄 + 단일 줄 케이스 — \n 제거 후 단일 todo 흐름 유지.
+      _titleCtrl.text = lines.isEmpty ? '' : lines.first;
+      _titleCtrl.selection = TextSelection.collapsed(
+        offset: _titleCtrl.text.length,
+      );
+      setState(() {});
+      return;
+    }
+    // 멀티라인 — 사용자 확인 후 일괄 추가.
+    final ok = await _confirmBulkAdd(lines.length);
+    if (!mounted) return;
+    if (ok != true) {
+      // 취소 — \n 제거하여 단일 row 로 복구 (paste 전 상태 회복은 어렵지만 cursor 정상화).
+      _titleCtrl.text = lines.join(' ');
+      _titleCtrl.selection = TextSelection.collapsed(
+        offset: _titleCtrl.text.length,
+      );
+      setState(() {});
+      return;
+    }
+    _submitBulk(lines);
+  }
+
+  Future<bool?> _confirmBulkAdd(int n) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const ValueKey('bulk-paste-dialog'),
+        title: const Text('일괄 추가'),
+        content: Text('$n개의 항목을 같은 카테고리 / 일정으로 한 번에 추가하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            key: const ValueKey('bulk-paste-confirm'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('$n건 추가'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// task ↔ note 토글. note 로 바꿀 때는 일정 관련 state 를 안전하게 reset.
   void _setType(TodoType t) {
     if (t == _type) return;
@@ -267,11 +347,16 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
                     controller: _titleCtrl,
                     autofocus: true,
                     textInputAction: TextInputAction.done,
-                    maxLength: 200,
-                    onChanged: (_) => setState(() {}),
+                    // multi-line 허용 — 메모장 → 앱 멀티라인 paste 가 \n 그대로 들어와
+                    // [_onTitleChanged] 가 bulk paste 로 감지. 평소 1줄 입력 시각은 minLines.
+                    minLines: 1,
+                    maxLines: 5,
+                    maxLength: 1000,
+                    keyboardType: TextInputType.multiline,
+                    onChanged: _onTitleChanged,
                     onSubmitted: (_) => _submit(),
                     decoration: const InputDecoration(
-                      hintText: '무엇을 할까요?',
+                      hintText: '무엇을 할까요?  (여러 줄 paste = 일괄 추가)',
                       counterText: '',
                     ),
                   ),

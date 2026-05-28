@@ -161,7 +161,7 @@
 - [x] OutlineScreen widget test — stream provider 3 종 (allTodos / rootsOfCategory / childrenOf) 을 in-memory list 로 override 하는 mount 헬퍼. 5 frame pump 로 손자까지 stream emit 흐름 확보. 검증: 빈 트리 (5 헤더 + progress 0), task 2건 [1/2], 카테고리 row tap 으로 펼침/접힘, 자식 트리 [done/total] 누적 + 노드 tap 으로 자식만 접힘, note 분모 제외 (task 1 done + note 2 → 1/1), 손자까지 walk (depth 3 트리 [1/4]), leaf 의 InkWell.onTap null. 신규 테스트 7건 (총 260/260 PASS).
 
 **Bulk paste**
-- [ ] AddTodoSheet bulk paste — title TextField onChanged 가 줄바꿈 N≥2 감지 → confirm dialog "N개 항목으로 일괄 추가?" → 확인 시 같은 category/parent/dueAt 으로 batch insert. 트리화는 v1.2 (이번 cut 평탄 만).
+- [x] AddTodoSheet bulk paste — TextField 를 multi-line (minLines:1, maxLines:5, keyboardType.multiline, maxLength 1000) 으로 확장해 paste 시 \n 그대로 들어옴. `_onTitleChanged` 가 \n 감지 시 `splitBulkLines` (trim + 빈 줄 제거) → N≥2 면 confirm AlertDialog → 확인 시 `_submitBulk` 가 같은 category/parent/dueAt/type 으로 N번 onSubmit 호출 + _submitted race 가드. 취소 시 \n 제거 (lines.join(' ')) 로 단일 라인 복구. 빈 줄만 paste 도 안전 처리. 들여쓰기 자동 트리화는 v1.2. 단위 테스트는 다음 task. 회귀 없음 (총 260/260 PASS).
 - [ ] Bulk paste 단위 테스트 — 멀티라인 입력 → split + 빈 줄 무시 + N건 submission, 단일 줄은 기존 흐름 유지.
 
 **Today 화면 결합**
