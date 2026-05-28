@@ -81,9 +81,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ 토큰 만료/외부 sign-out 자동 cleanup (commit `7e6d78b`)
 
 **§ 10-B 에러 처리 4/4 완료**. § 10-B 시스템/macOS 진행 중 (1/4):
-- ✅ hotkey_manager unregisterAll → 우리 hotkey 만 unregister (commit pending)
+- ✅ hotkey_manager unregisterAll → 우리 hotkey 만 unregister (commit `0876c22`)
+- ✅ Tray icon 체크박스 SVG → 22/44/66 PNG 멀티 해상도 (commit pending)
 
-다음: § 10-B 시스템 — tray icon 디자인 / Cmd+W 충돌 / 종료 confirm.
+다음: § 10-B 시스템 — Cmd+W 등 시스템 단축키와 충돌 점검.
 
 ---
 

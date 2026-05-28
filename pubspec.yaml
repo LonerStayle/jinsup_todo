@@ -80,6 +80,7 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Flutter resolution-aware — 2.0x / 3.0x variant 가 자동 선택됨 (variants 폴더 구조).
   assets:
     - assets/tray_icon.png
 
