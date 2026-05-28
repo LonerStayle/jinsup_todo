@@ -17,6 +17,7 @@ void main() {
   Future<StreamController<List<Todo>>> mountWith(
     WidgetTester tester, {
     required DateTime fixedNow,
+    ThemeData? theme,
   }) async {
     final controller = StreamController<List<Todo>>();
     addTearDown(controller.close);
@@ -28,7 +29,7 @@ void main() {
           watchTodayTodosProvider.overrideWith((_) => controller.stream),
         ],
         child: MaterialApp(
-          theme: AppTheme.mobileLight(),
+          theme: theme ?? AppTheme.mobileLight(),
           home: const Scaffold(body: HomeScreen()),
         ),
       ),
@@ -107,5 +108,57 @@ void main() {
 
     expect(find.text('어제 못 끝낸 일'), findsOneWidget);
     expect(find.textContaining('1건이 오늘로 이월'), findsOneWidget);
+  });
+
+  testWidgets('이월 배너 — light 테마에서 bg alpha 0.08', (tester) async {
+    final controller = await mountWith(
+      tester,
+      fixedNow: DateTime(2026, 5, 27, 10),
+      theme: AppTheme.mobileLight(),
+    );
+    controller.add([
+      todo(
+        id: 'y',
+        category: Category.work,
+        dueAt: DateTime(2026, 5, 26, 9),
+        createdAt: DateTime.utc(2026, 5, 26),
+      ),
+    ]);
+    await tester.pump();
+
+    final banner = tester.widget<Container>(
+      find.byKey(const ValueKey('carryover-banner')),
+    );
+    final bgAlpha = (banner.decoration! as BoxDecoration).color!.a;
+    expect(bgAlpha, closeTo(0.08, 0.005));
+  });
+
+  testWidgets('이월 배너 — dark 테마에서 bg alpha 가 light 보다 진함 (다크 가독성)', (
+    tester,
+  ) async {
+    final controller = await mountWith(
+      tester,
+      fixedNow: DateTime(2026, 5, 27, 10),
+      theme: AppTheme.mobileDark(),
+    );
+    controller.add([
+      todo(
+        id: 'y',
+        category: Category.work,
+        dueAt: DateTime(2026, 5, 26, 9),
+        createdAt: DateTime.utc(2026, 5, 26),
+      ),
+    ]);
+    await tester.pump();
+
+    final banner = tester.widget<Container>(
+      find.byKey(const ValueKey('carryover-banner')),
+    );
+    final bgAlpha = (banner.decoration! as BoxDecoration).color!.a;
+    expect(
+      bgAlpha,
+      greaterThan(0.10),
+      reason: '다크에서 light 의 0.08 보다 충분히 진해야 가독성 보장',
+    );
   });
 }

@@ -96,7 +96,7 @@
 - [x] Drift `watchAll` 의 `OrderingTerm(doneAt, asc)` 가 SQLite default 에 의존하던 부분 — `nulls: NullsOrder.first` 명시. (SQLite ASC default 도 NULLS FIRST 지만 의도 명시 + 미래 호환.) 강력한 검증 테스트 1건 추가 (총 140/140 PASS).
 - [x] AddTodoSheet 에서 빠르게 두 번 submit → 두 todo 생성. **fix**: `_submitted` 플래그 가드. 첫 _submit 호출 즉시 true 로 set → 후속 tap/Enter 가 onSubmit 콜백 호출 못 함. _canSubmit 도 _submitted 체크해 버튼 자체가 비활성. 두 가지 race 시나리오 테스트 추가 (총 142/142 PASS).
 - [x] 카테고리 chip selected 시 시각 대비 보강 — bg alpha 0.18→0.22 + `RoundedRectangleBorder` 의 `BorderSide(width: 1.6, color: category.color)` outline 적용. 선택 chip 의 outline 검증 테스트 1건 추가 (총 143/143 PASS).
-- [ ] HomeScreen 이월 배너의 색이 light/dark 모두 동일 alpha — 다크에서 가독성 검증
+- [x] HomeScreen 이월 배너 — 다크에서 bg alpha 가 너무 옅어 가독성 떨어짐. **fix**: `theme.brightness` 분기, dark 에선 bg alpha 0.18 / border 0.40, light 에선 기존 0.08 / 0.20 유지. light + dark 별도 검증 테스트 2건 추가 (총 145/145 PASS).
 - [ ] Dismissible 의 `confirmDismiss` 없음 — 실수 swipe 로 즉시 삭제. UndoSnackbar 있지만 0.4 threshold 도 낮은 편
 - [ ] FAB 가 BottomNavigationBar (Android) 와 겹쳐 가독성 떨어짐 — `FloatingActionButtonLocation.endDocked` 또는 위치 조정
 - [ ] `_ShortcutsHost` 의 1~5 키가 TextField 안에서도 발화될 수 있음 — Focus 위계 검증, TextField focus 시 capture 차단

@@ -146,16 +146,21 @@ class _CarryoverBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    // 다크 모드에서 alpha 0.08 은 거의 안 보여 가독성이 떨어진다. 다크에서 대비 강화.
+    final isDark = theme.brightness == Brightness.dark;
+    final bgAlpha = isDark ? 0.18 : 0.08;
+    final borderAlpha = isDark ? 0.40 : 0.20;
     return Container(
+      key: const ValueKey('carryover-banner'),
       padding: const EdgeInsets.symmetric(
         horizontal: AppTokens.space16,
         vertical: AppTokens.space12,
       ),
       decoration: BoxDecoration(
-        color: scheme.primary.withValues(alpha: 0.08),
+        color: scheme.primary.withValues(alpha: bgAlpha),
         borderRadius: BorderRadius.circular(AppTokens.radiusM),
         border: Border.all(
-          color: scheme.primary.withValues(alpha: 0.20),
+          color: scheme.primary.withValues(alpha: borderAlpha),
           width: AppTokens.hairline,
         ),
       ),
