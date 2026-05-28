@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../domain/category.dart' as domain;
 import 'outbox_dao.dart';
 import 'todos_dao.dart';
 
@@ -99,12 +100,16 @@ class AppDatabase extends _$AppDatabase {
   /// schemaVersion 변경 history:
   /// - v1: 초기 (todos + outboxEntries)
   /// - v2: todos 에 parent_id / type / sort_order 컬럼 추가 (v1.1 — 트리 / 메모)
-  /// - v3: categories 테이블 신규 + todos.description 추가 (v1.2 — 카테고리 fully 동적).
-  ///   createTable + seed + description ALTER 는 다음 plan task 에서 onUpgrade 안에
-  ///   채운다 (현 commit 은 schema 정의 + version bump 만).
+  /// - v3: categories 테이블 신규 + 5 builtin seed (v1.2 — 카테고리 fully 동적).
+  ///   `todos.description` 컬럼 ALTER 는 v1.2 의 description task 가 이 case 에
+  ///   `m.addColumn(todos, todos.description)` 를 추가해 채운다.
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) => m.createAll(),
+    onCreate: (m) async {
+      await m.createAll();
+      // 신규 DB — 5 builtin 카테고리 seed.
+      await _seedBuiltinCategories();
+    },
     onUpgrade: (m, from, to) async {
       // 1 → 2: v1.1 트리 / 메모 모델용 3 컬럼 추가.
       // withDefault('task') / withDefault(0) 가 ALTER TABLE 시 자동 적용 (Drift) —
@@ -115,10 +120,35 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(todos, todos.type);
         await m.addColumn(todos, todos.sortOrder);
       }
-      // 2 → 3: 다음 plan task 에서 categories 테이블 createTable + 5 builtin seed
-      // + todos.description ALTER 를 이 분기 안에 추가한다. (현재는 stub.)
+      // 2 → 3: categories 테이블 신규 + 5 builtin seed.
+      if (from < 3) {
+        await m.createTable(categories);
+        await _seedBuiltinCategories();
+      }
     },
   );
+
+  /// 5 builtin 카테고리를 categories 에 seed.
+  /// [InsertMode.insertOrIgnore] — 이미 같은 id 가 있으면 무시 (사용자가 builtin 을
+  /// 삭제했다가 다른 디바이스에서 다시 migrate 가 일어나도 conflict 없이 idempotent).
+  /// createdAt 은 epoch 0 으로 통일 — sortOrder asc 우선이므로 정렬 영향 없음.
+  Future<void> _seedBuiltinCategories() async {
+    final seedAt = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    for (final c in domain.Category.builtinSeeds) {
+      await into(categories).insert(
+        CategoriesCompanion.insert(
+          id: c.id,
+          label: c.label,
+          iconCodePoint: c.iconCodePoint,
+          colorValue: c.colorValue,
+          sortOrder: Value(c.sortOrder),
+          isBuiltin: Value(c.isBuiltin),
+          createdAt: seedAt,
+        ),
+        mode: InsertMode.insertOrIgnore,
+      );
+    }
+  }
 
   static QueryExecutor _openOnDisk() {
     return LazyDatabase(() async {
