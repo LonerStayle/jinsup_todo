@@ -34,6 +34,8 @@ class Todos extends Table {
   TextColumn get type => text().withDefault(const Constant('task'))();
   // v1.1 — 같은 parent 내 사용자 정의 순서. 작은 값 먼저. drag-reorder 는 v1.2 후속.
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  // v1.2 — 상세 메모 (long text). nullable.
+  TextColumn get description => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -121,9 +123,10 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(todos, todos.type);
         await m.addColumn(todos, todos.sortOrder);
       }
-      // 2 → 3: categories 테이블 신규 + 5 builtin seed.
+      // 2 → 3: categories 테이블 신규 + 5 builtin seed + todos.description ALTER.
       if (from < 3) {
         await m.createTable(categories);
+        await m.addColumn(todos, todos.description);
         await _seedBuiltinCategories();
       }
     },

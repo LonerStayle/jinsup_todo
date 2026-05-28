@@ -113,6 +113,7 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
       parentId: row.parentId,
       type: _parseType(row.type),
       sortOrder: row.sortOrder,
+      description: row.description,
     );
   }
 
@@ -140,6 +141,7 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
       parentId: Value(t.parentId),
       type: Value(t.type.name),
       sortOrder: Value(t.sortOrder),
+      description: Value(t.description),
     );
   }
 }

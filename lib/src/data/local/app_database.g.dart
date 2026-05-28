@@ -121,6 +121,17 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -134,6 +145,7 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
     parentId,
     type,
     sortOrder,
+    description,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -223,6 +235,15 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
         sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
       );
     }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -276,6 +297,10 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
     );
   }
 
@@ -297,6 +322,7 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
   final String? parentId;
   final String type;
   final int sortOrder;
+  final String? description;
   const TodoRow({
     required this.id,
     required this.title,
@@ -309,6 +335,7 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     this.parentId,
     required this.type,
     required this.sortOrder,
+    this.description,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -332,6 +359,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     }
     map['type'] = Variable<String>(type);
     map['sort_order'] = Variable<int>(sortOrder);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
     return map;
   }
 
@@ -356,6 +386,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           : Value(parentId),
       type: Value(type),
       sortOrder: Value(sortOrder),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
     );
   }
 
@@ -376,6 +409,7 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       parentId: serializer.fromJson<String?>(json['parentId']),
       type: serializer.fromJson<String>(json['type']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      description: serializer.fromJson<String?>(json['description']),
     );
   }
   @override
@@ -393,6 +427,7 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       'parentId': serializer.toJson<String?>(parentId),
       'type': serializer.toJson<String>(type),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'description': serializer.toJson<String?>(description),
     };
   }
 
@@ -408,6 +443,7 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     Value<String?> parentId = const Value.absent(),
     String? type,
     int? sortOrder,
+    Value<String?> description = const Value.absent(),
   }) => TodoRow(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -422,6 +458,7 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     parentId: parentId.present ? parentId.value : this.parentId,
     type: type ?? this.type,
     sortOrder: sortOrder ?? this.sortOrder,
+    description: description.present ? description.value : this.description,
   );
   TodoRow copyWithCompanion(TodosCompanion data) {
     return TodoRow(
@@ -438,6 +475,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       parentId: data.parentId.present ? data.parentId.value : this.parentId,
       type: data.type.present ? data.type.value : this.type,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
     );
   }
 
@@ -454,7 +494,8 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           ..write('calendarEventId: $calendarEventId, ')
           ..write('parentId: $parentId, ')
           ..write('type: $type, ')
-          ..write('sortOrder: $sortOrder')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('description: $description')
           ..write(')'))
         .toString();
   }
@@ -472,6 +513,7 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     parentId,
     type,
     sortOrder,
+    description,
   );
   @override
   bool operator ==(Object other) =>
@@ -487,7 +529,8 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           other.calendarEventId == this.calendarEventId &&
           other.parentId == this.parentId &&
           other.type == this.type &&
-          other.sortOrder == this.sortOrder);
+          other.sortOrder == this.sortOrder &&
+          other.description == this.description);
 }
 
 class TodosCompanion extends UpdateCompanion<TodoRow> {
@@ -502,6 +545,7 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
   final Value<String?> parentId;
   final Value<String> type;
   final Value<int> sortOrder;
+  final Value<String?> description;
   final Value<int> rowid;
   const TodosCompanion({
     this.id = const Value.absent(),
@@ -515,6 +559,7 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     this.parentId = const Value.absent(),
     this.type = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.description = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TodosCompanion.insert({
@@ -529,6 +574,7 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     this.parentId = const Value.absent(),
     this.type = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.description = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -547,6 +593,7 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     Expression<String>? parentId,
     Expression<String>? type,
     Expression<int>? sortOrder,
+    Expression<String>? description,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -561,6 +608,7 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
       if (parentId != null) 'parent_id': parentId,
       if (type != null) 'type': type,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (description != null) 'description': description,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -577,6 +625,7 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     Value<String?>? parentId,
     Value<String>? type,
     Value<int>? sortOrder,
+    Value<String?>? description,
     Value<int>? rowid,
   }) {
     return TodosCompanion(
@@ -591,6 +640,7 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
       parentId: parentId ?? this.parentId,
       type: type ?? this.type,
       sortOrder: sortOrder ?? this.sortOrder,
+      description: description ?? this.description,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -631,6 +681,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -651,6 +704,7 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
           ..write('parentId: $parentId, ')
           ..write('type: $type, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('description: $description, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1511,6 +1565,7 @@ typedef $$TodosTableCreateCompanionBuilder =
       Value<String?> parentId,
       Value<String> type,
       Value<int> sortOrder,
+      Value<String?> description,
       Value<int> rowid,
     });
 typedef $$TodosTableUpdateCompanionBuilder =
@@ -1526,6 +1581,7 @@ typedef $$TodosTableUpdateCompanionBuilder =
       Value<String?> parentId,
       Value<String> type,
       Value<int> sortOrder,
+      Value<String?> description,
       Value<int> rowid,
     });
 
@@ -1589,6 +1645,11 @@ class $$TodosTableFilterComposer extends Composer<_$AppDatabase, $TodosTable> {
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1656,6 +1717,11 @@ class $$TodosTableOrderingComposer
     column: $table.sortOrder,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TodosTableAnnotationComposer
@@ -1701,6 +1767,11 @@ class $$TodosTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
 }
 
 class $$TodosTableTableManager
@@ -1742,6 +1813,7 @@ class $$TodosTableTableManager
                 Value<String?> parentId = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodosCompanion(
                 id: id,
@@ -1755,6 +1827,7 @@ class $$TodosTableTableManager
                 parentId: parentId,
                 type: type,
                 sortOrder: sortOrder,
+                description: description,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1770,6 +1843,7 @@ class $$TodosTableTableManager
                 Value<String?> parentId = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodosCompanion.insert(
                 id: id,
@@ -1783,6 +1857,7 @@ class $$TodosTableTableManager
                 parentId: parentId,
                 type: type,
                 sortOrder: sortOrder,
+                description: description,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

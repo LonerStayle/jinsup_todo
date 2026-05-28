@@ -69,6 +69,8 @@ class SupabaseTodosApi implements RemoteTodosApi {
     'parent_id': t.parentId,
     'type': t.type.name,
     'sort_order': t.sortOrder,
+    // v1.2 — 상세 메모
+    'description': t.description,
   };
 
   Todo _fromRow(Map<String, dynamic> row) => Todo(
@@ -86,6 +88,8 @@ class SupabaseTodosApi implements RemoteTodosApi {
     sortOrder: row['sort_order'] is int
         ? row['sort_order'] as int
         : (row['sort_order'] is num ? (row['sort_order'] as num).toInt() : 0),
+    // v1.2 — 옛 v1.1 row 는 description 컬럼이 없어 null fallback.
+    description: row['description'] as String?,
   );
 
   /// 미지의 type 문자열 또는 누락 시 'task' 로 안전 fallback (TodosDao._parseType 와 일관).

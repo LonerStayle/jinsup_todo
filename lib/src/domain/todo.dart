@@ -45,6 +45,8 @@ abstract class Todo with _$Todo {
     String? parentId,
     @Default(TodoType.task) TodoType type,
     @Default(0) int sortOrder,
+    // v1.2 — 상세 메모 (long text). nullable + 누락 시 null 로 안전 fallback.
+    String? description,
   }) = _Todo;
 
   factory Todo.fromJson(Map<String, dynamic> json) => _$TodoFromJson(json);
@@ -59,6 +61,7 @@ abstract class Todo with _$Todo {
     String? parentId,
     TodoType type = TodoType.task,
     int sortOrder = 0,
+    String? description,
   }) {
     final n = (now ?? DateTime.now)();
     return Todo(
@@ -73,6 +76,7 @@ abstract class Todo with _$Todo {
       parentId: parentId,
       type: type,
       sortOrder: sortOrder,
+      description: description,
     );
   }
 

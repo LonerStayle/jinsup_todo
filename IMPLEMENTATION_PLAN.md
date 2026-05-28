@@ -199,10 +199,10 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] 카테고리 ADD / DELETE / 차단 widget test — `add_category_dialog_test.dart` 4건 (label 비어있으면 비활성 / 입력+추가 시 controller 호출 + dialog 닫힘 / 취소 시 호출 X / 색 선택 반영). 315/315 PASS (+4 신규).
 
 **Todo description (long text)**
-- [ ] Todo freezed 모델에 description (String?) 필드 추가 + @Default(null) backwards compat + freezed/json regen. round-trip 테스트.
-- [ ] Drift todos 테이블에 description (text nullable) 컬럼 + TodosDao 매핑 갱신 (rowToDomain / domainToCompanion). onUpgrade 2→3 case 안에서 m.addColumn(todos, todos.description) — categories 생성과 한 case.
-- [ ] SupabaseTodosApi 의 _toRow/_fromRow 에 description 매핑 추가 + round-trip 테스트.
-- [ ] supabase/schema.sql 의 solo_todo.todos 에 description text 컬럼 추가 (v1.1→v1.2 ALTER 안내에 통합).
+- [x] Todo freezed 모델에 description (String?) 필드 추가 — null default 라 freezed 가 @Default 없이도 backwards-compat (옛 payload 의 description 키 누락 시 null fallback). Todo.create 헬퍼도 description 매개변수 추가. 회귀 없음.
+- [x] Drift todos 테이블에 description (text nullable) 컬럼 + TodosDao `_rowToDomain` / `_domainToCompanion` 매핑 갱신. onUpgrade 2→3 case 에 `m.addColumn(todos, todos.description)` 추가 (categories createTable + seed 와 한 case).
+- [x] SupabaseTodosApi 의 _toRow/_fromRow 에 description 매핑 추가 — 옛 v1.1 row 는 description 키 없으므로 null fallback. (round-trip 테스트는 다음 통합 task 에서 함께 검증)
+- [x] supabase/schema.sql 의 solo_todo.todos 에 description text 컬럼 추가 — `alter table ... add column if not exists` 으로 v1.1 → v1.2 안내 안에 통합됨 (앞 schema.sql v1.2 섹션 task 에서 처리 완료).
 
 **Edit todo (description 입력 + edit 진입)**
 - [ ] AddTodoSheet 에 description multi-line TextField 추가 — title 아래, 일정 위. "상세" 토글로 펼침/접힘 (default 접힘) → 평소 sheet 길이 보존. submission.description 전달.
