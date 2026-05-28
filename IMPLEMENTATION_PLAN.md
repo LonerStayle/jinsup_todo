@@ -94,7 +94,7 @@
 
 **UI 동작**
 - [x] Drift `watchAll` 의 `OrderingTerm(doneAt, asc)` 가 SQLite default 에 의존하던 부분 — `nulls: NullsOrder.first` 명시. (SQLite ASC default 도 NULLS FIRST 지만 의도 명시 + 미래 호환.) 강력한 검증 테스트 1건 추가 (총 140/140 PASS).
-- [ ] AddTodoSheet 에서 빠르게 두 번 submit → 두 todo 생성. submit 시 `_busy` 가드 누락 (이미 enabled 검사 있지만 race 가능)
+- [x] AddTodoSheet 에서 빠르게 두 번 submit → 두 todo 생성. **fix**: `_submitted` 플래그 가드. 첫 _submit 호출 즉시 true 로 set → 후속 tap/Enter 가 onSubmit 콜백 호출 못 함. _canSubmit 도 _submitted 체크해 버튼 자체가 비활성. 두 가지 race 시나리오 테스트 추가 (총 142/142 PASS).
 - [ ] 카테고리 chip selected 시 alpha 0.18 만 변화 — 시각 차이 너무 미묘. outline 또는 weight 추가
 - [ ] HomeScreen 이월 배너의 색이 light/dark 모두 동일 alpha — 다크에서 가독성 검증
 - [ ] Dismissible 의 `confirmDismiss` 없음 — 실수 swipe 로 즉시 삭제. UndoSnackbar 있지만 0.4 threshold 도 낮은 편

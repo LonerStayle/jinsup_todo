@@ -65,9 +65,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ Realtime self-receive stomp 가드 — 위 두 패치로 통합 해소
 - ✅ `SupabaseRealtimeSync.start` 순서 재배치 — subscribe 먼저 (commit `e70652f`)
 - ✅ signOut + user 변경 시 옛 데이터 cleanup (commit `4fcbcc8`)
-- ✅ watchAll 의 doneAt 정렬에 `NullsOrder.first` 명시 (commit pending)
+- ✅ watchAll 의 doneAt 정렬에 `NullsOrder.first` 명시 (commit `f58a130`)
+- ✅ AddTodoSheet 더블 submit 가드 — `_submitted` 플래그 (commit pending)
 
-다음: § 10-B UI 동작 그룹의 두 번째 — AddTodoSheet 의 더블 submit race (`_busy` 가드 누락).
+다음: § 10-B UI 동작 세 번째 — 카테고리 chip selected 시 시각 차이 미묘 (alpha 0.18 만) → outline 또는 weight 추가.
 
 ---
 

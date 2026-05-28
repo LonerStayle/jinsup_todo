@@ -188,4 +188,47 @@ void main() {
       expect(find.widgetWithText(OutlinedButton, '하루 종일'), findsNothing);
     });
   });
+
+  testWidgets('더블 submit 가드: 빠르게 두 번 tap → onSubmit 한 번만 호출', (tester) async {
+    final submissions = await mount(tester);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('add-todo-title')),
+      '한 번만',
+    );
+    await tester.pump();
+
+    final addBtn = find.widgetWithText(FilledButton, '추가');
+    final onPressed = tester.widget<FilledButton>(addBtn).onPressed;
+    expect(onPressed, isNotNull);
+
+    // 같은 frame 에서 두 번 호출 — race 시뮬레이션 (실제 사용자의 빠른 더블 탭과 같은 효과).
+    onPressed!();
+    onPressed();
+    await tester.pump();
+
+    expect(submissions, hasLength(1), reason: 'submit 가드 누락 시 두 todo 가 생성됨');
+  });
+
+  testWidgets('Enter + 즉시 tap 더블 — 동일하게 한 번만', (tester) async {
+    final submissions = await mount(tester);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('add-todo-title')),
+      '한 번만2',
+    );
+    await tester.pump();
+
+    // Enter 로 한 번.
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    // 같은 frame 에 추가 버튼 onPressed 직접 호출.
+    final btn = find.widgetWithText(FilledButton, '추가');
+    if (btn.evaluate().isNotEmpty) {
+      final onPressed = tester.widget<FilledButton>(btn).onPressed;
+      onPressed?.call();
+    }
+    await tester.pump();
+
+    expect(submissions, hasLength(1));
+  });
 }

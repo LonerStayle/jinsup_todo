@@ -72,6 +72,12 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
   bool _allDay = true;
   bool _addToCalendar = false;
 
+  /// 더블 submit race 가드. _submit 이 한 번이라도 호출되면 true 로 set 되어 후속
+  /// tap / Enter 가 추가 onSubmit 콜백 호출을 못 하게 막는다. Navigator.maybePop 이
+  /// 동기적으로 처리되지만 그 직전 frame 에 두 번째 tap 이 들어와 두 todo 가 생성되던
+  /// 경우 방지.
+  bool _submitted = false;
+
   @override
   void initState() {
     super.initState();
@@ -87,10 +93,11 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
     super.dispose();
   }
 
-  bool get _canSubmit => _titleCtrl.text.trim().isNotEmpty;
+  bool get _canSubmit => !_submitted && _titleCtrl.text.trim().isNotEmpty;
 
   void _submit() {
-    if (!_canSubmit) return;
+    if (_submitted || _titleCtrl.text.trim().isEmpty) return;
+    _submitted = true;
     widget.onSubmit(
       AddTodoSubmission(
         title: _titleCtrl.text.trim(),
