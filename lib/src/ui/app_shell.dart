@@ -358,7 +358,7 @@ class _Sidebar extends StatelessWidget {
                 ),
               ),
               for (var i = 0; i < AppDestination.all.length; i++)
-                _SidebarItem(
+                SidebarItem(
                   destination: AppDestination.all[i],
                   selected: i == selectedIndex,
                   onTap: () => onSelect(i),
@@ -371,27 +371,49 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
-class _SidebarItem extends StatelessWidget {
-  const _SidebarItem({
+class SidebarItem extends StatefulWidget {
+  @visibleForTesting
+  const SidebarItem({
+    super.key,
     required this.destination,
     required this.selected,
     required this.onTap,
+    this.autofocus = false,
   });
 
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
 
+  /// 테스트 결정성 — true 면 mount 직후 InkWell 이 focus 를 잡는다.
+  final bool autofocus;
+
+  @override
+  State<SidebarItem> createState() => SidebarItemState();
+}
+
+class SidebarItemState extends State<SidebarItem> {
+  /// 키보드 focus 가 이 item 에 들어와 있는지. true 면 outline ring 표시 — 마우스 사용자
+  /// 에게도 영향 X (InkWell.onFocusChange 는 키보드 traversal 에서만 true 가 됨).
+  bool _focused = false;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final fg = selected
+    final fg = widget.selected
         ? scheme.onSurface
         : scheme.onSurface.withValues(alpha: 0.78);
-    final bg = selected
+    final bg = widget.selected
         ? scheme.primary.withValues(alpha: 0.12)
         : Colors.transparent;
+
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppTokens.radiusM),
+      side: _focused
+          ? BorderSide(color: scheme.primary, width: 2)
+          : BorderSide.none,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -399,14 +421,19 @@ class _SidebarItem extends StatelessWidget {
         vertical: AppTokens.space2,
       ),
       child: Tooltip(
-        message: destination.tooltipWithShortcut,
+        message: widget.destination.tooltipWithShortcut,
         waitDuration: const Duration(milliseconds: 600),
         child: Material(
           color: bg,
-          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          shape: shape,
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: onTap,
+            onTap: widget.onTap,
+            autofocus: widget.autofocus,
+            // 키보드 focus 가 들어왔다 나갔다 할 때 outline ring 토글.
+            onFocusChange: (f) => setState(() => _focused = f),
+            // InkWell 의 기본 focusColor (semi-transparent) 는 따로 outline 을 그리므로 끔.
+            focusColor: Colors.transparent,
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppTokens.space12,
@@ -414,14 +441,18 @@ class _SidebarItem extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(destination.icon, size: 18, color: destination.color),
+                  Icon(
+                    widget.destination.icon,
+                    size: 18,
+                    color: widget.destination.color,
+                  ),
                   const SizedBox(width: AppTokens.space12),
                   Expanded(
                     child: Text(
-                      destination.label,
+                      widget.destination.label,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: fg,
-                        fontWeight: selected
+                        fontWeight: widget.selected
                             ? FontWeight.w600
                             : FontWeight.w500,
                       ),
