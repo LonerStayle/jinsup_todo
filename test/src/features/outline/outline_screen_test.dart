@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:solo_todo/src/core/theme.dart';
 import 'package:solo_todo/src/domain/category.dart';
 import 'package:solo_todo/src/domain/todo.dart';
+import 'package:solo_todo/src/features/category/categories_controller.dart';
 import 'package:solo_todo/src/features/outline/outline_screen.dart';
 import 'package:solo_todo/src/features/outline/tree_providers.dart';
 
@@ -53,6 +54,10 @@ void main() {
           childrenOfProvider.overrideWith(
             (_, parentId) =>
                 Stream.value(childrenByParent[parentId] ?? const <Todo>[]),
+          ),
+          // v1.2 — OutlineScreen 이 categoriesProvider 를 watch (동적 카테고리).
+          categoriesProvider.overrideWith(
+            (_) => Stream.value(Category.builtinSeeds),
           ),
         ],
         child: MaterialApp(

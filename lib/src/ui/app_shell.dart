@@ -11,6 +11,7 @@ import '../domain/category.dart';
 import '../features/add_todo/add_todo_controller.dart';
 import '../features/add_todo/add_todo_sheet.dart';
 import '../features/auth/auth_providers.dart';
+import '../features/category/categories_controller.dart';
 import '../features/category/category_view.dart';
 import '../features/home/home_screen.dart';
 import '../features/home/today_providers.dart';
@@ -150,18 +151,26 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
+  /// build 마다 갱신되는 destinations — categoriesProvider 의 stream 으로 동기화.
+  /// _selectByDigit / _openAddTodo 가 참조한다.
+  List<AppDestination> _destinations = AppDestination.all;
+
   void _select(int i) {
     setState(() => _index = i);
   }
 
-  /// 단축키 digit (0~6) → destination index 매핑. 0 Today, 1~5 카테고리, 6 Outline.
+  /// 단축키 digit (0~9) → destination index 매핑. 0 Today, 1~min(9,N) 카테고리,
+  /// N+1 (N<9 일 때) outline. 매칭 못 하면 no-op.
   void _selectByDigit(int digit) {
-    final idx = AppDestination.all.indexWhere((d) => d.shortcutDigit == digit);
+    final idx = _destinations.indexWhere((d) => d.shortcutDigit == digit);
     if (idx >= 0 && idx != _index) _select(idx);
   }
 
   Future<void> _openAddTodo() async {
-    final dest = AppDestination.all[_index];
+    // _index 가 destinations 범위를 벗어났을 수 있으므로 safe lookup.
+    final dest = (_index < _destinations.length)
+        ? _destinations[_index]
+        : _destinations.first;
     final initialCategory = dest.category ?? Category.daily;
 
     // sheet 가 닫힌 후 controller 를 호출해 결과(Calendar 경고 등)를 처리한다.
@@ -196,7 +205,15 @@ class _AppShellState extends ConsumerState<AppShell> {
     // user 가 다른 계정으로 바뀌면 옛 todos/outbox 자동 정리 (side-effect listener).
     ref.watch(userChangeCleanupProvider);
 
-    final destination = AppDestination.all[_index];
+    // v1.2 — categoriesProvider 의 stream 에 따라 destinations 동적 build.
+    // loading / error 시 fallback 으로 builtin 5종 기준의 default 사용.
+    final categories =
+        ref.watch(categoriesProvider).asData?.value ?? Category.builtinSeeds;
+    _destinations = AppDestination.buildAll(categories);
+
+    // _index 가 destinations.length 초과 (카테고리 삭제 직후 등) 면 Today (0) 으로 안전 fallback.
+    final safeIndex = _index < _destinations.length ? _index : 0;
+    final destination = _destinations[safeIndex];
 
     final fab = FloatingActionButton.extended(
       key: const ValueKey('add-todo-fab'),
@@ -210,7 +227,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (AppPlatform.isDesktop) {
       body = Row(
         children: [
-          _Sidebar(selectedIndex: _index, onSelect: _select),
+          _Sidebar(
+            destinations: _destinations,
+            selectedIndex: safeIndex,
+            onSelect: _select,
+          ),
           const VerticalDivider(width: AppTokens.hairline),
           Expanded(child: _MainArea(destination: destination)),
         ],
@@ -220,10 +241,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     return _ShortcutsHost(
+      destinations: _destinations,
       onSelect: _selectByDigit,
       child: Scaffold(
         floatingActionButton: fab,
-        // 모바일은 NavigationBar 위에 자연스럽게 정렬되는 endContained — 6 destination 라벨과
+        // 모바일은 NavigationBar 위에 자연스럽게 정렬되는 endContained — destination 라벨과
         // FAB 가 겹치지 않음. desktop 은 NavigationBar 자체가 없어 기본 endFloat.
         floatingActionButtonLocation: AppPlatform.isDesktop
             ? FloatingActionButtonLocation.endFloat
@@ -234,10 +256,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         bottomNavigationBar: AppPlatform.isDesktop
             ? null
             : NavigationBar(
-                selectedIndex: _index,
+                selectedIndex: safeIndex,
                 onDestinationSelected: _select,
                 destinations: [
-                  for (final d in AppDestination.all)
+                  for (final d in _destinations)
                     NavigationDestination(
                       icon: Icon(d.icon),
                       label: d.label,
@@ -258,29 +280,40 @@ class _SelectDestinationIntent extends Intent {
 }
 
 class _ShortcutsHost extends StatelessWidget {
-  const _ShortcutsHost({required this.onSelect, required this.child});
+  const _ShortcutsHost({
+    required this.destinations,
+    required this.onSelect,
+    required this.child,
+  });
 
+  final List<AppDestination> destinations;
   final void Function(int digit) onSelect;
   final Widget child;
 
-  /// 0 = Today, 1~5 = 카테고리, 6 = Outline.
-  static final _digitKeys = <LogicalKeyboardKey, int>{
-    LogicalKeyboardKey.digit0: 0,
-    LogicalKeyboardKey.digit1: 1,
-    LogicalKeyboardKey.digit2: 2,
-    LogicalKeyboardKey.digit3: 3,
-    LogicalKeyboardKey.digit4: 4,
-    LogicalKeyboardKey.digit5: 5,
-    LogicalKeyboardKey.digit6: 6,
+  /// 단축키 digit (0~9) ↔ LogicalKeyboardKey 매핑. destinations 의 shortcutDigit
+  /// 이 동적이라 매 build 마다 활성 키만 추려서 Shortcuts map 만든다.
+  static const _digitKeys = <int, LogicalKeyboardKey>{
+    0: LogicalKeyboardKey.digit0,
+    1: LogicalKeyboardKey.digit1,
+    2: LogicalKeyboardKey.digit2,
+    3: LogicalKeyboardKey.digit3,
+    4: LogicalKeyboardKey.digit4,
+    5: LogicalKeyboardKey.digit5,
+    6: LogicalKeyboardKey.digit6,
+    7: LogicalKeyboardKey.digit7,
+    8: LogicalKeyboardKey.digit8,
+    9: LogicalKeyboardKey.digit9,
   };
 
   @override
   Widget build(BuildContext context) {
     final shortcuts = <ShortcutActivator, Intent>{};
-    for (final entry in _digitKeys.entries) {
-      shortcuts[SingleActivator(entry.key)] = _SelectDestinationIntent(
-        entry.value,
-      );
+    for (final d in destinations) {
+      final digit = d.shortcutDigit;
+      if (digit < 0) continue;
+      final key = _digitKeys[digit];
+      if (key == null) continue;
+      shortcuts[SingleActivator(key)] = _SelectDestinationIntent(digit);
     }
 
     return Shortcuts(
@@ -327,8 +360,13 @@ bool isFocusInEditableText() {
 }
 
 class _Sidebar extends StatelessWidget {
-  const _Sidebar({required this.selectedIndex, required this.onSelect});
+  const _Sidebar({
+    required this.destinations,
+    required this.selectedIndex,
+    required this.onSelect,
+  });
 
+  final List<AppDestination> destinations;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
 
@@ -360,9 +398,9 @@ class _Sidebar extends StatelessWidget {
                   ),
                 ),
               ),
-              for (var i = 0; i < AppDestination.all.length; i++)
+              for (var i = 0; i < destinations.length; i++)
                 SidebarItem(
-                  destination: AppDestination.all[i],
+                  destination: destinations[i],
                   selected: i == selectedIndex,
                   onTap: () => onSelect(i),
                 ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/todo.dart';
+import '../category/categories_controller.dart';
 import 'tree_providers.dart';
 
 /// 전체 트리 view — 5 카테고리 root + 자식 트리를 한 화면에 펼침/접힘으로 표시.
@@ -35,6 +36,10 @@ class _OutlineScreenState extends ConsumerState<OutlineScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // v1.2 — 동적 카테고리. loading / error 시 builtin 5종 fallback.
+    final categories =
+        ref.watch(categoriesProvider).asData?.value ?? Category.builtinSeeds;
+
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -55,7 +60,7 @@ class _OutlineScreenState extends ConsumerState<OutlineScreen> {
           ),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              for (final c in Category.values)
+              for (final c in categories)
                 _OutlineCategory(
                   category: c,
                   collapsed: _collapsed,

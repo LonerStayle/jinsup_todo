@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:solo_todo/src/app/app.dart';
 import 'package:solo_todo/src/core/theme.dart';
 import 'package:solo_todo/src/data/providers.dart';
+import 'package:solo_todo/src/domain/category.dart';
 import 'package:solo_todo/src/domain/todo.dart';
+import 'package:solo_todo/src/features/category/categories_controller.dart';
 import 'package:solo_todo/src/features/category/category_providers.dart';
 import 'package:solo_todo/src/features/home/today_providers.dart';
 import 'package:solo_todo/src/features/outline/tree_providers.dart';
@@ -23,6 +25,10 @@ void main() {
       outboxCountProvider.overrideWith((_) => Stream<int>.value(0)),
       // v1.1 — breadcrumb 가 allTodosProvider 를 watch.
       allTodosProvider.overrideWith((_) => Stream.value(<Todo>[])),
+      // v1.2 — AppShell 이 categoriesProvider 를 watch.
+      categoriesProvider.overrideWith(
+        (_) => Stream.value(Category.builtinSeeds),
+      ),
     ],
     child: const SoloTodoApp(),
   );

@@ -27,6 +27,5 @@ class LocalCategoriesRepository implements CategoriesRepository {
   Future<int> deleteById(String id) => _dao.deleteById(id);
 
   @override
-  Future<int> countTodosOfCategory(String id) =>
-      _dao.countTodosOfCategory(id);
+  Future<int> countTodosOfCategory(String id) => _dao.countTodosOfCategory(id);
 }
