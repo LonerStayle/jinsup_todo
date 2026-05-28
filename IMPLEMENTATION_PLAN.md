@@ -292,3 +292,36 @@ v1.1 § 11 종료 후 SETUP.html § 2 끝에 "v1.0 → v1.1 마이그레이션 (
 5. 카테고리 전환 비용 (1.6/2) — Outline 의 펼침/접힘 + breadcrumb 으로 트리 navigation 비용 감소.
 
 두 점수 모두 9 이상 유지 — v1.1 비전 충족 유지.
+
+---
+
+## 자가평가 — v1.2 § 12 종료 시점 (2026-05-29)
+
+§ 12 v1.2 의 ralph 자동 task 25개 모두 완료 (비전 영역 1개는 대표님 직접 — 아래 § 미완료 참조).
+326/326 PASS. v1.1 → v1.2 backwards-compat (Drift onUpgrade 2→3 + Supabase ALTER IF NOT EXISTS + Category JsonKey + description nullable).
+
+**v1.2 완료 기능**
+- **카테고리 fully 동적** — enum → freezed data class + categories 테이블 (Drift + Supabase). 사용자가 sidebar 끝 "카테고리 추가" 로 ADD (label + 16색 + 12아이콘 picker), long-press / 우클릭으로 DELETE. builtin 5종도 삭제 가능하지만 안 todos 가 ≥1 이면 차단 + 안내.
+- **동적 단축키** — today=0 / 카테고리 1~9 / outline N+1 (N<9). 9개 초과는 sidebar tap.
+- **Todo 상세 메모 (description)** — AddTodoSheet "상세 메모" 토글 + multi-line TextField. TodoTile 에 메모 힌트 아이콘.
+- **Todo 편집** — TodoTile tap → AddTodoSheet edit 모드 (initialTodo prefill + onUpdate → TodoActions.update).
+
+**디자인 점수 — 9.4 / 10** (v1.1 유지)
+1. 가독성 (2/2) — description 힌트 아이콘 (14px sticky_note), 카테고리 색/아이콘이 sidebar / outline / chip 일관.
+2. 대비 (2/2) — ADD dialog 의 선택 색 ring (2.5px) + 아이콘 outline, 라이트/다크 양쪽 유지.
+3. 여백 (2/2) — AppTokens 그리드 일관, dialog palette Wrap spacing 8.
+4. 정렬 (1.6/2) — sidebar 동적 destination + "카테고리 추가" 버튼 좌측 정렬 일관.
+5. 일관성 (1.8/2) — 색/아이콘 선택 UI 가 ADD dialog 단일 출처, edit/add sheet 동일 위젯 재사용.
+
+**편의성 점수 — 9.6 / 10** (v1.1 유지)
+1. 단축 동작 (2/2) — Cmd+N / 0~9 동적 단축키 / Enter / Esc 유지.
+2. 반응성 (2/2) — categoriesProvider stream 으로 ADD/DELETE 즉시 sidebar 반영, edit 저장 즉시 list 갱신.
+3. 학습성 (2/2) — 카테고리 추가/삭제 직관적, TodoTile tap → 편집이 자연스러운 진입점.
+4. 오류 회복 (2/2) — 카테고리 삭제 차단 시 명확한 안내 (N건 표시), Undo / 친화 에러 유지.
+5. 카테고리 전환 비용 (1.6/2) — 동적 단축키 + sidebar tap 1클릭.
+
+두 점수 모두 9 이상 유지 — v1.2 비전 충족.
+
+### 미완료 — 대표님 직접 영역 (ralph 가 할 수 없음)
+
+- [ ] **CLAUDE.md 비전 § 3 갱신** — "카테고리 분류 — 5종 고정" → "기본 5종 + 사용자 추가/삭제 가능". vision-intake skill 영역이라 ralph 가 수정 X. 이 표현이 v1.2 구현과 모순이므로 대표님이 직접 갱신해야 비전-구현 일관성 회복.

@@ -291,6 +291,31 @@ drop table if exists public.solo_todo_todos cascade;</code></pre>
 alter table solo_todo.todos add column if not exists type       text not null default 'task';
 alter table solo_todo.todos add column if not exists sort_order integer not null default 0;</code></pre>
   <p>신규 셋업 (v1.1 schema.sql 그대로 실행) 은 처음부터 포함되어 있어 이 ALTER 불필요.</p>
+
+  <h3>v1.1 → v1.2 마이그레이션 (카테고리 동적 + 상세 메모)</h3>
+  <p>v1.2 는 카테고리를 DB row 로 저장 (추가 / 삭제 가능) + todos 에 상세 메모(description) 추가.
+     <strong>가장 간단한 방법은 <code>supabase/schema.sql</code> 전체를 SQL Editor 에 다시 붙여넣고 실행</strong>하는 것입니다
+     (모든 구문이 idempotent — categories 테이블 / RLS / 인덱스 / publication / description 컬럼이 없으면 생성, 있으면 그대로).
+     또는 아래 핵심 구문만 실행:</p>
+<pre><code>-- categories 테이블 (사용자가 추가/삭제하는 카테고리)
+create table if not exists solo_todo.categories (
+  id              text primary key,
+  user_id         uuid references auth.users(id) on delete cascade not null,
+  label           text not null,
+  icon_code_point integer not null,
+  color_value     integer not null,
+  sort_order      integer not null default 0,
+  is_builtin      boolean not null default false,
+  created_at      timestamptz not null default now()
+);
+grant all on solo_todo.categories to anon, authenticated, service_role;
+alter table solo_todo.categories enable row level security;
+-- RLS 4 정책 + 인덱스 + Realtime publication 은 schema.sql 의 8~10 섹션 참고.
+
+-- todos 상세 메모 컬럼
+alter table solo_todo.todos add column if not exists description text;</code></pre>
+  <p><strong>5 기본 카테고리</strong>(회사 할일 / 개인개발 / 일상 / 장기 목표 / 아이디어)는 앱이 첫 실행 시 로컬에 자동 seed 하고,
+     로그인하면 Supabase 로 동기화됩니다. 기존 todos 의 <code>category</code> 값(<code>work</code> 등)은 그대로 유지되어 호환됩니다.</p>
 </section>
 
 <!-- ============================================ -->

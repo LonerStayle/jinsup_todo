@@ -27,14 +27,26 @@
 | **v1.0.0 — 9 phase / 45 task** | ✅ 종료 (`087c761`) | 첫 PROJECT_DONE |
 | **§ 10 — 사용자 실사용 보고 + 코드 재검토 보강 (33 task)** | ✅ 종료 (`e16bd68`) | 디자인 9.3 / 편의성 9.5 |
 | **§ 11 — v1.1 폴더/Outline 트리/bulk paste/메모 타입 (16 task)** | ✅ 종료 (`13b895a`) | 디자인 9.4 / 편의성 9.6 |
-| **§ 12 — v1.2 카테고리 fully 동적 + Todo description (26 task)** | 🔵 **plan 추가됨, 진행 직전** | iter 1 도 안 시작 |
+| **§ 12 — v1.2 카테고리 fully 동적 + Todo description (25 ralph task)** | ✅ 종료 (`d3c8509`) | 디자인 9.4 / 편의성 9.6. 대표님 직접 task 1개 남음 (CLAUDE.md § 3) |
 
 ### 현 상태 (2026-05-29)
 
-- main branch, working tree clean (마지막 commit `13b895a`)
-- analyze clean / format clean / **flutter test 280/280 PASS**
-- v1.0 → v1.1 backwards-compat (Drift onUpgrade 1→2 + Supabase ALTER + JSON @Default)
-- SETUP.html 의 § 2 끝에 v1.0→v1.1 마이그레이션 안내 (ALTER TABLE 3 줄) 추가
+- main branch, working tree (SETUP/HANDOFF/PLAN 갱신 중)
+- analyze clean / format clean / **flutter test 326/326 PASS**
+- v1.1 → v1.2 backwards-compat (Drift onUpgrade 2→3 + Supabase ALTER IF NOT EXISTS + Category JsonKey converter + description nullable)
+- SETUP.html § 2 끝에 v1.1→v1.2 마이그레이션 안내 (categories CREATE + todos.description ALTER) 추가
+
+### ⚠️ 대표님 직접 작업 (유일한 미완료)
+
+**CLAUDE.md 비전 § 3 의 "카테고리 분류 — 5종 고정" 표현을 "기본 5종 + 사용자 추가/삭제 가능" 으로 갱신.**
+vision-intake skill 영역이라 ralph 가 수정 못 함. 현재 비전 문구와 v1.2 구현이 모순 — 다음 ralph iteration 이 § 5 (금지) 와 헷갈릴 위험. 대표님이 직접 손봐야 비전-구현 일관성 회복.
+
+### v1.2 완료 기능 (참고)
+
+- **카테고리 fully 동적**: enum → freezed data class + Drift/Supabase categories 테이블. sidebar "카테고리 추가" (label+16색+12아이콘) / long-press·우클릭 삭제. builtin 도 삭제 가능 (안 todos ≥1 이면 차단).
+- **동적 단축키**: today=0 / 카테고리 1~9 / outline N+1 (N<9). 9 초과는 tap.
+- **Todo description**: AddTodoSheet "상세 메모" 토글 + multi-line. TodoTile 힌트 아이콘.
+- **Todo 편집**: TodoTile tap → AddTodoSheet edit 모드 (initialTodo prefill + onUpdate → TodoActions.update). HomeScreen / CategoryView 연결 (OutlineScreen tap-edit 은 v1.3).
 
 ### v1.1 완료 기능 (참고)
 
