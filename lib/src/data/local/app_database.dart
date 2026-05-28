@@ -62,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   /// `storeDateTimeAsText: true` — DateTime 을 ISO 8601 text 로 저장.
   /// 기본 (unix int) 은 fetch 시 항상 local time 으로 변환되어 UTC↔local 구분을 잃는다.
@@ -71,23 +71,22 @@ class AppDatabase extends _$AppDatabase {
   DriftDatabaseOptions get options =>
       const DriftDatabaseOptions(storeDateTimeAsText: true);
 
-  /// 향후 schema 변경 (컬럼 추가, 인덱스, 새 테이블) 시 [onUpgrade] case 만 추가.
-  ///
-  /// 예시 ─ priority 컬럼 도입 시:
-  /// ```dart
-  /// onUpgrade: (m, from, to) async {
-  ///   if (from < 2) {
-  ///     await m.addColumn(todos, todos.priority);
-  ///   }
-  /// }
-  /// ```
-  ///
-  /// 처음부터 비어 있어도 골격을 두면 `schemaVersion` 만 올리고 case 추가하면 끝.
+  /// schemaVersion 변경 history:
+  /// - v1: 초기 (todos + outboxEntries)
+  /// - v2: todos 에 parent_id / type / sort_order 컬럼 추가 (v1.1 — 트리 / 메모)
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) async {
-      // schemaVersion 1 → ? : case 별 마이그레이션 추가. 현재 1 → 1 이라 no-op.
+      // 1 → 2: v1.1 트리 / 메모 모델용 3 컬럼 추가.
+      // withDefault('task') / withDefault(0) 가 ALTER TABLE 시 자동 적용 (Drift) —
+      // 기존 row 도 type='task' / sort_order=0 으로 채워진다. parent_id 는 nullable
+      // 이므로 NULL 로 채워짐. RLS / Supabase 별도 migration 은 schema.sql 의 ALTER 안내.
+      if (from < 2) {
+        await m.addColumn(todos, todos.parentId);
+        await m.addColumn(todos, todos.type);
+        await m.addColumn(todos, todos.sortOrder);
+      }
     },
   );
 
