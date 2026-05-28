@@ -34,8 +34,13 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
   Stream<List<domain.Todo>> watchAll() {
     final q = select(todos)
       ..orderBy([
-        // 미체크 (doneAt IS NULL) 가 먼저 오도록 doneAt 오름차순 + nulls first 효과
-        (t) => OrderingTerm(expression: t.doneAt, mode: OrderingMode.asc),
+        // 미체크 (doneAt IS NULL) 가 항상 먼저 오도록 NULLS FIRST 명시.
+        // SQLite ASC 의 default 도 NULLS FIRST 이지만 미래 호환 + 의도 표시 차원에서 명시.
+        (t) => OrderingTerm(
+          expression: t.doneAt,
+          mode: OrderingMode.asc,
+          nulls: NullsOrder.first,
+        ),
         (t) => OrderingTerm(expression: t.dueAt, mode: OrderingMode.asc),
         (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
       ]);

@@ -93,7 +93,7 @@
 - [x] `signOut` 후 Drift / outbox 의 다른 user 데이터 잔존. **fix**: `AppDatabase.clearAllUserData()` (todos + outbox transaction delete) + `SignOutController.signOutAndClear()` (Supabase signOut + db clear) + `userChangeCleanupProvider` (currentUser id 가 바뀌면 자동 clear, AppShell 이 watch). 신규 테스트 3건 (총 139/139 PASS).
 
 **UI 동작**
-- [ ] Drift `watchAll` 의 `OrderingTerm(doneAt, asc)` 가 SQLite default NULLS LAST 로 동작 → 미체크 (doneAt null) 가 뒤로 갈 수 있음. NULLS FIRST 명시 또는 `isDone` 가상 컬럼 추가
+- [x] Drift `watchAll` 의 `OrderingTerm(doneAt, asc)` 가 SQLite default 에 의존하던 부분 — `nulls: NullsOrder.first` 명시. (SQLite ASC default 도 NULLS FIRST 지만 의도 명시 + 미래 호환.) 강력한 검증 테스트 1건 추가 (총 140/140 PASS).
 - [ ] AddTodoSheet 에서 빠르게 두 번 submit → 두 todo 생성. submit 시 `_busy` 가드 누락 (이미 enabled 검사 있지만 race 가능)
 - [ ] 카테고리 chip selected 시 alpha 0.18 만 변화 — 시각 차이 너무 미묘. outline 또는 weight 추가
 - [ ] HomeScreen 이월 배너의 색이 light/dark 모두 동일 alpha — 다크에서 가독성 검증

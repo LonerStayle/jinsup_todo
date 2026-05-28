@@ -98,6 +98,44 @@ void main() {
       expect(list.map((t) => t.id).toList(), ['undone', 'done']);
     });
 
+    test(
+      'watchAll: 여러 미체크 + 여러 체크 섞여도 미체크 그룹이 항상 먼저 (NULLS FIRST 명시 검증)',
+      () async {
+        // 의도적으로 체크된 항목을 먼저 insert 해서 default 순서에 의존하지 않게.
+        await repo.upsert(
+          make(
+            id: 'done1',
+            doneAt: DateTime.utc(2026, 5, 27, 10),
+            createdAt: DateTime.utc(2026, 5, 27, 5),
+          ),
+        );
+        await repo.upsert(
+          make(
+            id: 'done2',
+            doneAt: DateTime.utc(2026, 5, 27, 11),
+            createdAt: DateTime.utc(2026, 5, 27, 6),
+          ),
+        );
+        // 미체크 항목들 (doneAt NULL).
+        await repo.upsert(
+          make(id: 'undone1', createdAt: DateTime.utc(2026, 5, 27, 7)),
+        );
+        await repo.upsert(
+          make(id: 'undone2', createdAt: DateTime.utc(2026, 5, 27, 8)),
+        );
+
+        final list = await repo.watchAll().first;
+        final ids = list.map((t) => t.id).toList();
+        // 미체크 두 개가 모두 앞쪽 두 자리에 있어야 한다 (NULLS FIRST).
+        expect(
+          {ids[0], ids[1]},
+          {'undone1', 'undone2'},
+          reason: 'NULLS FIRST 가 동작하지 않으면 done* 가 위로 올 수 있다',
+        );
+        expect({ids[2], ids[3]}, {'done1', 'done2'});
+      },
+    );
+
     test('watchByCategory 가 카테고리별로만 emit', () async {
       await repo.upsert(make(id: 'w', category: Category.work));
       await repo.upsert(make(id: 'd', category: Category.daily));
