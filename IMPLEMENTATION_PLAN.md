@@ -212,8 +212,8 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] TodoTile description 힌트 — title 옆 작은 sticky_note_2_outlined (14px, alpha 0.55) — description 비어있지 않을 때만 표시. (widget test 는 통합 task 에서.)
 
 **테스트 통합**
-- [ ] AddTodoSheet edit 모드 widget test — initialTodo prefill (title/category/dueAt/description) + 수정 후 onUpdate 호출 + sheet 닫힘.
-- [ ] 단축키 1~9 동적 매핑 widget test — categoriesProvider stream 에 categories 변화 시 sidebar / 단축키가 동적으로 갱신되는지 (mount → categories add → 새 destination 등장 + 그 단축키 동작).
+- [x] AddTodoSheet edit 모드 widget test — `add_todo_sheet_edit_test.dart` 5건 (title prefill + "할 일 편집" 헤더 + "저장" 버튼 / description prefill 시 default 펼침 / 저장 시 onUpdate 호출 + onSubmit 안 호출 / description 변경 후 저장 / 제목 비우면 저장 비활성).
+- [x] 단축키 1~9 동적 매핑 widget test — `destination_dynamic_test.dart` 6건 (빈 categories / builtin 5종 / 8 카테고리 / 9 카테고리 (outline 단축키 없음) / 12 카테고리 (10~12 단축키 없음) / tooltipWithShortcut 분기). 326/326 PASS (+11 신규).
 
 ---
 
