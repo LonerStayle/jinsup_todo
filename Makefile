@@ -29,7 +29,17 @@ help:
 	@echo ""
 	@echo "  make clean        flutter clean + pub get"
 	@echo ""
+	@echo "  make sql          supabase/schema.sql 클립보드 복사 (Supabase SQL Editor 붙여넣기용)"
+	@echo "  make sql-migrate  supabase/migrate.sql 클립보드 복사"
+	@echo ""
 	@echo "  현재 env 파일: $(if $(wildcard $(ENV_FILE)),found ✓,없음 — local-only 모드)"
+
+.PHONY: sql sql-migrate
+sql:
+	@pbcopy < supabase/schema.sql && echo "✓ supabase/schema.sql 클립보드 복사됨 — Supabase SQL Editor 에 붙여넣기"
+
+sql-migrate:
+	@pbcopy < supabase/migrate.sql && echo "✓ supabase/migrate.sql 클립보드 복사됨"
 
 # ────────────────────────────────────────────────────────────────────────────
 # Setup / Codegen

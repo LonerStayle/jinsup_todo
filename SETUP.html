@@ -178,7 +178,12 @@ flutter build apk --release --dart-define-from-file=.env.local</code></pre>
   <ol>
     <li>Supabase Dashboard 에서 새 프로젝트 생성 (region: <code>ap-northeast-2</code> 서울 권장).</li>
     <li>좌측 메뉴 <strong>Authentication → Providers → Email</strong> 활성화. "Magic Link" 사용.</li>
-    <li><strong>Database → SQL Editor</strong> 에서 아래 SQL 그대로 실행:</li>
+    <li><strong>Database → SQL Editor</strong> 에서 아래 SQL 실행. 저장소에도 파일로 있습니다:
+      <ul>
+        <li>신규 셋업: <code>supabase/schema.sql</code></li>
+        <li>이전 버전에서 옮길 때: <code>supabase/migrate.sql</code></li>
+      </ul>
+    </li>
   </ol>
 
 <pre><code>-- 별도 schema 'solo_todo' 안에 격리. 다른 앱이 같은 프로젝트의 public 을 쓰더라도 영향 X.
