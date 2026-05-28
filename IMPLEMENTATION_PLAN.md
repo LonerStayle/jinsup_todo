@@ -185,7 +185,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 
 **카테고리 도메인 정책 + Controller**
 - [x] 카테고리 삭제 차단 정책 — `CategoryDeletePolicy.canDelete(category, todoCount)` pure 함수 + `sealed class DeleteCheck` (`ok` / `blockedByTodos(count)`). builtin / 사용자 구분 없이 동일 정책. 단위 테스트 5건. 293/293 PASS (+5 신규).
-- [ ] CategoriesController (Riverpod Notifier) — add(category) / delete(id) + 정책 호출 + 호출자에게 결과 반환. 단위 테스트 (in-memory DB + 차단 시 todos 가 그대로 유지되는지).
+- [x] CategoriesController — add(category) / delete(id) — delete 가 [CategoryDeletePolicy] 호출 후 [DeleteCheck] 반환 (ok 시 실제 delete, blocked 시 todos 보존). idempotent (id 없으면 ok). `categoriesProvider` (StreamProvider) + `categoriesControllerProvider` (Provider) 노출. 단위 테스트 5건 (add/ok delete/blocked/idempotent/builtin delete). 298/298 PASS (+5 신규).
 
 **Supabase 동기화**
 - [ ] supabase/schema.sql 에 `solo_todo.categories` 테이블 추가 (id text PK / user_id FK / label / icon_code_point / color_value / sort_order / is_builtin / created_at). RLS 4 정책 (auth.uid() = user_id) + Realtime publication 등록 + v1.1 → v1.2 ALTER 안내 (categories CREATE + todos ADD COLUMN description) idempotent 주석.
