@@ -9,7 +9,7 @@ part of 'todo.dart';
 _Todo _$TodoFromJson(Map<String, dynamic> json) => _Todo(
   id: json['id'] as String,
   title: json['title'] as String,
-  category: $enumDecode(_$CategoryEnumMap, json['category']),
+  category: _categoryFromJson(json['category']),
   dueAt: json['dueAt'] == null ? null : DateTime.parse(json['dueAt'] as String),
   doneAt: json['doneAt'] == null
       ? null
@@ -25,7 +25,7 @@ _Todo _$TodoFromJson(Map<String, dynamic> json) => _Todo(
 Map<String, dynamic> _$TodoToJson(_Todo instance) => <String, dynamic>{
   'id': instance.id,
   'title': instance.title,
-  'category': _$CategoryEnumMap[instance.category]!,
+  'category': _categoryToJson(instance.category),
   'dueAt': instance.dueAt?.toIso8601String(),
   'doneAt': instance.doneAt?.toIso8601String(),
   'createdAt': instance.createdAt.toIso8601String(),
@@ -34,14 +34,6 @@ Map<String, dynamic> _$TodoToJson(_Todo instance) => <String, dynamic>{
   'parentId': instance.parentId,
   'type': _$TodoTypeEnumMap[instance.type]!,
   'sortOrder': instance.sortOrder,
-};
-
-const _$CategoryEnumMap = {
-  Category.work: 'work',
-  Category.personalDev: 'personal_dev',
-  Category.daily: 'daily',
-  Category.longterm: 'longterm',
-  Category.idea: 'idea',
 };
 
 const _$TodoTypeEnumMap = {TodoType.task: 'task', TodoType.note: 'note'};

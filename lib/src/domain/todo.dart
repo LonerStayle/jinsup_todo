@@ -35,6 +35,7 @@ abstract class Todo with _$Todo {
   const factory Todo({
     required String id,
     required String title,
+    @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson)
     required Category category,
     DateTime? dueAt,
     DateTime? doneAt,
@@ -92,3 +93,17 @@ abstract class Todo with _$Todo {
     return copyWith(calendarEventId: eventId, updatedAt: n);
   }
 }
+
+/// Todo JSON 의 `category` 필드를 nested object 가 아닌 string id 로 직렬화 유지.
+/// v1.0 / v1.1 의 옛 payload (예: `"category": "work"`) 가 그대로 복원된다.
+Category _categoryFromJson(Object? value) {
+  if (value is String) {
+    return Category.tryFromId(value) ?? Category.daily;
+  }
+  if (value is Map<String, dynamic>) {
+    return Category.fromJson(value);
+  }
+  return Category.daily;
+}
+
+String _categoryToJson(Category category) => category.id;

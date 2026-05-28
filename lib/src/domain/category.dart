@@ -1,75 +1,117 @@
 import 'package:flutter/material.dart';
-import 'package:json_annotation/json_annotation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-/// Solo Todo 의 카테고리 5종. CLAUDE.md 의 비전에 고정.
+part 'category.freezed.dart';
+part 'category.g.dart';
+
+/// Solo Todo 의 카테고리.
 ///
-/// 각 값은 DB 저장용 [id], 한글 [label], 시각화용 [color] + [icon] 를 갖는다.
-/// 색은 phase 4 디자인 토큰 task 에서 본격 검증 (WCAG AA 대비 등) 후 보강될 수 있다.
+/// v1.0~v1.1 의 5 종 고정 enum 이었지만, v1.2 부터 DB row 로 저장되어 사용자가
+/// 추가 / 삭제 가능한 데이터 클래스로 변환되었다. 5 builtin (work / personal_dev
+/// / daily / longterm / idea) 은 [builtinSeeds] 로 static 노출되어 기존 사용처
+/// (`Category.work` 등) 와 그대로 호환된다.
 ///
-/// `@JsonValue` 는 json_serializable 로 직렬화될 때 enum 이름 ('personalDev') 가 아닌
-/// [id] ('personal_dev') 가 그대로 직렬화되도록 보장한다 — DB 호환 + 안정성.
-enum Category {
-  @JsonValue('work')
-  work(
-    id: 'work',
-    label: '회사 할일',
-    color: Color(0xFF2A66FF),
-    icon: Icons.business_center_outlined,
-  ),
-  @JsonValue('personal_dev')
-  personalDev(
-    id: 'personal_dev',
-    label: '개인개발',
-    color: Color(0xFF8B5CF6),
-    icon: Icons.code,
-  ),
-  @JsonValue('daily')
-  daily(
-    id: 'daily',
-    label: '일상',
-    color: Color(0xFF10B981),
-    icon: Icons.home_outlined,
-  ),
-  @JsonValue('longterm')
-  longterm(
-    id: 'longterm',
-    label: '장기 목표',
-    color: Color(0xFFEF4444),
-    icon: Icons.flag_outlined,
-  ),
-  @JsonValue('idea')
-  idea(
-    id: 'idea',
-    label: '아이디어',
-    color: Color(0xFFF59E0B),
-    icon: Icons.lightbulb_outline,
-  );
+/// 필드:
+/// - [id] — DB / JSON 안정 키. enum 이름이 아닌 이 값을 직렬화 키로 쓴다.
+/// - [label] — 사용자에게 보여줄 한글 라벨.
+/// - [iconCodePoint] — Material Icons 폰트의 codepoint (Drift / Supabase int 컬럼).
+/// - [colorValue] — `Color.value` 정수 표현 (예: `0xFF2A66FF`).
+/// - [sortOrder] — sidebar / outline 정렬 키 (작은 값 먼저). 기본 0.
+/// - [isBuiltin] — 5 builtin 인지 사용자 정의인지 표시. 삭제 정책은 같지만,
+///   향후 UX (예: builtin 만 다른 색) 분기에 쓸 수 있다.
+@freezed
+abstract class Category with _$Category {
+  const Category._();
 
-  const Category({
-    required this.id,
-    required this.label,
-    required this.color,
-    required this.icon,
-  });
+  const factory Category({
+    required String id,
+    required String label,
+    required int iconCodePoint,
+    required int colorValue,
+    @Default(0) int sortOrder,
+    @Default(false) bool isBuiltin,
+  }) = _Category;
 
-  /// DB / JSON 직렬화에 쓰는 안정 키. enum 이름이 변경되어도 [id] 는 보존해야 한다.
-  final String id;
+  factory Category.fromJson(Map<String, dynamic> json) =>
+      _$CategoryFromJson(json);
 
-  /// 사용자에게 보여주는 한글 라벨.
-  final String label;
+  /// 시각화용 [Color]. [colorValue] 를 [Color] 인스턴스로 감싼다.
+  Color get color => Color(colorValue);
 
-  /// 카테고리 컬러바 / 아이콘 배경에 쓰는 시그니처 색상.
-  final Color color;
-
-  /// 카테고리 시각화에 쓰는 아이콘 (Material Icons — macOS / Android 공용).
-  final IconData icon;
+  /// 시각화용 [IconData]. Material Icons 폰트 family 고정.
+  IconData get icon => IconData(iconCodePoint, fontFamily: 'MaterialIcons');
 
   /// 키보드 단축 (`1`~`5`) 으로 카테고리 전환할 때 쓰는 위치 (1-based).
-  int get shortcutDigit => Category.values.indexOf(this) + 1;
+  /// builtin 5종에 대해서만 의미가 있고, 사용자 정의 카테고리는 sidebar 의
+  /// 동적 단축키 매핑에서 별도 처리한다 (v1.2 sidebar dynamic task).
+  int get shortcutDigit => builtinSeeds.indexOf(this) + 1;
+
+  // ===== builtin 5 종 =====
+  //
+  // codepoint 값은 Flutter 의 `Icons.xxx_outlined` 정의값을 그대로 사용한다
+  // (icons.dart 에서 const 추출 — 'MaterialIcons' fontFamily 공통).
+
+  static const Category work = Category(
+    id: 'work',
+    label: '회사 할일',
+    iconCodePoint: 0xef0a, // business_center_outlined
+    colorValue: 0xFF2A66FF,
+    sortOrder: 0,
+    isBuiltin: true,
+  );
+
+  static const Category personalDev = Category(
+    id: 'personal_dev',
+    label: '개인개발',
+    iconCodePoint: 0xe176, // code
+    colorValue: 0xFF8B5CF6,
+    sortOrder: 1,
+    isBuiltin: true,
+  );
+
+  static const Category daily = Category(
+    id: 'daily',
+    label: '일상',
+    iconCodePoint: 0xf107, // home_outlined
+    colorValue: 0xFF10B981,
+    sortOrder: 2,
+    isBuiltin: true,
+  );
+
+  static const Category longterm = Category(
+    id: 'longterm',
+    label: '장기 목표',
+    iconCodePoint: 0xf07b, // flag_outlined
+    colorValue: 0xFFEF4444,
+    sortOrder: 3,
+    isBuiltin: true,
+  );
+
+  static const Category idea = Category(
+    id: 'idea',
+    label: '아이디어',
+    iconCodePoint: 0xe37c, // lightbulb_outline
+    colorValue: 0xFFF59E0B,
+    sortOrder: 4,
+    isBuiltin: true,
+  );
+
+  /// 5 builtin 의 const 리스트. Drift onCreate / migration 시 seed 로 사용.
+  static const List<Category> builtinSeeds = [
+    work,
+    personalDev,
+    daily,
+    longterm,
+    idea,
+  ];
+
+  /// 기존 enum 의 `Category.values` 호환 alias. v1.2 sidebar 가 동적
+  /// destination 으로 바뀌면 호출처가 줄어든다.
+  static const List<Category> values = builtinSeeds;
 
   /// 저장된 [id] 로부터 카테고리를 복원. 미지 id 는 [ArgumentError].
   static Category fromId(String id) {
-    return Category.values.firstWhere(
+    return builtinSeeds.firstWhere(
       (c) => c.id == id,
       orElse: () => throw ArgumentError('Unknown category id: $id'),
     );
@@ -77,7 +119,7 @@ enum Category {
 
   /// [Category.fromId] 의 safe 버전. 미지 id 면 null 반환.
   static Category? tryFromId(String id) {
-    for (final c in Category.values) {
+    for (final c in builtinSeeds) {
       if (c.id == id) return c;
     }
     return null;

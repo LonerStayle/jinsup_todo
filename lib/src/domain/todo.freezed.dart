@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Todo {
 
- String get id; String get title; Category get category; DateTime? get dueAt; DateTime? get doneAt; DateTime get createdAt; DateTime get updatedAt; String? get calendarEventId; String? get parentId; TodoType get type; int get sortOrder;
+ String get id; String get title;@JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) Category get category; DateTime? get dueAt; DateTime? get doneAt; DateTime get createdAt; DateTime get updatedAt; String? get calendarEventId; String? get parentId; TodoType get type; int get sortOrder;
 /// Create a copy of Todo
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,11 +48,11 @@ abstract mixin class $TodoCopyWith<$Res>  {
   factory $TodoCopyWith(Todo value, $Res Function(Todo) _then) = _$TodoCopyWithImpl;
 @useResult
 $Res call({
- String id, String title, Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId, String? parentId, TodoType type, int sortOrder
+ String id, String title,@JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId, String? parentId, TodoType type, int sortOrder
 });
 
 
-
+$CategoryCopyWith<$Res> get category;
 
 }
 /// @nodoc
@@ -81,7 +81,16 @@ as TodoType,sortOrder: null == sortOrder ? _self.sortOrder : sortOrder // ignore
 as int,
   ));
 }
-
+/// Create a copy of Todo
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$CategoryCopyWith<$Res> get category {
+  
+  return $CategoryCopyWith<$Res>(_self.category, (value) {
+    return _then(_self.copyWith(category: value));
+  });
+}
 }
 
 
@@ -163,7 +172,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson)  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Todo() when $default != null:
 return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder);case _:
@@ -184,7 +193,7 @@ return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson)  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder)  $default,) {final _that = this;
 switch (_that) {
 case _Todo():
 return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder);case _:
@@ -204,7 +213,7 @@ return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson)  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder)?  $default,) {final _that = this;
 switch (_that) {
 case _Todo() when $default != null:
 return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder);case _:
@@ -219,12 +228,12 @@ return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_th
 @JsonSerializable()
 
 class _Todo extends Todo {
-  const _Todo({required this.id, required this.title, required this.category, this.dueAt, this.doneAt, required this.createdAt, required this.updatedAt, this.calendarEventId, this.parentId, this.type = TodoType.task, this.sortOrder = 0}): super._();
+  const _Todo({required this.id, required this.title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) required this.category, this.dueAt, this.doneAt, required this.createdAt, required this.updatedAt, this.calendarEventId, this.parentId, this.type = TodoType.task, this.sortOrder = 0}): super._();
   factory _Todo.fromJson(Map<String, dynamic> json) => _$TodoFromJson(json);
 
 @override final  String id;
 @override final  String title;
-@override final  Category category;
+@override@JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) final  Category category;
 @override final  DateTime? dueAt;
 @override final  DateTime? doneAt;
 @override final  DateTime createdAt;
@@ -267,11 +276,11 @@ abstract mixin class _$TodoCopyWith<$Res> implements $TodoCopyWith<$Res> {
   factory _$TodoCopyWith(_Todo value, $Res Function(_Todo) _then) = __$TodoCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String title, Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId, String? parentId, TodoType type, int sortOrder
+ String id, String title,@JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId, String? parentId, TodoType type, int sortOrder
 });
 
 
-
+@override $CategoryCopyWith<$Res> get category;
 
 }
 /// @nodoc
@@ -301,7 +310,16 @@ as int,
   ));
 }
 
-
+/// Create a copy of Todo
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$CategoryCopyWith<$Res> get category {
+  
+  return $CategoryCopyWith<$Res>(_self.category, (value) {
+    return _then(_self.copyWith(category: value));
+  });
+}
 }
 
 // dart format on

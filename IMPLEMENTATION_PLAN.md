@@ -167,6 +167,54 @@
 **Today 화면 결합**
 - [x] HomeScreen today list 의 breadcrumb — `computeTodoPath(todo, all)` pure 함수 추가 (id 인덱스 + parentId chain walk + 사이클 방지 visited set). AnimatedTodoSliver 에 `breadcrumbBuilder` 옵션 추가, `_PaddedTile` 가 tile 위에 onSurfaceVariant 색 labelSmall 캡션 표시. HomeScreen 이 allTodosProvider watch 후 `_breadcrumbFor` 로 path → " / " join 또는 카테고리 라벨. 회귀 dark_mode_test / widget_test 에 allTodosProvider override 추가. 신규 테스트 10건 (tree_providers 6 + home_screen 4). 총 280/280 PASS.
 
+### 12. v1.2 — 카테고리 fully 동적 + Todo 상세 메모 (description)
+
+v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자가 추가/삭제. 5 builtin (work/personal_dev/daily/longterm/idea) 도 hard delete 가능. todos 에 description (long text) 필드 추가 + AddTodoSheet 가 edit 모드 지원 (TodoTile.onTap 진입).
+
+**비전 영역 (대표님 직접)**
+- [ ] **[대표님 직접 영역 — ralph 건너뜀]** CLAUDE.md 비전 § 3 의 "카테고리 분류 — 5종 고정" 표현을 "기본 5종 + 사용자 추가/삭제 가능" 으로 갱신. vision-intake skill 영역이라 ralph 가 수정 X.
+
+**Category 도메인 모델 변환**
+- [x] Category enum → freezed data class 로 변환 — id/label/iconCodePoint/colorValue/sortOrder/isBuiltin 6 필드 + `static const` builtin 5종 (work/personal_dev/daily/longterm/idea) 호환 layer + `values` alias + `builtinSeeds` const list + `fromId/tryFromId/shortcutDigit/color/icon` getter. Todo.category 의 `@JsonKey(fromJson/toJson)` 으로 nested object 가 아닌 string id 직렬화 유지 (v1.0/v1.1 payload 그대로 복원). 회귀 없음 (280/280 PASS).
+
+**Drift schema + DAO + migration**
+- [ ] Drift `categories` 테이블 추가 (id PK text, label, icon_code_point int, color_value int, sort_order int default 0, is_builtin bool default false, created_at). schemaVersion 2→3 으로 bump.
+- [ ] Drift onUpgrade 2→3 — categories 테이블 생성 + 5 builtin seed (id='work' 등 그대로 유지). todos 의 description 컬럼 ALTER 도 같은 case 안에서.
+- [ ] Drift schemaVersion 2→3 migration 단위 테스트 — v2 fixture (옛 todos 두 건) → migrate → categories 5건 seed 확인 + 기존 todos row 보존 + description 컬럼이 nullable 추가됨 확인.
+- [ ] CategoriesDao 신규 — watchAll (sortOrder asc, createdAt asc), upsert, deleteById, countTodosOfCategory(id). 단위 테스트 (CRUD + 정렬 + 카운트).
+
+**카테고리 도메인 정책 + Controller**
+- [ ] 카테고리 삭제 차단 정책 — `CategoryDeletePolicy.canDelete(category, todoCount)` → `DeleteCheck.ok` 또는 `DeleteCheck.blockedByTodos(count)`. 단위 테스트 (todoCount 0 = ok, ≥1 = blocked).
+- [ ] CategoriesController (Riverpod Notifier) — add(category) / delete(id) + 정책 호출 + 호출자에게 결과 반환. 단위 테스트 (in-memory DB + 차단 시 todos 가 그대로 유지되는지).
+
+**Supabase 동기화**
+- [ ] supabase/schema.sql 에 `solo_todo.categories` 테이블 추가 (id text PK / user_id FK / label / icon_code_point / color_value / sort_order / is_builtin / created_at). RLS 4 정책 (auth.uid() = user_id) + Realtime publication 등록 + v1.1 → v1.2 ALTER 안내 (categories CREATE + todos ADD COLUMN description) idempotent 주석.
+- [ ] SupabaseCategoriesApi 신규 — upsert / deleteById / fetchAll. JSON ↔ Category 매핑 + round-trip 테스트. RemoteCategoriesApi 인터페이스 분리.
+- [ ] SyncingCategoriesRepository / outbox 통합 — local + remote 동기화 (SyncingTodoRepository 패턴 답습). 단위 테스트 (upsert/delete → outbox → push 성공 시 비움).
+
+**카테고리 UI — dynamic destination**
+- [ ] Sidebar / NavigationBar destination 동적 생성 — `categoriesProvider` (StreamProvider) watch + AppDestination.all 의 카테고리 부분을 categories rows 로 build. 단축키 1~9 자동 할당 (categories.length 만큼, N>9 면 9까지). today=0, outline=마지막 destination 의 다음 단축키.
+- [ ] 카테고리 ADD dialog — label TextField + 16 색 palette + 12 icon (Material Icons subset) picker. 확인 시 CategoriesController.add 호출. sidebar 끝 "+" 버튼에서 진입.
+- [ ] 카테고리 DELETE — sidebar item 의 long-press / context menu → confirm dialog. 안 todos 가 ≥1 이면 차단 안내 ("먼저 다른 카테고리로 옮기거나 todos 부터 삭제하세요"). 0 이면 confirm + delete.
+- [ ] 카테고리 ADD / DELETE / 차단 widget test (sidebar mount → "+" tap → dialog → 확인 → categoriesProvider stream 확인 + long-press → 차단 다이얼로그).
+
+**Todo description (long text)**
+- [ ] Todo freezed 모델에 description (String?) 필드 추가 + @Default(null) backwards compat + freezed/json regen. round-trip 테스트.
+- [ ] Drift todos 테이블에 description (text nullable) 컬럼 + TodosDao 매핑 갱신 (rowToDomain / domainToCompanion). onUpgrade 2→3 case 안에서 m.addColumn(todos, todos.description) — categories 생성과 한 case.
+- [ ] SupabaseTodosApi 의 _toRow/_fromRow 에 description 매핑 추가 + round-trip 테스트.
+- [ ] supabase/schema.sql 의 solo_todo.todos 에 description text 컬럼 추가 (v1.1→v1.2 ALTER 안내에 통합).
+
+**Edit todo (description 입력 + edit 진입)**
+- [ ] AddTodoSheet 에 description multi-line TextField 추가 — title 아래, 일정 위. "상세" 토글로 펼침/접힘 (default 접힘) → 평소 sheet 길이 보존. submission.description 전달.
+- [ ] AddTodoSheet 에 `initialTodo` 옵션 — null = add 모드 (기존), Todo = edit 모드. _titleCtrl/_description/_category/_dueAt/_type prefill. _submit 분기: initialTodo != null 이면 onUpdate(updatedTodo) 콜백 호출 + sheet pop. AddTodoSheet.show 도 edit 진입 helper 추가.
+- [ ] TodoActions 에 update(Todo updated) 메서드 추가 — repo.upsert 로 description/title 등 변경. 단위 테스트 (기존 todo 의 description 갱신 + updatedAt bump).
+- [ ] TodoTile.onTap → AddTodoSheet.show(initialTodo: this.todo) 진입 — HomeScreen / CategoryView / OutlineScreen 모두 호출자 연결. onUpdate 콜백이 TodoActions.update 호출.
+- [ ] TodoTile 에 description 존재 힌트 — title 옆 작은 sticky_note_outlined 아이콘 (description 비어있지 않을 때만). widget test.
+
+**테스트 통합**
+- [ ] AddTodoSheet edit 모드 widget test — initialTodo prefill (title/category/dueAt/description) + 수정 후 onUpdate 호출 + sheet 닫힘.
+- [ ] 단축키 1~9 동적 매핑 widget test — categoriesProvider stream 에 categories 변화 시 sidebar / 단축키가 동적으로 갱신되는지 (mount → categories add → 새 destination 등장 + 그 단축키 동작).
+
 ---
 
 ## 점수 측정 프로토콜
