@@ -8,6 +8,7 @@ import '../../ui/widgets/dismissible_todo_tile.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/undo_snackbar.dart';
+import '../add_todo/add_todo_sheet.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import 'category_providers.dart';
 
@@ -38,6 +39,16 @@ class CategoryView extends ConsumerWidget {
             onUndo: () => actions.restore(t),
           );
         },
+        onTap: (t) async {
+          await AddTodoSheet.show(
+            context,
+            initialCategory: t.category,
+            initialTodo: t,
+            onSubmit: (_) {},
+            onUpdate: (updated) =>
+                ref.read(todoActionsProvider).update(updated),
+          );
+        },
       ),
     );
   }
@@ -49,12 +60,14 @@ class _Loaded extends StatelessWidget {
     required this.todos,
     required this.onToggle,
     required this.onDelete,
+    required this.onTap,
   });
 
   final Category category;
   final List<Todo> todos;
   final void Function(Todo) onToggle;
   final void Function(Todo) onDelete;
+  final void Function(Todo) onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +111,7 @@ class _Loaded extends StatelessWidget {
                 todo: todos[i],
                 onToggle: () => onToggle(todos[i]),
                 onDelete: () => onDelete(todos[i]),
+                onTap: () => onTap(todos[i]),
               ),
               separatorBuilder: (_, _) =>
                   const SizedBox(height: AppTokens.space8),

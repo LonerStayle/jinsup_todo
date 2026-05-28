@@ -33,6 +33,7 @@ class AddTodoController {
       dueAt: s.dueAt,
       now: now,
       type: s.type,
+      description: s.description,
     );
     await repo.upsert(todo);
 

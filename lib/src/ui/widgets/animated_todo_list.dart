@@ -16,12 +16,16 @@ class AnimatedTodoSliver extends StatefulWidget {
     required this.todos,
     required this.onToggle,
     required this.onDelete,
+    this.onTap,
     this.breadcrumbBuilder,
   });
 
   final List<Todo> todos;
   final void Function(Todo) onToggle;
   final void Function(Todo) onDelete;
+
+  /// v1.2 — tile tap → 호출자가 edit sheet 진입 등. null 이면 tap 무동작.
+  final void Function(Todo)? onTap;
 
   /// 각 todo 위에 표시할 breadcrumb 텍스트 (예: "JS슈퍼 / 울트라 모드"). null 반환 시
   /// breadcrumb 없음. v1.1 today list 에서 트리 path 시각용.
@@ -117,6 +121,7 @@ class _AnimatedTodoSliverState extends State<AnimatedTodoSliver> {
           breadcrumb: widget.breadcrumbBuilder?.call(todo),
           onToggle: () => widget.onToggle(todo),
           onDelete: () => widget.onDelete(todo),
+          onTap: widget.onTap == null ? null : () => widget.onTap!(todo),
         ),
       ),
     );
@@ -146,12 +151,14 @@ class _PaddedTile extends StatelessWidget {
     required this.todo,
     required this.onToggle,
     required this.onDelete,
+    this.onTap,
     this.breadcrumb,
   });
 
   final Todo todo;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
+  final VoidCallback? onTap;
   final String? breadcrumb;
 
   @override
@@ -185,6 +192,7 @@ class _PaddedTile extends StatelessWidget {
             todo: todo,
             onToggle: onToggle,
             onDelete: onDelete,
+            onTap: onTap,
           ),
         ],
       ),

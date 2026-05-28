@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
-import '../../domain/todo.dart' show TodoType;
+import '../../domain/todo.dart' show Todo, TodoType;
 
 /// "빠른 추가" 입력 패널.
 ///
@@ -17,6 +17,8 @@ class AddTodoSheet extends StatefulWidget {
     super.key,
     this.initialCategory = Category.daily,
     required this.onSubmit,
+    this.onUpdate,
+    this.initialTodo,
     this.now,
     this.initialDueAt,
     this.initialAllDay = true,
@@ -35,7 +37,16 @@ class AddTodoSheet extends StatefulWidget {
   @visibleForTesting
   final bool initialAllDay;
 
+  /// 신규 추가 모드 — submission 콜백. edit 모드 (initialTodo != null) 면 호출 안 됨.
   final void Function(AddTodoSubmission submission) onSubmit;
+
+  /// v1.2 — edit 모드 콜백. [initialTodo] 가 non-null 일 때 _submit 이 update 분기로
+  /// 호출. 호출자는 todoActionsProvider.update 또는 동등 mutation 수행.
+  final void Function(Todo updated)? onUpdate;
+
+  /// v1.2 — null 이면 add 모드 (기존), non-null 이면 edit 모드. _titleCtrl /
+  /// _descriptionCtrl / _category / _dueAt / _type 가 모두 prefill 된다.
+  final Todo? initialTodo;
 
   /// 멀티라인 paste 시 줄바꿈으로 split + 빈 줄 제거 → 의미 있는 줄.
   /// 단위 테스트가 직접 호출하기 위해 public static 으로 노출.
@@ -44,10 +55,15 @@ class AddTodoSheet extends StatefulWidget {
       raw.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
 
   /// modal bottom sheet 로 띄우는 헬퍼.
+  ///
+  /// add 모드: [initialTodo] null + [onSubmit] 만. edit 모드: [initialTodo] non-null
+  /// + [onUpdate] 콜백 — 호출자가 todoActionsProvider.update 호출.
   static Future<void> show(
     BuildContext context, {
     Category initialCategory = Category.daily,
     required void Function(AddTodoSubmission) onSubmit,
+    void Function(Todo updated)? onUpdate,
+    Todo? initialTodo,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -60,6 +76,8 @@ class AddTodoSheet extends StatefulWidget {
         child: AddTodoSheet(
           initialCategory: initialCategory,
           onSubmit: onSubmit,
+          onUpdate: onUpdate,
+          initialTodo: initialTodo,
         ),
       ),
     );
@@ -71,6 +89,7 @@ class AddTodoSheet extends StatefulWidget {
 
 class _AddTodoSheetState extends State<AddTodoSheet> {
   late final TextEditingController _titleCtrl;
+  late final TextEditingController _descriptionCtrl;
   late Category _category;
   DateTime? _dueAt;
 
@@ -82,24 +101,34 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
   /// v1.1 — 추가할 항목의 종류. note 면 일정/캘린더 영역은 비활성 (의미 없음).
   TodoType _type = TodoType.task;
 
+  /// v1.2 — 상세 메모 펼침/접힘. default 접힘. description 가 비어있지 않으면 펼침.
+  bool _showDescription = false;
+
+  /// edit 모드 (initialTodo != null) 여부 — 시그니처 / 버튼 라벨 / submit 분기 사용.
+  bool get _isEditMode => widget.initialTodo != null;
+
   /// 더블 submit race 가드. _submit 이 한 번이라도 호출되면 true 로 set 되어 후속
-  /// tap / Enter 가 추가 onSubmit 콜백 호출을 못 하게 막는다. Navigator.maybePop 이
-  /// 동기적으로 처리되지만 그 직전 frame 에 두 번째 tap 이 들어와 두 todo 가 생성되던
-  /// 경우 방지.
+  /// tap / Enter 가 추가 onSubmit 콜백 호출을 못 하게 막는다.
   bool _submitted = false;
 
   @override
   void initState() {
     super.initState();
-    _titleCtrl = TextEditingController();
-    _category = widget.initialCategory;
-    _dueAt = widget.initialDueAt;
+    final initial = widget.initialTodo;
+    _titleCtrl = TextEditingController(text: initial?.title ?? '');
+    _descriptionCtrl = TextEditingController(text: initial?.description ?? '');
+    _category = initial?.category ?? widget.initialCategory;
+    _dueAt = initial?.dueAt ?? widget.initialDueAt;
     _allDay = widget.initialAllDay;
+    _type = initial?.type ?? TodoType.task;
+    // edit 모드에서 description 이 비어있지 않으면 펼친 상태로 시작.
+    _showDescription = (initial?.description ?? '').isNotEmpty;
   }
 
   @override
   void dispose() {
     _titleCtrl.dispose();
+    _descriptionCtrl.dispose();
     super.dispose();
   }
 
@@ -108,8 +137,26 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
   void _submit() {
     if (_submitted || _titleCtrl.text.trim().isEmpty) return;
     _submitted = true;
-    // note 는 일정 무관 — dueAt / Calendar 모두 강제 null/false.
     final isNote = _type == TodoType.note;
+    final trimmedDesc = _descriptionCtrl.text.trim();
+    final descOrNull = trimmedDesc.isEmpty ? null : trimmedDesc;
+
+    // edit 모드 — onUpdate 콜백 호출 (updatedAt 갱신은 호출자/Controller 책임).
+    final initial = widget.initialTodo;
+    if (_isEditMode && initial != null) {
+      final updated = initial.copyWith(
+        title: _titleCtrl.text.trim(),
+        category: _category,
+        dueAt: isNote ? null : _dueAt,
+        type: _type,
+        description: descOrNull,
+      );
+      widget.onUpdate?.call(updated);
+      Navigator.of(context).maybePop();
+      return;
+    }
+
+    // add 모드 — 기존 흐름. note 는 일정/캘린더 모두 강제 null/false.
     widget.onSubmit(
       AddTodoSubmission(
         title: _titleCtrl.text.trim(),
@@ -118,6 +165,7 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
         isAllDay: !isNote && _dueAt != null && _allDay,
         addToCalendar: !isNote && _dueAt != null && _addToCalendar,
         type: _type,
+        description: descOrNull,
       ),
     );
     Navigator.of(context).maybePop();
@@ -129,6 +177,8 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
     if (_submitted || titles.isEmpty) return;
     _submitted = true;
     final isNote = _type == TodoType.note;
+    final trimmedDesc = _descriptionCtrl.text.trim();
+    final descOrNull = trimmedDesc.isEmpty ? null : trimmedDesc;
     for (final t in titles) {
       widget.onSubmit(
         AddTodoSubmission(
@@ -138,6 +188,7 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
           isAllDay: !isNote && _dueAt != null && _allDay,
           addToCalendar: !isNote && _dueAt != null && _addToCalendar,
           type: _type,
+          description: descOrNull,
         ),
       );
     }
@@ -337,7 +388,7 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
                   _Grabber(color: scheme.outline),
                   const SizedBox(height: AppTokens.space16),
                   Text(
-                    '새 할 일',
+                    _isEditMode ? '할 일 편집' : '새 할 일',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -354,13 +405,42 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
                     maxLines: 5,
                     maxLength: 1000,
                     keyboardType: TextInputType.multiline,
-                    onChanged: _onTitleChanged,
+                    // edit 모드에서는 bulk paste 가 의미 없으므로 단순 setState 만.
+                    onChanged: _isEditMode
+                        ? (_) => setState(() {})
+                        : _onTitleChanged,
                     onSubmitted: (_) => _submit(),
-                    decoration: const InputDecoration(
-                      hintText: '무엇을 할까요?  (여러 줄 paste = 일괄 추가)',
+                    decoration: InputDecoration(
+                      hintText: _isEditMode
+                          ? '제목을 입력하세요'
+                          : '무엇을 할까요?  (여러 줄 paste = 일괄 추가)',
                       counterText: '',
                     ),
                   ),
+                  const SizedBox(height: AppTokens.space12),
+                  // v1.2 — 상세 메모 토글 + multi-line TextField.
+                  _DescriptionToggle(
+                    expanded: _showDescription,
+                    onToggle: () =>
+                        setState(() => _showDescription = !_showDescription),
+                  ),
+                  if (_showDescription) ...[
+                    const SizedBox(height: AppTokens.space8),
+                    TextField(
+                      key: const ValueKey('add-todo-description'),
+                      controller: _descriptionCtrl,
+                      minLines: 3,
+                      maxLines: 8,
+                      maxLength: 5000,
+                      keyboardType: TextInputType.multiline,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(
+                        hintText: '상세 메모 (선택)',
+                        border: OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: AppTokens.space16),
                   _SectionLabel(text: '카테고리'),
                   const SizedBox(height: AppTokens.space8),
@@ -411,7 +491,11 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
                     ),
                   ],
                   const SizedBox(height: AppTokens.space20),
-                  _Actions(canSubmit: _canSubmit, onSubmit: _submit),
+                  _Actions(
+                    canSubmit: _canSubmit,
+                    onSubmit: _submit,
+                    submitLabel: _isEditMode ? '저장' : '추가',
+                  ),
                 ],
               ),
             ),
@@ -710,10 +794,15 @@ class _CalendarToggle extends StatelessWidget {
 }
 
 class _Actions extends StatelessWidget {
-  const _Actions({required this.canSubmit, required this.onSubmit});
+  const _Actions({
+    required this.canSubmit,
+    required this.onSubmit,
+    this.submitLabel = '추가',
+  });
 
   final bool canSubmit;
   final VoidCallback onSubmit;
+  final String submitLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -741,10 +830,40 @@ class _Actions extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppTokens.radiusM),
               ),
             ),
-            child: const Text('추가'),
+            child: Text(submitLabel),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// v1.2 — 상세 메모 펼침/접힘 토글.
+class _DescriptionToggle extends StatelessWidget {
+  const _DescriptionToggle({required this.expanded, required this.onToggle});
+
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        key: const ValueKey('add-todo-description-toggle'),
+        onPressed: onToggle,
+        icon: Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 18),
+        label: const Text('상세 메모'),
+        style: TextButton.styleFrom(
+          foregroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.78),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space8,
+            vertical: AppTokens.space4,
+          ),
+          visualDensity: VisualDensity.compact,
+        ),
+      ),
     );
   }
 }
@@ -987,6 +1106,7 @@ class AddTodoSubmission {
     this.isAllDay = false,
     required this.addToCalendar,
     this.type = TodoType.task,
+    this.description,
   });
 
   final String title;
@@ -1001,4 +1121,7 @@ class AddTodoSubmission {
 
   /// v1.1 — task / note 구분. note 면 dueAt/addToCalendar 는 강제로 무효 처리됨.
   final TodoType type;
+
+  /// v1.2 — 상세 메모 (long text). null / 빈 문자열 모두 "없음" 의미.
+  final String? description;
 }

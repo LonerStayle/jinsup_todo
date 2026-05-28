@@ -14,6 +14,7 @@ class DismissibleTodoTile extends StatelessWidget {
     required this.todo,
     this.onToggle,
     this.onDelete,
+    this.onTap,
     this.confirmDismiss,
   });
 
@@ -25,6 +26,9 @@ class DismissibleTodoTile extends StatelessWidget {
   final Todo todo;
   final VoidCallback? onToggle;
   final VoidCallback? onDelete;
+
+  /// v1.2 — tile tap → edit sheet 진입 등. null 이면 InkWell 비활성.
+  final VoidCallback? onTap;
 
   /// 선택적 확인 콜백 — true 반환 시에만 dismiss. 일반 todo 는 swipe + UndoSnackbar 로
   /// 충분하지만 중요한 case (예: calendarEventId 있는 todo) 에서 호출자가 dialog 띄울 수 있게.
@@ -55,7 +59,7 @@ class DismissibleTodoTile extends StatelessWidget {
         ),
       ),
       onDismissed: (_) => onDelete?.call(),
-      child: TodoTile(todo: todo, onToggle: onToggle),
+      child: TodoTile(todo: todo, onToggle: onToggle, onTap: onTap),
     );
   }
 }

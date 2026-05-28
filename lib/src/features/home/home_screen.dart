@@ -9,6 +9,7 @@ import '../../ui/widgets/animated_todo_list.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/undo_snackbar.dart';
+import '../add_todo/add_todo_sheet.dart';
 import '../outline/tree_providers.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import 'today_providers.dart';
@@ -43,6 +44,18 @@ class HomeScreen extends ConsumerWidget {
             onUndo: () => actions.restore(t),
           );
         },
+        // v1.2 — tile tap → AddTodoSheet edit 모드 진입.
+        onTap: (t) async {
+          await AddTodoSheet.show(
+            context,
+            initialCategory: t.category,
+            initialTodo: t,
+            onSubmit: (_) {}, // edit 모드에선 호출 안 됨.
+            onUpdate: (updated) {
+              ref.read(todoActionsProvider).update(updated);
+            },
+          );
+        },
       ),
     );
   }
@@ -56,6 +69,7 @@ class _Loaded extends StatelessWidget {
     required this.now,
     required this.onToggle,
     required this.onDelete,
+    required this.onTap,
   });
 
   final List<Todo> todos;
@@ -64,6 +78,7 @@ class _Loaded extends StatelessWidget {
   final DateTime now;
   final void Function(Todo) onToggle;
   final void Function(Todo) onDelete;
+  final void Function(Todo) onTap;
 
   /// today list 의 각 todo 옆에 표시할 breadcrumb. parentId 가 set 이면 부모 chain
   /// 의 title 만 (root → 직속부모 순) " / " 로 join. parentId 가 null 이면 카테고리
@@ -115,6 +130,7 @@ class _Loaded extends StatelessWidget {
               todos: todos,
               onToggle: onToggle,
               onDelete: onDelete,
+              onTap: onTap,
               breadcrumbBuilder: _breadcrumbFor,
             ),
           ),

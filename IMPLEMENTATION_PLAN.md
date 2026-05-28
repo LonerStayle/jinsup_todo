@@ -205,11 +205,11 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] supabase/schema.sql 의 solo_todo.todos 에 description text 컬럼 추가 — `alter table ... add column if not exists` 으로 v1.1 → v1.2 안내 안에 통합됨 (앞 schema.sql v1.2 섹션 task 에서 처리 완료).
 
 **Edit todo (description 입력 + edit 진입)**
-- [ ] AddTodoSheet 에 description multi-line TextField 추가 — title 아래, 일정 위. "상세" 토글로 펼침/접힘 (default 접힘) → 평소 sheet 길이 보존. submission.description 전달.
-- [ ] AddTodoSheet 에 `initialTodo` 옵션 — null = add 모드 (기존), Todo = edit 모드. _titleCtrl/_description/_category/_dueAt/_type prefill. _submit 분기: initialTodo != null 이면 onUpdate(updatedTodo) 콜백 호출 + sheet pop. AddTodoSheet.show 도 edit 진입 helper 추가.
-- [ ] TodoActions 에 update(Todo updated) 메서드 추가 — repo.upsert 로 description/title 등 변경. 단위 테스트 (기존 todo 의 description 갱신 + updatedAt bump).
-- [ ] TodoTile.onTap → AddTodoSheet.show(initialTodo: this.todo) 진입 — HomeScreen / CategoryView / OutlineScreen 모두 호출자 연결. onUpdate 콜백이 TodoActions.update 호출.
-- [ ] TodoTile 에 description 존재 힌트 — title 옆 작은 sticky_note_outlined 아이콘 (description 비어있지 않을 때만). widget test.
+- [x] AddTodoSheet description multi-line TextField — title 아래에 "상세 메모" 토글 (`_DescriptionToggle`) + 펼침 시 minLines:3/maxLines:8/maxLength 5000 TextField. submission.description 전달 (_submit + _submitBulk). edit 모드에서 description 가 비어있지 않으면 default 펼침.
+- [x] AddTodoSheet `initialTodo` + `onUpdate` 옵션 — null 이면 add 모드, non-null 이면 edit 모드. _titleCtrl/_descriptionCtrl/_category/_dueAt/_type 모두 initState 에서 prefill. _submit 가 initialTodo != null 이면 copyWith → onUpdate 콜백 호출 후 pop. `AddTodoSheet.show` 도 initialTodo / onUpdate 매개변수. _Actions submitLabel ('저장' vs '추가').
+- [x] TodoActions.update(Todo updated) — copyWith(updatedAt: _now()) 후 repo.upsert. (단위 테스트는 다음 통합 task 에서 묶음.)
+- [x] TodoTile.onTap 연결 — DismissibleTodoTile / AnimatedTodoSliver 에 onTap 옵션 추가. HomeScreen + CategoryView 가 AddTodoSheet.show(initialTodo, onUpdate=todoActions.update) 진입. OutlineScreen 은 노드 expand 가 우선이라 v1.3 으로 미룸.
+- [x] TodoTile description 힌트 — title 옆 작은 sticky_note_2_outlined (14px, alpha 0.55) — description 비어있지 않을 때만 표시. (widget test 는 통합 task 에서.)
 
 **테스트 통합**
 - [ ] AddTodoSheet edit 모드 widget test — initialTodo prefill (title/category/dueAt/description) + 수정 후 onUpdate 호출 + sheet 닫힘.

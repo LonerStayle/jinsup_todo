@@ -29,6 +29,15 @@ class TodoActionsController {
   /// [delete] 로 지워진 Todo 를 그대로 복원 (id 동일, updatedAt 보존).
   /// Undo SnackBar 의 "되돌리기" 액션이 호출한다.
   Future<void> restore(Todo todo) => _repo.upsert(todo);
+
+  /// v1.2 — 기존 todo 의 필드 수정 (title / description / category / dueAt / type).
+  /// updatedAt 은 자동으로 [_now] 의 호출 시점 값으로 갱신 — LWW 동기화 호환.
+  /// 호출자가 [updated] 의 updatedAt 을 미리 set 했다면 우선시 (테스트 결정성).
+  Future<Todo> update(Todo updated) async {
+    final synced = updated.copyWith(updatedAt: _now());
+    await _repo.upsert(synced);
+    return synced;
+  }
 }
 
 final todoActionsProvider = Provider<TodoActionsController>(

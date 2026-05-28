@@ -46,15 +46,33 @@ class TodoTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      todo.title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        decoration: isDone ? TextDecoration.lineThrough : null,
-                        color: isDone
-                            ? scheme.onSurface.withValues(alpha: 0.45)
-                            : null,
-                        fontStyle: isNote ? FontStyle.italic : null,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            todo.title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              decoration: isDone
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: isDone
+                                  ? scheme.onSurface.withValues(alpha: 0.45)
+                                  : null,
+                              fontStyle: isNote ? FontStyle.italic : null,
+                            ),
+                          ),
+                        ),
+                        // v1.2 — description 이 있으면 작은 메모 아이콘으로 힌트 표시.
+                        if ((todo.description ?? '').isNotEmpty) ...[
+                          const SizedBox(width: AppTokens.space8),
+                          Icon(
+                            key: const ValueKey('todo-tile-description-hint'),
+                            Icons.sticky_note_2_outlined,
+                            size: 14,
+                            color: scheme.onSurface.withValues(alpha: 0.55),
+                          ),
+                        ],
+                      ],
                     ),
                     if (todo.dueAt != null && !isNote)
                       Padding(
