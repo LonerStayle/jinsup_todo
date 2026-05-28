@@ -148,7 +148,7 @@
 - [x] SupabaseTodosApi 의 `_toRow` / `_fromRow` 에 parent_id / type / sort_order 매핑 추가. `_parseType` 으로 미지 type 안전 fallback (TodosDao 와 동일). `sort_order` 가 num/double 로 와도 int 변환. supabase_todos_api_test 에 v1.1 매핑 7건 (트리 노드/note/기본값/round-trip/v1.0 역호환/double→int/키셋). syncing_todo_repository_test 에 outbox push payload 보존 2건 (트리 + note + 실패 재시도 round-trip). 신규 테스트 9건 (총 221/221 PASS).
 
 **도메인 정책 + tree providers**
-- [ ] CarryoverPolicy / VisibilityPolicy 재검토 — type='note' 는 carryover/visibility 대상에서 분리 (note 자체의 hide 룰 별도). 부모는 자기 자신만 평가 (자식 collection 무관, 모델 단순화). 기존 정책 단위 테스트 갱신 + note 케이스 추가.
+- [x] CarryoverPolicy / VisibilityPolicy 재검토 — `type == TodoType.note` 면 둘 다 첫 분기에서 false 반환. note 는 체크 개념이 없어 carryover 자체 성립 X, today 화면도 task 전용 (outline / 카테고리 탭에서만 노출). 부모-자식 관계는 정책 평가에 영향 없음 — 각 todo 가 자기 자신만 평가 (자식 collection 무관, 모델 단순화). 정책 클래스 docstring 에 v1.1 의미 명시. visibility 4건 + carryover 4건 신규 테스트 (note 분리 / type 비교 / 자식 독립 평가). 신규 테스트 8건 (총 229/229 PASS).
 - [ ] Tree query providers — childrenOf(parentId) / rootsOfCategory(category) / subtreeProgress(node) → (doneCount, taskCount) (note 분모 제외). 단위 테스트.
 
 **Add / Note UI**

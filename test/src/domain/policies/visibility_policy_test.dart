@@ -7,7 +7,13 @@ import 'package:solo_todo/src/domain/todo.dart';
 void main() {
   final now = DateTime(2026, 5, 27, 10, 0); // 오늘 = 2026-05-27, local 오전 10시
 
-  Todo todo({DateTime? dueAt, DateTime? doneAt, DateTime? createdAt}) {
+  Todo todo({
+    DateTime? dueAt,
+    DateTime? doneAt,
+    DateTime? createdAt,
+    TodoType type = TodoType.task,
+    String? parentId,
+  }) {
     final created = createdAt ?? DateTime(2026, 5, 25, 12);
     return Todo(
       id: 'id',
@@ -18,6 +24,8 @@ void main() {
       createdAt: created,
       updatedAt: created,
       calendarEventId: null,
+      type: type,
+      parentId: parentId,
     );
   }
 
@@ -134,6 +142,47 @@ void main() {
         ),
         isFalse,
       );
+    });
+  });
+
+  group('VisibilityPolicy.isVisibleToday — v1.1 note 분리', () {
+    test('note 타입은 dueAt 가 오늘이어도 today 화면에 안 보임', () {
+      expect(
+        VisibilityPolicy.isVisibleToday(
+          todo(type: TodoType.note, dueAt: DateTime(2026, 5, 27, 15)),
+          now,
+        ),
+        isFalse,
+        reason: 'note 는 today 에서 제외 — outline / 카테고리 탭 전용',
+      );
+    });
+
+    test('note 타입은 createdAt 어제여도 today 에 안 보임 (carryover 차단)', () {
+      expect(
+        VisibilityPolicy.isVisibleToday(
+          todo(type: TodoType.note, createdAt: DateTime(2026, 5, 26, 11)),
+          now,
+        ),
+        isFalse,
+      );
+    });
+
+    test('동일 effective date 의 task 는 visible — type 만이 결정 인자임을 확인', () {
+      final t = todo(type: TodoType.task, dueAt: DateTime(2026, 5, 27, 15));
+      final n = todo(type: TodoType.note, dueAt: DateTime(2026, 5, 27, 15));
+      expect(VisibilityPolicy.isVisibleToday(t, now), isTrue);
+      expect(VisibilityPolicy.isVisibleToday(n, now), isFalse);
+    });
+
+    test('자식 (parentId set) 인 task 도 자기 자신만 평가 — 부모 무관', () {
+      // 정책 함수는 단일 todo 만 받으므로 부모-자식 관계와 무관하게 평가된다.
+      // 자식이 미체크 + 어제 → visible (= 이월). 부모 collection 영향 없음을 명시.
+      final child = todo(
+        type: TodoType.task,
+        dueAt: DateTime(2026, 5, 26, 9),
+        parentId: 'some-parent',
+      );
+      expect(VisibilityPolicy.isVisibleToday(child, now), isTrue);
     });
   });
 }
