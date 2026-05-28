@@ -58,14 +58,15 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 
 총 126/126 PASS (이전 123 + 3).
 
-**§ 10-A 모두 완료**. § 10-B 진행 중 (5/24 완료):
+**§ 10-A 모두 완료**. § 10-B 진행 중 (6/24 완료, 상태/동기화 영역 완료):
 - ✅ `currentDayProvider` 자정 Timer race 가드 (commit `5075239`)
 - ✅ `SyncingTodoRepository.flushPending` mutex + rerun coalesce (commit `99847e3`)
 - ✅ LWW strict `>` (동률 시 local 채택) (commit `222465b`)
-- ✅ Realtime self-receive stomp 가드 — 위 두 패치로 통합 해소 (별도 commit 없음)
-- ✅ `SupabaseRealtimeSync.start` 순서 재배치 — subscribe → fetchAll → flushOutbox (commit pending)
+- ✅ Realtime self-receive stomp 가드 — 위 두 패치로 통합 해소
+- ✅ `SupabaseRealtimeSync.start` 순서 재배치 — subscribe 먼저 (commit `e70652f`)
+- ✅ signOut + user 변경 시 옛 데이터 cleanup (commit pending)
 
-다음: § 10-B 여섯 번째 — signOut 후 Drift/outbox 잔존 데이터 정리.
+다음: § 10-B 의 **UI 동작** 그룹 첫 항목 — `watchAll` 의 doneAt NULLS LAST 정렬 (미체크가 뒤로 갈 위험).
 
 ---
 

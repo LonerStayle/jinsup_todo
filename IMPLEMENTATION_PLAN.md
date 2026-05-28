@@ -90,7 +90,7 @@
 - [x] LWW 의 `>=` 동일 시각 처리가 race 시 옛 값으로 self-overwrite 위험. **fix**: `remoteWins` 를 strict `>` (== `isAfter`) 로 변경 — 동률 시 local 채택. self-receive 시 local 이 같은 값이므로 idempotent 영향 X. 동률 케이스 + 두 client race 테스트 추가 (총 136/136 PASS).
 - [x] Realtime payload 의 INSERT/UPDATE 가 자기 자신의 push 결과를 다시 받아 local upsert — **이미 §10-A 의 outbox 우회 패치 (`554c44e`) + LWW strict `>` (`222465b`) 로 해소**. self-receive 시 outbox 재enqueue 차단 + 동률 stomp 방지. 별도 추가 가드 불필요.
 - [x] `SupabaseRealtimeSync.start` 의 초기 풀백 + outbox flush + channel subscribe 순서 race. **fix**: 순서 재배치 — `subscribe` 먼저 활성, 그 다음 `fetchAll` 풀백, 마지막 `flushOutbox`. subscribe 전 변경 누락이 사라지고 중복 수신은 LWW strict `>` 로 멱등 처리.
-- [ ] `signOut` 후 Drift / outbox 의 다른 user 데이터 잔존 — 다음 user 가 sign-in 시 옛 데이터 보임
+- [x] `signOut` 후 Drift / outbox 의 다른 user 데이터 잔존. **fix**: `AppDatabase.clearAllUserData()` (todos + outbox transaction delete) + `SignOutController.signOutAndClear()` (Supabase signOut + db clear) + `userChangeCleanupProvider` (currentUser id 가 바뀌면 자동 clear, AppShell 이 watch). 신규 테스트 3건 (총 139/139 PASS).
 
 **UI 동작**
 - [ ] Drift `watchAll` 의 `OrderingTerm(doneAt, asc)` 가 SQLite default NULLS LAST 로 동작 → 미체크 (doneAt null) 가 뒤로 갈 수 있음. NULLS FIRST 명시 또는 `isDone` 가상 컬럼 추가

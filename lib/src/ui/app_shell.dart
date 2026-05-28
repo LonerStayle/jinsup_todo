@@ -9,6 +9,7 @@ import '../data/remote/supabase_realtime_sync.dart';
 import '../domain/category.dart';
 import '../features/add_todo/add_todo_controller.dart';
 import '../features/add_todo/add_todo_sheet.dart';
+import '../features/auth/auth_providers.dart';
 import '../features/category/category_view.dart';
 import '../features/home/home_screen.dart';
 import '../features/home/today_providers.dart';
@@ -124,6 +125,9 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     // Supabase realtime sync — 인증된 user 가 있을 때만 활성. lifecycle 은 provider 가 관리.
     ref.watch(supabaseRealtimeSyncProvider);
+
+    // user 가 다른 계정으로 바뀌면 옛 todos/outbox 자동 정리 (side-effect listener).
+    ref.watch(userChangeCleanupProvider);
 
     final destination = AppDestination.all[_index];
 

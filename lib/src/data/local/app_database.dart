@@ -71,4 +71,13 @@ class AppDatabase extends _$AppDatabase {
       return NativeDatabase.createInBackground(file);
     });
   }
+
+  /// 사용자 데이터 전체 삭제 (todos + outbox). signOut 또는 다른 user 로 전환 시 호출.
+  /// 단일 사용자 비전이지만, sign-out 후 다른 이메일로 로그인 시 옛 데이터 노출 방지.
+  Future<void> clearAllUserData() async {
+    await transaction(() async {
+      await delete(todos).go();
+      await delete(outboxEntries).go();
+    });
+  }
 }
