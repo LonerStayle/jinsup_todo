@@ -85,7 +85,7 @@
 #### 10-B. 코드 재검토에서 발견된 잠재 결함
 
 **상태 / 동기화**
-- [ ] `currentDayProvider` 의 자정 Timer 안정성 — `_tick` 이후 _scheduleNext 가 동일 시점에 다시 시도 시 0ms Timer → 무한 재예약. 가드 추가 (이미 다음 자정 시점 도달 후 1초 safety margin 있지만 race 가능)
+- [x] `currentDayProvider` 의 자정 Timer 안정성 — `_scheduleNext` 에 최소 1초 delay 보장 (until ≤ 0 인 경우 가드) + `_tick` 에서 `newDay.isAfter(state)` 일 때만 갱신해 후퇴 방지. fakeAsync 기반 race 테스트 2건 추가 (총 133/133 PASS).
 - [ ] `SyncingTodoRepository.flushPending` 의 `unawaited` 호출이 매 mutation 마다 → 빠르게 토글 시 동시 flush race. mutex / debounce 필요
 - [ ] LWW 의 `>=` 동일 시각 처리가 race 시 옛 값으로 self-overwrite 위험 — `toggleDone` 등 빠른 연속 mutation 시 updatedAt 동률 가능. ms 단위 unique 보장 필요 또는 client_revision 컬럼 도입 검토
 - [ ] Realtime payload 의 INSERT/UPDATE 가 자기 자신의 push 결과를 다시 받아 local upsert — 이미 LWW 로 막혀 있지만 timestamp 동률 시 stomp 가능 (위 항목과 연결)

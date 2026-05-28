@@ -58,8 +58,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 
 총 126/126 PASS (이전 123 + 3).
 
-**§ 10-A 모두 완료**. 다음 task: § 10-B (잠재 결함 24건) → § 10-C (UX 5건).
-첫 § 10-B 항목 = "currentDayProvider 의 자정 Timer 안정성" (race 가드).
+**§ 10-A 모두 완료**. § 10-B 진행 중 (1/24 완료):
+- ✅ `currentDayProvider` 자정 Timer race 가드 — `_scheduleNext` 최소 1초 + `_tick` 후퇴 방지.
+
+다음: § 10-B 의 두 번째 — `SyncingTodoRepository.flushPending` mutex / debounce.
 
 ---
 

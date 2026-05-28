@@ -27,14 +27,22 @@ class DayBoundaryNotifier extends Notifier<DateTime> {
     final tomorrow0 = today0.add(const Duration(days: 1));
     final until = tomorrow0.difference(now);
     _timer?.cancel();
-    // 자정 직후 일정 시간을 두지 않으면 자정과 동시 시각에 모든 비동기가 race 할 수 있어
-    // 안전 마진 1 초 추가.
-    _timer = Timer(until + const Duration(seconds: 1), _tick);
+    // race 가드:
+    //   - 자정 직후 일정 마진을 두지 않으면 다른 비동기와 동시 시각에 race 가능 → +1s
+    //   - 만약 _tick 이 자정보다 약간 일찍 fire 해 nowProvider 가 자정 직전을 반환하면
+    //     until 이 거의 0 또는 음수가 되어 무한 즉시-재예약 위험 → 최소 1초 보장.
+    final base = until > Duration.zero ? until : Duration.zero;
+    _timer = Timer(base + const Duration(seconds: 1), _tick);
   }
 
   void _tick() {
     final fresh = ref.read(nowProvider)();
-    state = DateTime(fresh.year, fresh.month, fresh.day);
+    final newDay = DateTime(fresh.year, fresh.month, fresh.day);
+    // newDay 가 현재 state 보다 뒤일 때만 갱신.
+    // 자정 직전에 잘못 fire 한 경우 state 가 어제로 후퇴하는 것을 막는다.
+    if (newDay.isAfter(state)) {
+      state = newDay;
+    }
     _scheduleNext(fresh);
   }
 

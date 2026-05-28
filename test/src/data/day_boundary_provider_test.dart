@@ -72,6 +72,57 @@ void main() {
         expect(async.pendingTimers, isEmpty);
       }, initialTime: DateTime(2026, 5, 27, 10));
     });
+
+    test('자정 직전에 _tick 이 잘못 fire 해도 state 가 후퇴하지 않음', () {
+      // OS Timer 가 자정보다 약간 일찍 fire 한 상황을 _tick 직접 호출로 시뮬레이션.
+      var fakeNow = DateTime(2026, 5, 27, 23, 59, 59, 900);
+      final container = ProviderContainer(
+        overrides: [nowProvider.overrideWithValue(() => fakeNow)],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(currentDayProvider.notifier);
+      expect(container.read(currentDayProvider), DateTime(2026, 5, 27, 0, 0));
+
+      // 자정 직전에 잘못 fire — fresh 가 같은 날을 가리킴.
+      notifier.debugForceTick();
+      expect(
+        container.read(currentDayProvider),
+        DateTime(2026, 5, 27, 0, 0),
+        reason: 'newDay 가 현재 state 와 같으면 갱신하지 않음 — 후퇴 방지',
+      );
+
+      // 이제 진짜 자정 통과.
+      fakeNow = DateTime(2026, 5, 28, 0, 0, 5);
+      notifier.debugForceTick();
+      expect(container.read(currentDayProvider), DateTime(2026, 5, 28, 0, 0));
+    });
+
+    test('자정 직전 fresh 라 until 이 거의 0 이어도 _scheduleNext 의 delay 최소 1초 보장', () {
+      fakeAsync((async) {
+        // 자정까지 0.05초 — until 이 매우 작은 상황.
+        final container = ProviderContainer(
+          overrides: [nowProvider.overrideWithValue(() => clock.now())],
+        );
+        addTearDown(container.dispose);
+
+        final notifier = container.read(currentDayProvider.notifier);
+
+        // _scheduleNext 이 _tick 안에서 다시 호출되도록 한 번 forceTick.
+        // 이전 timer 가 cancel 되고 새 timer 가 schedule 됨.
+        notifier.debugForceTick();
+
+        // 새 pendingTimer 가 최소 1초 이상이어야 한다. fake_async 의 다음 timer 까지
+        // 0.5 초만 elapse 해도 fire 되면 안 됨 (== 무한 재호출 방지 검증).
+        final beforeTickState = container.read(currentDayProvider);
+        async.elapse(const Duration(milliseconds: 500));
+        expect(
+          container.read(currentDayProvider),
+          beforeTickState,
+          reason: '0.5초 안에 timer 가 fire 되어 state 가 또 바뀌면 무한 재예약 의심',
+        );
+      }, initialTime: DateTime(2026, 5, 27, 23, 59, 59, 950));
+    });
   });
 }
 
