@@ -114,9 +114,14 @@ void main() {
       reason: 'onUpgrade 1→2 가 세 컬럼을 추가해야 함',
     );
 
-    // user_version 도 2 로 갱신됐어야 한다.
+    // user_version 도 최소 2 이상으로 갱신됐어야 한다 (현재 schemaVersion 따라).
+    // v1.2 부터 schemaVersion 3 이지만 이 테스트의 핵심은 1→2 컬럼 추가 검증.
     final version = db.select('PRAGMA user_version;').first['user_version'];
-    expect(version, 2);
+    expect(
+      version,
+      greaterThanOrEqualTo(2),
+      reason: '최소 v2 까지 migrate 됐어야 함',
+    );
   });
 
   test(

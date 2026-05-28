@@ -178,7 +178,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] Category enum → freezed data class 로 변환 — id/label/iconCodePoint/colorValue/sortOrder/isBuiltin 6 필드 + `static const` builtin 5종 (work/personal_dev/daily/longterm/idea) 호환 layer + `values` alias + `builtinSeeds` const list + `fromId/tryFromId/shortcutDigit/color/icon` getter. Todo.category 의 `@JsonKey(fromJson/toJson)` 으로 nested object 가 아닌 string id 직렬화 유지 (v1.0/v1.1 payload 그대로 복원). 회귀 없음 (280/280 PASS).
 
 **Drift schema + DAO + migration**
-- [ ] Drift `categories` 테이블 추가 (id PK text, label, icon_code_point int, color_value int, sort_order int default 0, is_builtin bool default false, created_at). schemaVersion 2→3 으로 bump.
+- [x] Drift `categories` 테이블 추가 — id PK / label / icon_code_point int / color_value int / sort_order int default 0 / is_builtin bool default false / created_at. `@DriftDatabase` tables 에 추가, schemaVersion 2→3 bump. onUpgrade 2→3 case 는 stub (다음 task 에서 createTable + seed + description 채움). v1→v2 migration test 의 `expect(version, 2)` 를 `greaterThanOrEqualTo(2)` 로 확장 (현재 schemaVersion 따라). 280/280 PASS.
 - [ ] Drift onUpgrade 2→3 — categories 테이블 생성 + 5 builtin seed (id='work' 등 그대로 유지). todos 의 description 컬럼 ALTER 도 같은 case 안에서.
 - [ ] Drift schemaVersion 2→3 migration 단위 테스트 — v2 fixture (옛 todos 두 건) → migrate → categories 5건 seed 확인 + 기존 todos row 보존 + description 컬럼이 nullable 추가됨 확인.
 - [ ] CategoriesDao 신규 — watchAll (sortOrder asc, createdAt asc), upsert, deleteById, countTodosOfCategory(id). 단위 테스트 (CRUD + 정렬 + 카운트).

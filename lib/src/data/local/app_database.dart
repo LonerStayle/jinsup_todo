@@ -37,6 +37,28 @@ class Todos extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// v1.2 — 카테고리 테이블. 5 builtin 도 row 로 저장되어 사용자가 추가 / 삭제 가능.
+///
+/// id 는 사용자 카테고리는 uuid, builtin 은 'work' / 'personal_dev' / 'daily' /
+/// 'longterm' / 'idea' 로 유지 (옛 todos.category id 와 호환).
+///
+/// 정렬은 (sortOrder asc, createdAt asc) — 같은 sortOrder 면 먼저 만든 게 위.
+@DataClassName('CategoryRow')
+class Categories extends Table {
+  TextColumn get id => text()();
+  TextColumn get label => text()();
+  // Material Icons 폰트의 codepoint. Color.value 와 함께 row 직접 저장 — UI 가
+  // category.icon / category.color getter 로 IconData / Color 재구성.
+  IntColumn get iconCodePoint => integer()();
+  IntColumn get colorValue => integer()();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  BoolColumn get isBuiltin => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// 오프라인/연결 실패 시 원격 push 대기열. FIFO 로 순서 보존.
 /// [SyncingTodoRepository] 가 local mutation 후 enqueue, 재연결 시 _tryFlush 가 비움.
 @DataClassName('OutboxRow')
@@ -54,7 +76,10 @@ class OutboxEntries extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Todos, OutboxEntries], daos: [TodosDao, OutboxDao])
+@DriftDatabase(
+  tables: [Todos, Categories, OutboxEntries],
+  daos: [TodosDao, OutboxDao],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openOnDisk());
 
@@ -62,7 +87,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// `storeDateTimeAsText: true` — DateTime 을 ISO 8601 text 로 저장.
   /// 기본 (unix int) 은 fetch 시 항상 local time 으로 변환되어 UTC↔local 구분을 잃는다.
@@ -74,6 +99,9 @@ class AppDatabase extends _$AppDatabase {
   /// schemaVersion 변경 history:
   /// - v1: 초기 (todos + outboxEntries)
   /// - v2: todos 에 parent_id / type / sort_order 컬럼 추가 (v1.1 — 트리 / 메모)
+  /// - v3: categories 테이블 신규 + todos.description 추가 (v1.2 — 카테고리 fully 동적).
+  ///   createTable + seed + description ALTER 는 다음 plan task 에서 onUpgrade 안에
+  ///   채운다 (현 commit 은 schema 정의 + version bump 만).
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
@@ -87,6 +115,8 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(todos, todos.type);
         await m.addColumn(todos, todos.sortOrder);
       }
+      // 2 → 3: 다음 plan task 에서 categories 테이블 createTable + 5 builtin seed
+      // + todos.description ALTER 를 이 분기 안에 추가한다. (현재는 stub.)
     },
   );
 
