@@ -139,6 +139,57 @@ void main() {
       expect(await db.outboxDao.count(), 0);
     });
 
+    test('빠른 연속 toggle — 두 mutation 모두 push 되고 최종 outbox 비움', () async {
+      final t = make(id: 'tg');
+      // 첫 push hold → 그 동안 다음 mutation enqueue.
+      api.holdNext = Completer<void>();
+      await repo.upsert(t);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(api.upsertCalls, hasLength(1));
+
+      // 동일 todo 의 두 번째 mutation (체크).
+      final checked = t.copyWith(
+        doneAt: DateTime.utc(2026, 5, 27, 10),
+        updatedAt: DateTime.utc(2026, 5, 27, 10),
+      );
+      await repo.upsert(checked);
+
+      api.holdNext!.complete();
+      api.holdNext = null;
+      // rerun 으로 두 번째 entry 까지 push.
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(api.upsertCalls.map((c) => c.t.id), ['tg', 'tg']);
+      // 두 번째 mutation 의 doneAt 이 보존됨.
+      expect(api.upsertCalls.last.t.doneAt, isNotNull);
+      expect(await db.outboxDao.count(), 0);
+    });
+
+    test('upsert 후 즉시 delete — 순서 보존 + outbox 비움', () async {
+      api.holdNext = Completer<void>();
+      await repo.upsert(make(id: 'ud'));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      // hold 중인 동안 같은 todo 삭제.
+      await repo.deleteById('ud');
+
+      api.holdNext!.complete();
+      api.holdNext = null;
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      // upsert + delete 순서대로 처리됐는지.
+      expect(api.upsertCalls.single.t.id, 'ud');
+      expect(api.deleteCalls.single, ('ud', 'u1'));
+      expect(await db.outboxDao.count(), 0);
+      expect(api.remoteStore, isEmpty, reason: 'delete 가 최종 적용되어야 함');
+    });
+
     test('flush 진행 중 새 mutation 이 enqueue 되면 rerun 으로 처리', () async {
       api.holdNext = Completer<void>();
       await repo.upsert(make(id: 's1'));
