@@ -119,7 +119,7 @@
 - [x] `TodoListSkeleton` AnimationController vsync 안전성 검증 — `SingleTickerProviderStateMixin` 의 vsync 가 `TickerMode` 자동 감지하여 `Visibility(visible: false)` (default `maintainAnimation: false`) 안에서 자동 mute, unmount 시 `_ctrl.dispose()` 로 leak 없음. 클래스 doc 에 명시 + Visibility 가드 widget test 1건 추가 (총 163/163 PASS).
 - [x] `nowProvider` callable 검토 결과: 현재 디자인이 의도된 절충. mutation (updatedAt) 은 호출 시점 ms 가 정확해야 하고, UI 는 호출자가 한 번만 `()` 호출 후 propagate (HomeScreen → _Header/_Loaded 패턴) 로 단일 frame 일관성 확보. Riverpod 의 lazy+cached Provider 는 "frame 마다 fresh" 표현 어려워 callable 형태가 합리적. doc 보강 (요구사항/패턴 명시).
 - [x] Drift `MigrationStrategy` 골격 추가 — onCreate / onUpgrade case 형태로 docstring 의 예시까지 포함. 현재 1→1 no-op 이지만 향후 schemaVersion 만 올리고 case 추가하면 끝. 163/163 PASS.
-- [ ] release 빌드의 `debugPrint` 모두 — release 에선 no-op 이지만 일관 확인
+- [x] release 빌드의 `debugPrint` 모두 검토 — 11곳 모두 `[solo_todo]` prefix 일관, non-fatal 에러 경로 (hotkey/tray 초기화 실패, outbox flush 중단, realtime 구독 실패, Calendar API 실패 등). release 에서 stdout 출력은 발생하나 사용자 영향 X (콘솔 비공개). 추가 변경 없이 일관성 확인 완료. 163/163 PASS.
 
 **테스트 gap**
 - [ ] AppShell 전체 흐름 integration test 부족 — sign-in → 추가 → 체크 → 삭제 → undo 사이클

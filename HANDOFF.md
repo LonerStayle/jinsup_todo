@@ -90,9 +90,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ FpsMonitor.start — release 빌드 default skip + force 옵션 (commit `b83914b`)
 - ✅ TodoListSkeleton AnimationController vsync 안전성 검증 (commit `6b66a9a`)
 - ✅ nowProvider callable 검토 — 현재 디자인 유지 + doc 보강 (commit `124dec8`)
-- ✅ Drift MigrationStrategy 골격 (commit pending)
+- ✅ Drift MigrationStrategy 골격 (commit `5d0d263`)
+- ✅ release debugPrint 일관 확인 — 11곳 모두 `[solo_todo]` prefix + non-fatal 경로 (commit pending)
 
-다음: § 10-B 성능/정리 마지막 — release `debugPrint` 일관 확인.
+**§ 10-B 성능/정리 5/5 완료**. § 10-B **테스트 gap** 5건 진입 — 첫: AppShell 통합 흐름 test (sign-in→추가→체크→삭제→undo).
 
 ---
 
