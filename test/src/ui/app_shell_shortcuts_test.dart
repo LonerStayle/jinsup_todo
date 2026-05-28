@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:solo_todo/src/core/theme.dart';
+import 'package:solo_todo/src/data/providers.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/category/category_providers.dart';
 import 'package:solo_todo/src/features/home/today_providers.dart';
@@ -19,6 +20,7 @@ void main() {
           watchTodosByCategoryProvider.overrideWith(
             (_, _) => Stream.value(<Todo>[]),
           ),
+          outboxCountProvider.overrideWith((_) => Stream<int>.value(0)),
         ],
         child: MaterialApp(
           theme: AppTheme.mobileLight(),

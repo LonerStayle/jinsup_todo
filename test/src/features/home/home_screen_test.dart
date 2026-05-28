@@ -18,6 +18,7 @@ void main() {
     WidgetTester tester, {
     required DateTime fixedNow,
     ThemeData? theme,
+    Stream<int>? outboxCountStream,
   }) async {
     final controller = StreamController<List<Todo>>();
     addTearDown(controller.close);
@@ -27,6 +28,9 @@ void main() {
         overrides: [
           nowProvider.overrideWithValue(() => fixedNow),
           watchTodayTodosProvider.overrideWith((_) => controller.stream),
+          outboxCountProvider.overrideWith(
+            (_) => outboxCountStream ?? Stream<int>.value(0),
+          ),
         ],
         child: MaterialApp(
           theme: theme ?? AppTheme.mobileLight(),
@@ -131,6 +135,34 @@ void main() {
     );
     final bgAlpha = (banner.decoration! as BoxDecoration).color!.a;
     expect(bgAlpha, closeTo(0.08, 0.005));
+  });
+
+  testWidgets('outbox count == 0 → 동기화 chip 안 보임', (tester) async {
+    final controller = await mountWith(
+      tester,
+      fixedNow: DateTime(2026, 5, 27, 10),
+    );
+    controller.add(<Todo>[]);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('sync-pending-chip')), findsNothing);
+  });
+
+  testWidgets('outbox count > 0 → "동기화 대기 N건" chip 노출', (tester) async {
+    // broadcast stream — 첫 emit 이 listener 등록 후 들어오도록.
+    final outboxStream = Stream<int>.value(3).asBroadcastStream();
+    final controller = await mountWith(
+      tester,
+      fixedNow: DateTime(2026, 5, 27, 10),
+      outboxCountStream: outboxStream,
+    );
+    controller.add(<Todo>[]);
+    // stream emit + AsyncValue.data 반영을 위해 pump 두 번.
+    await tester.pump();
+    await tester.pump(Duration.zero);
+
+    expect(find.byKey(const ValueKey('sync-pending-chip')), findsOneWidget);
+    expect(find.textContaining('동기화 대기 3건'), findsOneWidget);
   });
 
   testWidgets('이월 배너 — dark 테마에서 bg alpha 가 light 보다 진함 (다크 가독성)', (

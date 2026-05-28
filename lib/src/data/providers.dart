@@ -37,3 +37,10 @@ final todoRepositoryProvider = Provider<TodoRepository>((ref) {
 
 /// 현재 시각을 주입 가능하게 — 테스트에서 결정성 보장 + 자정 트리거 갱신 대응.
 final nowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
+/// outbox 의 pending entry 수 stream. UI 의 "동기화 대기 N건" indicator 가 watch.
+/// count == 0 이면 모두 push 완료 (또는 미인증 → 큐 비어 있음).
+final outboxCountProvider = StreamProvider<int>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return db.outboxDao.watchCount();
+});

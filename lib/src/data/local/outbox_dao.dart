@@ -36,4 +36,9 @@ class OutboxDao extends DatabaseAccessor<AppDatabase> with _$OutboxDaoMixin {
     final rows = await select(outboxEntries).get();
     return rows.length;
   }
+
+  /// 큐 길이 변동 stream — UI 의 "동기화 대기" indicator 갱신용.
+  Stream<int> watchCount() {
+    return select(outboxEntries).watch().map((rows) => rows.length);
+  }
 }

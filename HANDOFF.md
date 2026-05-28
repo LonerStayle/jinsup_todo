@@ -72,9 +72,12 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ Dismissible threshold 0.6 + confirmDismiss 옵션 노출 (commit `f2c2bfc`)
 - ✅ FAB 위치 — mobile endContained / desktop endFloat (commit `2cf25c5`)
 - ✅ `_ShortcutsHost` 0~5 키 TextField focus 가드 (commit `f9b8ad0`)
-- ✅ AppShell desktop bottomNavigationBar:null 의도 주석 (commit pending)
+- ✅ AppShell desktop bottomNavigationBar:null 의도 주석 (commit `becd9d4`)
 
-**§ 10-B UI 동작 그룹 8/8 완료**. 다음: § 10-B **에러 처리 / UX** 그룹 — 네트워크 끊김 시 사용자 피드백.
+**§ 10-B UI 동작 8/8 완료**. § 10-B 에러 처리 진행 중 (1/4 완료):
+- ✅ outbox count 기반 "동기화 대기" chip — HomeScreen 헤더 (commit pending)
+
+다음: § 10-B 에러 처리 — Supabase OTP rate limit (1분 1번) 시 사용자에게 명확한 안내.
 
 ---
 

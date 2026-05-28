@@ -103,7 +103,7 @@
 - [x] macOS desktop 분기에서 `bottomNavigationBar` 가 null 인 부분에 의도 주석 추가 — _Sidebar 가 네비게이션을 담당하므로 의도적 null 임을 명시.
 
 **에러 처리 / UX**
-- [ ] 네트워크 끊김 시 사용자 피드백 0 — 오프라인 배너 또는 토스트
+- [x] 네트워크 끊김 시 사용자 피드백. **fix**: outbox 큐 길이를 `OutboxDao.watchCount()` stream 으로 노출, `outboxCountProvider` (StreamProvider) 추가. HomeScreen 헤더 우측에 `_SyncPendingChip` 표시 — count > 0 일 때 "동기화 대기 N건" tertiary tonal chip. push 성공 시 자동 사라짐. count 0/N 두 케이스 widget test + 기존 widget tests 의 provider override 갱신 (총 152/152 PASS).
 - [ ] Supabase rate limit (1분 1번 OTP) 시 사용자에게 명확한 안내. 현재는 generic 에러
 - [ ] Calendar 권한 거부 시 사용자에게 안내 (현재 silent debugPrint)
 - [ ] 인증 토큰 만료 자동 갱신 검증 — supabase_flutter default 동작 신뢰만 하고 있음. 만료 시 sign-in 강제 흐름

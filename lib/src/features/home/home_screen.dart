@@ -113,26 +113,76 @@ class _Loaded extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header({required this.now});
 
   final DateTime now;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final pendingCount = ref.watch(outboxCountProvider).value ?? 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '오늘',
-          style: theme.textTheme.displayMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '오늘',
+              style: theme.textTheme.displayMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Spacer(),
+            if (pendingCount > 0)
+              _SyncPendingChip(count: pendingCount, theme: theme),
+          ],
         ),
         const SizedBox(height: AppTokens.space4),
         Text(KoDate.pretty(now), style: theme.textTheme.bodyMedium),
       ],
+    );
+  }
+}
+
+class _SyncPendingChip extends StatelessWidget {
+  const _SyncPendingChip({required this.count, required this.theme});
+
+  final int count;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = theme.colorScheme;
+    return Container(
+      key: const ValueKey('sync-pending-chip'),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space12,
+        vertical: AppTokens.space4,
+      ),
+      decoration: BoxDecoration(
+        color: scheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.cloud_sync_outlined,
+            size: 14,
+            color: scheme.onTertiaryContainer,
+          ),
+          const SizedBox(width: AppTokens.space4),
+          Text(
+            '동기화 대기 $count건',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.onTertiaryContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
