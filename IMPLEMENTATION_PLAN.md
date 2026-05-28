@@ -122,7 +122,7 @@
 - [x] release 빌드의 `debugPrint` 모두 검토 — 11곳 모두 `[solo_todo]` prefix 일관, non-fatal 에러 경로 (hotkey/tray 초기화 실패, outbox flush 중단, realtime 구독 실패, Calendar API 실패 등). release 에서 stdout 출력은 발생하나 사용자 영향 X (콘솔 비공개). 추가 변경 없이 일관성 확인 완료. 163/163 PASS.
 
 **테스트 gap**
-- [ ] AppShell 전체 흐름 integration test 부족 — sign-in → 추가 → 체크 → 삭제 → undo 사이클
+- [x] 사용자 사이클 (추가 → 체크 → 삭제 → undo) 통합 테스트 추가. AppShell widget mount 는 hotkey/tray/Timer cleanup 가 까다로워 controller + DB 레벨 통합으로 검증. ProviderContainer + in-memory AppDatabase + AddTodoController/todoActionsProvider 사이클을 한 흐름에 묶음. Calendar warning 경로도 함께 검증. 신규 테스트 2건 (총 165/165 PASS).
 - [ ] 자정 trigger 통합 test 는 있지만 outbox flush 와 결합한 case 없음
 - [ ] 빠른 연속 mutation race test
 - [ ] signOut 후 데이터 정리 test
