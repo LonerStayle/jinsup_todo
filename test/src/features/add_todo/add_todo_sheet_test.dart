@@ -459,4 +459,178 @@ void main() {
       expect(submissions.first.type, TodoType.task);
     });
   });
+
+  group('v1.1 — bulk paste (멀티라인 → N건 일괄 추가)', () {
+    group('splitBulkLines (pure)', () {
+      test('단순 N줄 → trim 후 list', () {
+        final lines =
+            // ignore: invalid_use_of_visible_for_testing_member
+            AddTodoSheet.splitBulkLines('a\nb\nc');
+        expect(lines, ['a', 'b', 'c']);
+      });
+
+      test('빈 줄 + 공백만 인 줄 무시', () {
+        final lines =
+            // ignore: invalid_use_of_visible_for_testing_member
+            AddTodoSheet.splitBulkLines('  a  \n\n   \nb\n\n');
+        expect(lines, ['a', 'b']);
+      });
+
+      test('단일 줄 → 1건', () {
+        final lines =
+            // ignore: invalid_use_of_visible_for_testing_member
+            AddTodoSheet.splitBulkLines('just one');
+        expect(lines, ['just one']);
+      });
+
+      test('전부 빈 줄 → 빈 list', () {
+        final lines =
+            // ignore: invalid_use_of_visible_for_testing_member
+            AddTodoSheet.splitBulkLines('\n\n   \n');
+        expect(lines, isEmpty);
+      });
+    });
+
+    testWidgets(
+      '멀티라인 paste → confirm dialog → 확인 시 N개 onSubmit (같은 category/dueAt/type)',
+      (tester) async {
+        // initialDueAt + initialAllDay 로 dueAt 미리 설정 — bulk 시 모든 row 가 같은 dueAt 받는지 검증.
+        final submissions = await mount(
+          tester,
+          initial: Category.work,
+          initialDueAt: DateTime(2026, 5, 28),
+        );
+
+        // 멀티라인 paste 시뮬레이션 — enterText 가 multi-line 입력으로 작동.
+        await tester.enterText(
+          find.byKey(const ValueKey('add-todo-title')),
+          '캔버스 첨부\nnarrative 에러\n치어미터 묻기',
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        // confirm dialog 노출 + 라벨 검증.
+        expect(find.byKey(const ValueKey('bulk-paste-dialog')), findsOneWidget);
+        expect(find.textContaining('3개'), findsOneWidget);
+
+        // 확인 tap.
+        await tester.tap(find.byKey(const ValueKey('bulk-paste-confirm')));
+        await tester.pumpAndSettle();
+
+        expect(submissions, hasLength(3));
+        expect(submissions.map((s) => s.title), [
+          '캔버스 첨부',
+          'narrative 에러',
+          '치어미터 묻기',
+        ]);
+        // 같은 category + dueAt + type 공유.
+        for (final s in submissions) {
+          expect(s.category, Category.work);
+          expect(s.dueAt, DateTime(2026, 5, 28));
+          expect(s.type, TodoType.task);
+        }
+      },
+    );
+
+    testWidgets('취소 시 onSubmit 0회 + 단일 라인 복구', (tester) async {
+      final submissions = await mount(tester);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('add-todo-title')),
+        'first\nsecond',
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // 취소.
+      await tester.tap(find.widgetWithText(TextButton, '취소'));
+      await tester.pumpAndSettle();
+
+      expect(submissions, isEmpty);
+      // \n 제거되어 단일 라인 (join) 으로 복구되는지 — controller 의 값을 TextField 위젯에서 검증.
+      final field = tester.widget<TextField>(
+        find.byKey(const ValueKey('add-todo-title')),
+      );
+      expect(field.controller!.text, 'first second');
+    });
+
+    testWidgets('빈 줄만 paste → dialog 안 뜨고 단일 흐름 유지', (tester) async {
+      await mount(tester);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('add-todo-title')),
+        '\n\n   \n',
+      );
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('bulk-paste-dialog')), findsNothing);
+      final field = tester.widget<TextField>(
+        find.byKey(const ValueKey('add-todo-title')),
+      );
+      expect(field.controller!.text, ''); // 빈 줄만 → 빈 문자열로 복구
+    });
+
+    testWidgets('"\\n + 단일 의미줄" → dialog 안 뜸 (lines.length < 2), 단일 라인 복구', (
+      tester,
+    ) async {
+      await mount(tester);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('add-todo-title')),
+        '\nonly\n',
+      );
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('bulk-paste-dialog')), findsNothing);
+      final field = tester.widget<TextField>(
+        find.byKey(const ValueKey('add-todo-title')),
+      );
+      expect(field.controller!.text, 'only');
+    });
+
+    testWidgets('note 모드에서 멀티라인 paste → N건 모두 type=note + dueAt null', (
+      tester,
+    ) async {
+      final submissions = await mount(tester);
+
+      await tester.tap(find.byKey(const ValueKey('type-note')));
+      await tester.pump();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('add-todo-title')),
+        '메모1\n메모2',
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('bulk-paste-confirm')));
+      await tester.pumpAndSettle();
+
+      expect(submissions, hasLength(2));
+      for (final s in submissions) {
+        expect(s.type, TodoType.note);
+        expect(s.dueAt, isNull);
+        expect(s.addToCalendar, isFalse);
+      }
+    });
+
+    testWidgets('단일 줄 입력 (기존 흐름) — dialog 안 뜨고 "추가" 버튼 활성화 그대로', (
+      tester,
+    ) async {
+      await mount(tester);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('add-todo-title')),
+        '단일 todo',
+      );
+      await tester.pump();
+
+      // dialog 없음 + 추가 버튼 활성화 (canSubmit=true).
+      expect(find.byKey(const ValueKey('bulk-paste-dialog')), findsNothing);
+      final btn = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '추가'),
+      );
+      expect(btn.onPressed, isNotNull);
+    });
+  });
 }

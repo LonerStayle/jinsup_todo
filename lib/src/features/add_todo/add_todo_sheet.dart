@@ -37,6 +37,12 @@ class AddTodoSheet extends StatefulWidget {
 
   final void Function(AddTodoSubmission submission) onSubmit;
 
+  /// 멀티라인 paste 시 줄바꿈으로 split + 빈 줄 제거 → 의미 있는 줄.
+  /// 단위 테스트가 직접 호출하기 위해 public static 으로 노출.
+  @visibleForTesting
+  static List<String> splitBulkLines(String raw) =>
+      raw.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+
   /// modal bottom sheet 로 띄우는 헬퍼.
   static Future<void> show(
     BuildContext context, {
@@ -117,11 +123,6 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
     Navigator.of(context).maybePop();
   }
 
-  /// 멀티라인 paste 시 줄바꿈으로 split + 빈 줄 제거 → 의미 있는 줄.
-  @visibleForTesting
-  static List<String> splitBulkLines(String raw) =>
-      raw.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
-
   /// 같은 카테고리 / parent / dueAt / type 으로 N건 일괄 추가. _submitted race 가드.
   /// v1.1 첫 cut — 평탄 (들여쓰기 인식 X). 들여쓰기 자동 트리화는 v1.2.
   void _submitBulk(List<String> titles) {
@@ -150,7 +151,7 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
       setState(() {});
       return;
     }
-    final lines = splitBulkLines(value);
+    final lines = AddTodoSheet.splitBulkLines(value);
     if (lines.length < 2) {
       // 빈 줄 + 단일 줄 케이스 — \n 제거 후 단일 todo 흐름 유지.
       _titleCtrl.text = lines.isEmpty ? '' : lines.first;

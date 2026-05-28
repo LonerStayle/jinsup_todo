@@ -162,7 +162,7 @@
 
 **Bulk paste**
 - [x] AddTodoSheet bulk paste — TextField 를 multi-line (minLines:1, maxLines:5, keyboardType.multiline, maxLength 1000) 으로 확장해 paste 시 \n 그대로 들어옴. `_onTitleChanged` 가 \n 감지 시 `splitBulkLines` (trim + 빈 줄 제거) → N≥2 면 confirm AlertDialog → 확인 시 `_submitBulk` 가 같은 category/parent/dueAt/type 으로 N번 onSubmit 호출 + _submitted race 가드. 취소 시 \n 제거 (lines.join(' ')) 로 단일 라인 복구. 빈 줄만 paste 도 안전 처리. 들여쓰기 자동 트리화는 v1.2. 단위 테스트는 다음 task. 회귀 없음 (총 260/260 PASS).
-- [ ] Bulk paste 단위 테스트 — 멀티라인 입력 → split + 빈 줄 무시 + N건 submission, 단일 줄은 기존 흐름 유지.
+- [x] Bulk paste 단위 테스트 — `AddTodoSheet.splitBulkLines` 를 public static 으로 이동 (state 내부 → 클래스). pure 함수 검증 4건 (단순 N줄/공백·빈 줄 무시/단일 줄/전부 빈 줄). widget-level 6건: 멀티라인 → confirm dialog → 확인 시 같은 category/dueAt/type 으로 N건 onSubmit, 취소 시 0건 + lines.join(' ') 복구, 빈 줄만 paste 무시, '\n + 단일 의미줄' dialog 안 뜸, note 모드에서 멀티라인 → N건 모두 type=note + dueAt null, 단일 줄 기존 흐름. 신규 테스트 10건 (총 270/270 PASS).
 
 **Today 화면 결합**
 - [ ] HomeScreen today list 각 todo 옆에 트리 path breadcrumb (예: "JS슈퍼 / 울트라 모드") 표시 — parentId chain walk, parentId null 이면 카테고리 라벨만. 색은 onSurfaceVariant, 작은 typography. widget test 포함.
