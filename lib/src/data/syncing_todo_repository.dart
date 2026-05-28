@@ -35,6 +35,12 @@ class SyncingTodoRepository implements TodoRepository {
   /// 현재 인증된 user id. null 이면 원격 push skip (로컬 only).
   final String? Function() userIdGetter;
 
+  // 동시 flush 방지 mutex. 진행 중에 새 mutation 이 들어와 [flushPending] 을 다시
+  // 호출하면 _rerunRequested 만 set 하고 즉시 return. 첫 flush 가 끝난 후 한 번 더
+  // 돌려 race 와 동시 호출 시 같은 outbox row 가 두 번 push 되는 것을 막는다.
+  bool _flushing = false;
+  bool _rerunRequested = false;
+
   // --- TodoRepository read API — local 위임 ----------------------------
 
   @override
@@ -86,7 +92,26 @@ class SyncingTodoRepository implements TodoRepository {
   // --- 큐 처리 --------------------------------------------------------
 
   /// outbox 의 pending entry 를 FIFO 로 push. 실패 시 break.
+  ///
+  /// 동시 호출 시 race 방지 — 이미 진행 중이면 rerun 플래그만 set 하고 return. 진행 중인
+  /// flush 가 종료된 직후 한 번 더 실행해 그동안 enqueue 된 entry 도 처리한다.
   Future<void> flushPending() async {
+    if (_flushing) {
+      _rerunRequested = true;
+      return;
+    }
+    _flushing = true;
+    try {
+      do {
+        _rerunRequested = false;
+        await _doFlush();
+      } while (_rerunRequested);
+    } finally {
+      _flushing = false;
+    }
+  }
+
+  Future<void> _doFlush() async {
     final userId = userIdGetter();
     if (userId == null) return; // 미인증 — local only
 

@@ -86,7 +86,7 @@
 
 **상태 / 동기화**
 - [x] `currentDayProvider` 의 자정 Timer 안정성 — `_scheduleNext` 에 최소 1초 delay 보장 (until ≤ 0 인 경우 가드) + `_tick` 에서 `newDay.isAfter(state)` 일 때만 갱신해 후퇴 방지. fakeAsync 기반 race 테스트 2건 추가 (총 133/133 PASS).
-- [ ] `SyncingTodoRepository.flushPending` 의 `unawaited` 호출이 매 mutation 마다 → 빠르게 토글 시 동시 flush race. mutex / debounce 필요
+- [x] `SyncingTodoRepository.flushPending` 의 `unawaited` 호출이 매 mutation 마다 → 빠르게 토글 시 동시 flush race. **fix**: `_flushing` + `_rerunRequested` 플래그 기반 mutex. 진행 중 호출은 rerun 만 set 하고 즉시 return, 첫 flush 종료 후 자동 한 번 더 → coalesce. 동시 호출 race + rerun coalesce 테스트 2건 추가 (총 135/135 PASS).
 - [ ] LWW 의 `>=` 동일 시각 처리가 race 시 옛 값으로 self-overwrite 위험 — `toggleDone` 등 빠른 연속 mutation 시 updatedAt 동률 가능. ms 단위 unique 보장 필요 또는 client_revision 컬럼 도입 검토
 - [ ] Realtime payload 의 INSERT/UPDATE 가 자기 자신의 push 결과를 다시 받아 local upsert — 이미 LWW 로 막혀 있지만 timestamp 동률 시 stomp 가능 (위 항목과 연결)
 - [ ] `SupabaseRealtimeSync.start` 의 초기 풀백 + outbox flush + channel subscribe 순서 race — 풀백 중 mutation 들어오면 누락 가능

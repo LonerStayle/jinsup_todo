@@ -58,10 +58,11 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 
 총 126/126 PASS (이전 123 + 3).
 
-**§ 10-A 모두 완료**. § 10-B 진행 중 (1/24 완료):
-- ✅ `currentDayProvider` 자정 Timer race 가드 — `_scheduleNext` 최소 1초 + `_tick` 후퇴 방지.
+**§ 10-A 모두 완료**. § 10-B 진행 중 (2/24 완료):
+- ✅ `currentDayProvider` 자정 Timer race 가드 (commit `5075239`)
+- ✅ `SyncingTodoRepository.flushPending` mutex + rerun coalesce (commit pending)
 
-다음: § 10-B 의 두 번째 — `SyncingTodoRepository.flushPending` mutex / debounce.
+다음: § 10-B 세 번째 — LWW 의 `>=` 동률 ms self-overwrite 위험 (client_revision 검토).
 
 ---
 

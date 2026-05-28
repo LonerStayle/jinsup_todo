@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:solo_todo/src/data/local/app_database.dart';
@@ -110,6 +112,57 @@ void main() {
     expect(api.upsertCalls.map((c) => c.t.id), ['d1', 'd2']);
     expect(await db.outboxDao.count(), 0);
   });
+
+  group('flushPending mutex (동시 호출 race 방지)', () {
+    test('동시 호출 시 같은 outbox row 가 두 번 push 되지 않음', () async {
+      // upsert 를 hold 시켜 첫 flush 가 진행 중인 상황을 만든다.
+      api.holdNext = Completer<void>();
+      await repo.upsert(make(id: 'r1'));
+
+      // 잠깐 micro-task 만 진행 → flushPending 이 entry 를 잡고 upsert 대기 상태.
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(api.upsertCalls, hasLength(1));
+
+      // 같은 entry 를 두 번 처리하지 않는지 검증 — 두 번째 flushPending 호출.
+      final secondFlush = repo.flushPending();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(api.upsertCalls, hasLength(1), reason: 'mutex 가 막아야 함');
+
+      // hold 해제 → 첫 flush 종료 + rerun 으로 두 번째도 처리 시도 (하지만 outbox 비었음).
+      api.holdNext!.complete();
+      api.holdNext = null;
+      await secondFlush;
+
+      expect(api.upsertCalls, hasLength(1), reason: '동일 row 가 두 번 push 되면 안 됨');
+      expect(await db.outboxDao.count(), 0);
+    });
+
+    test('flush 진행 중 새 mutation 이 enqueue 되면 rerun 으로 처리', () async {
+      api.holdNext = Completer<void>();
+      await repo.upsert(make(id: 's1'));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(api.upsertCalls.single.t.id, 's1');
+
+      // 첫 flush 가 hold 된 동안 새 mutation enqueue (이게 unawaited flushPending
+      // 호출을 또 트리거하지만 mutex 가 막아 rerun 플래그만 set).
+      await repo.upsert(make(id: 's2'));
+      await Future<void>.delayed(Duration.zero);
+      expect(api.upsertCalls, hasLength(1)); // 아직 첫 s1 만
+
+      api.holdNext!.complete();
+      api.holdNext = null;
+      // rerun 으로 s2 처리.
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(api.upsertCalls.map((c) => c.t.id), ['s1', 's2']);
+      expect(await db.outboxDao.count(), 0);
+    });
+  });
 }
 
 class _FakeApi implements RemoteTodosApi {
@@ -126,10 +179,17 @@ class _FakeApi implements RemoteTodosApi {
   /// true 동안 모든 호출 fail. 호출자가 명시적으로 false 로 만들어 회복.
   bool failAll = false;
 
+  /// 다음 upsert 호출을 이 Completer 완료까지 hold — race 시뮬레이션용.
+  Completer<void>? holdNext;
+
   @override
   Future<void> upsert(Todo todo, String userId) async {
     if (failAll) throw StateError('simulated network error');
     upsertCalls.add((t: todo, userId: userId));
+    final hold = holdNext;
+    if (hold != null) {
+      await hold.future;
+    }
     remoteStore.removeWhere((r) => r.id == todo.id);
     remoteStore.add(todo);
   }
