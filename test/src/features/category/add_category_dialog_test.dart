@@ -1,0 +1,141 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:solo_todo/src/data/categories_repository.dart';
+import 'package:solo_todo/src/data/providers.dart';
+import 'package:solo_todo/src/domain/category.dart';
+import 'package:solo_todo/src/features/category/add_category_dialog.dart';
+
+/// AddCategoryDialog widget 검증.
+///
+/// CategoriesController 가 `categoriesRepositoryProvider` 를 watch 하므로 fake
+/// repository 로 override 해서 add() 호출 결과를 캡처.
+void main() {
+  Future<void> mount(WidgetTester tester, _FakeRepo repo) async {
+    await tester.binding.setSurfaceSize(const Size(700, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [categoriesRepositoryProvider.overrideWithValue(repo)],
+        child: MaterialApp(
+          home: Builder(
+            builder: (ctx) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => AddCategoryDialog.show(ctx),
+                  child: const Text('열기'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('label 비어 있으면 "추가" 비활성', (tester) async {
+    final repo = _FakeRepo();
+    await mount(tester, repo);
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+
+    final addBtn = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '추가'),
+    );
+    expect(addBtn.onPressed, isNull);
+  });
+
+  testWidgets('label 입력 + 추가 → controller.add 호출 + dialog 닫힘', (tester) async {
+    final repo = _FakeRepo();
+    await mount(tester, repo);
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '독서');
+    await tester.pumpAndSettle();
+
+    final addBtn = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '추가'),
+    );
+    expect(addBtn.onPressed, isNotNull);
+    addBtn.onPressed?.call();
+    await tester.pumpAndSettle();
+
+    expect(repo.upsertCalls, hasLength(1));
+    expect(repo.upsertCalls.single.label, '독서');
+    expect(repo.upsertCalls.single.isBuiltin, isFalse);
+    expect(find.byType(AddCategoryDialog), findsNothing); // 닫힘
+  });
+
+  testWidgets('취소 버튼 → dialog 닫힘 + controller 호출 X', (tester) async {
+    final repo = _FakeRepo();
+    await mount(tester, repo);
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, '취소'));
+    await tester.pumpAndSettle();
+
+    expect(repo.upsertCalls, isEmpty);
+    expect(find.byType(AddCategoryDialog), findsNothing);
+  });
+
+  testWidgets('색 / 아이콘 선택 → submission 에 반영', (tester) async {
+    final repo = _FakeRepo();
+    await mount(tester, repo);
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '운동');
+    // 두 번째 색을 직접 탭하려면 InkWell 위치 알아야 — 단순화: 16 색 중 두 번째.
+    // 실제 위젯 트리에서 Color circle 은 GestureDetector. tap 으로 두 번째 GestureDetector tap.
+    final colorTaps = find.byWidgetPredicate((w) {
+      if (w is! Container) return false;
+      final dec = w.decoration;
+      if (dec is! BoxDecoration) return false;
+      return dec.shape == BoxShape.circle && dec.color != null;
+    });
+    expect(colorTaps, findsNWidgets(16));
+    // 두 번째 색을 탭.
+    await tester.tap(colorTaps.at(1));
+    await tester.pumpAndSettle();
+
+    final addBtn = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '추가'),
+    );
+    addBtn.onPressed?.call();
+    await tester.pumpAndSettle();
+
+    expect(repo.upsertCalls, hasLength(1));
+    expect(
+      repo.upsertCalls.single.colorValue,
+      AddCategoryDialog.colorPalette[1],
+    );
+  });
+}
+
+class _FakeRepo implements CategoriesRepository {
+  final List<Category> upsertCalls = [];
+
+  @override
+  Future<void> upsert(Category category) async {
+    upsertCalls.add(category);
+  }
+
+  @override
+  Future<Category?> getById(String id) async => null;
+
+  @override
+  Future<List<Category>> getAll() async => const [];
+
+  @override
+  Stream<List<Category>> watchAll() => Stream.value(Category.builtinSeeds);
+
+  @override
+  Future<int> deleteById(String id) async => 0;
+
+  @override
+  Future<int> countTodosOfCategory(String id) async => 0;
+}

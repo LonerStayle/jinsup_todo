@@ -1,0 +1,246 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../core/theme.dart';
+import '../../domain/category.dart';
+import 'categories_controller.dart';
+
+const _uuid = Uuid();
+
+/// 새 카테고리 추가 다이얼로그.
+///
+/// label TextField + 16 색 palette + 12 Material Icons (outlined subset) picker.
+/// 확인 시 [CategoriesController.add] 호출. id 는 `cat-<uuid>` 로 부여 (builtin 의
+/// 'work' / 'personal_dev' 등과 충돌 회피).
+class AddCategoryDialog extends ConsumerStatefulWidget {
+  const AddCategoryDialog({super.key});
+
+  /// 다이얼로그 표시 + 결과 반환 (true = 추가됨, false/null = 취소).
+  static Future<bool?> show(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (_) => const AddCategoryDialog(),
+    );
+  }
+
+  /// 사용자가 고를 16 색 palette. 일관성을 위해 builtin 5종 색은 포함하지 않음.
+  @visibleForTesting
+  static const colorPalette = <int>[
+    0xFFEC4899, // pink
+    0xFFF97316, // orange (builtin 'idea' 와 hue 유사하나 채도 차이로 구분)
+    0xFF84CC16, // lime
+    0xFF06B6D4, // cyan
+    0xFF3B82F6, // blue
+    0xFF6366F1, // indigo
+    0xFFA855F7, // violet
+    0xFFD946EF, // fuchsia
+    0xFFF43F5E, // rose
+    0xFF14B8A6, // teal
+    0xFF22C55E, // green
+    0xFF65A30D, // dark lime
+    0xFF0EA5E9, // sky
+    0xFF7C3AED, // purple
+    0xFFE11D48, // dark rose
+    0xFF6B7280, // gray
+  ];
+
+  /// 사용자가 고를 12 Material Icons outlined codepoint.
+  @visibleForTesting
+  static const iconPalette = <int>[
+    0xe865, // book
+    0xe87c, // bookmark
+    0xe7fd, // person
+    0xe7ef, // group
+    0xe1aa, // attach_money
+    0xe55b, // place
+    0xe410, // photo
+    0xe430, // music_note
+    0xe038, // games
+    0xe53e, // school
+    0xe25c, // event_outlined
+    0xe558, // restaurant
+  ];
+
+  @override
+  ConsumerState<AddCategoryDialog> createState() => _AddCategoryDialogState();
+}
+
+class _AddCategoryDialogState extends ConsumerState<AddCategoryDialog> {
+  final _labelCtrl = TextEditingController();
+  int _selectedColor = AddCategoryDialog.colorPalette.first;
+  int _selectedIcon = AddCategoryDialog.iconPalette.first;
+  bool _submitted = false;
+
+  @override
+  void dispose() {
+    _labelCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _canSubmit => _labelCtrl.text.trim().isNotEmpty && !_submitted;
+
+  Future<void> _submit() async {
+    if (!_canSubmit) return;
+    setState(() => _submitted = true);
+    final controller = ref.read(categoriesControllerProvider);
+
+    // 사용자 카테고리는 sortOrder 100 + 임의 (= 항상 builtin 뒤). 정렬 미세조정은 v1.3.
+    final newCategory = Category(
+      id: 'cat-${_uuid.v4()}',
+      label: _labelCtrl.text.trim(),
+      iconCodePoint: _selectedIcon,
+      colorValue: _selectedColor,
+      sortOrder: 100,
+      isBuiltin: false,
+    );
+    await controller.add(newCategory);
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: const Text('새 카테고리'),
+      content: SizedBox(
+        width: 400,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _labelCtrl,
+                autofocus: true,
+                maxLength: 30,
+                decoration: const InputDecoration(
+                  labelText: '이름',
+                  hintText: '예: 독서, 운동',
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: AppTokens.space16),
+              Text('색', style: theme.textTheme.titleSmall),
+              const SizedBox(height: AppTokens.space8),
+              _ColorPalette(
+                colors: AddCategoryDialog.colorPalette,
+                selected: _selectedColor,
+                onSelect: (c) => setState(() => _selectedColor = c),
+              ),
+              const SizedBox(height: AppTokens.space16),
+              Text('아이콘', style: theme.textTheme.titleSmall),
+              const SizedBox(height: AppTokens.space8),
+              _IconPalette(
+                codePoints: AddCategoryDialog.iconPalette,
+                selected: _selectedIcon,
+                selectedColor: Color(_selectedColor),
+                onSelect: (cp) => setState(() => _selectedIcon = cp),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitted ? null : () => Navigator.of(context).pop(false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: _canSubmit ? _submit : null,
+          child: const Text('추가'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ColorPalette extends StatelessWidget {
+  const _ColorPalette({
+    required this.colors,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<int> colors;
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppTokens.space8,
+      runSpacing: AppTokens.space8,
+      children: [
+        for (final c in colors)
+          GestureDetector(
+            onTap: () => onSelect(c),
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Color(c),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: c == selected
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Colors.transparent,
+                  width: 2.5,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _IconPalette extends StatelessWidget {
+  const _IconPalette({
+    required this.codePoints,
+    required this.selected,
+    required this.selectedColor,
+    required this.onSelect,
+  });
+
+  final List<int> codePoints;
+  final int selected;
+  final Color selectedColor;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Wrap(
+      spacing: AppTokens.space8,
+      runSpacing: AppTokens.space8,
+      children: [
+        for (final cp in codePoints)
+          InkWell(
+            borderRadius: BorderRadius.circular(AppTokens.radiusM),
+            onTap: () => onSelect(cp),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: cp == selected
+                    ? selectedColor.withValues(alpha: 0.18)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(AppTokens.radiusM),
+                border: Border.all(
+                  color: cp == selected ? selectedColor : scheme.outlineVariant,
+                  width: cp == selected ? 1.6 : 1,
+                ),
+              ),
+              child: Icon(
+                IconData(cp, fontFamily: 'MaterialIcons'),
+                color: cp == selected ? selectedColor : scheme.onSurface,
+                size: 20,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

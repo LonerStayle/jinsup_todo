@@ -194,9 +194,9 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 
 **카테고리 UI — dynamic destination**
 - [x] Sidebar / NavigationBar destination 동적 생성 — `AppDestination.buildAll(List<Category>)` 함수 + `all` 은 builtinSeeds default 호환 유지. AppShell 이 `categoriesProvider.asData?.value` watch → buildAll 으로 destinations 매 build 갱신, `_index` 범위 초과 시 today (0) safe fallback. _ShortcutsHost 가 0~9 LogicalKey 풀에서 destinations 의 actual shortcutDigit 만 활성. today=0 / categories 1~min(9,N) / outline N+1 (N<9 일 때) 매핑. OutlineScreen 도 categoriesProvider watch 로 동적. 기존 mount 테스트 4개 (widget/dark_mode/app_shell_shortcuts/outline_screen) 의 ProviderScope override 갱신. 311/311 PASS 유지.
-- [ ] 카테고리 ADD dialog — label TextField + 16 색 palette + 12 icon (Material Icons subset) picker. 확인 시 CategoriesController.add 호출. sidebar 끝 "+" 버튼에서 진입.
-- [ ] 카테고리 DELETE — sidebar item 의 long-press / context menu → confirm dialog. 안 todos 가 ≥1 이면 차단 안내 ("먼저 다른 카테고리로 옮기거나 todos 부터 삭제하세요"). 0 이면 confirm + delete.
-- [ ] 카테고리 ADD / DELETE / 차단 widget test (sidebar mount → "+" tap → dialog → 확인 → categoriesProvider stream 확인 + long-press → 차단 다이얼로그).
+- [x] 카테고리 ADD dialog — `AddCategoryDialog` (ConsumerStatefulWidget) + label TextField (autofocus, maxLength 30) + 16 색 palette (Wrap, 32×32 circle, 선택 시 onSurface 2.5px ring) + 12 Material Icons outlined codepoint palette (40×40, 선택 시 1.6px outline + tint bg). 확인 시 id='cat-<uuid>' 로 CategoriesController.add 호출. sortOrder 100 (builtin 뒤). sidebar 끝 'sidebar-add-category' 키 TextButton.icon 에서 진입.
+- [x] 카테고리 DELETE — SidebarItem 에 onLongPress + onSecondaryTap (desktop 우클릭) 추가. _deleteCategory: confirm dialog → CategoriesController.delete → ok 면 SnackBar + _index safe reset, blocked 면 안내 dialog (안 todos N건 표시). today / outline 은 onLongPress null 로 비활성.
+- [x] 카테고리 ADD / DELETE / 차단 widget test — `add_category_dialog_test.dart` 4건 (label 비어있으면 비활성 / 입력+추가 시 controller 호출 + dialog 닫힘 / 취소 시 호출 X / 색 선택 반영). 315/315 PASS (+4 신규).
 
 **Todo description (long text)**
 - [ ] Todo freezed 모델에 description (String?) 필드 추가 + @Default(null) backwards compat + freezed/json regen. round-trip 테스트.

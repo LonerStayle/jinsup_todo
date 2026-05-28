@@ -11,6 +11,7 @@ import '../domain/category.dart';
 import '../features/add_todo/add_todo_controller.dart';
 import '../features/add_todo/add_todo_sheet.dart';
 import '../features/auth/auth_providers.dart';
+import '../features/category/add_category_dialog.dart';
 import '../features/category/categories_controller.dart';
 import '../features/category/category_view.dart';
 import '../features/home/home_screen.dart';
@@ -166,6 +167,77 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (idx >= 0 && idx != _index) _select(idx);
   }
 
+  /// 카테고리 삭제 — confirm dialog 후 controller 호출. blocked 면 안내 dialog.
+  /// today / outline destination 은 무시.
+  Future<void> _deleteCategory(AppDestination dest) async {
+    final category = dest.category;
+    if (category == null) return;
+
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text('${category.label} 카테고리 삭제'),
+            content: const Text('이 카테고리를 정말 삭제할까요? 되돌릴 수 없어요.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(ctx).colorScheme.error,
+                ),
+                child: const Text('삭제'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    final result = await ref
+        .read(categoriesControllerProvider)
+        .delete(category.id);
+    if (!mounted) return;
+    if (result.isOk) {
+      // _index 가 삭제된 카테고리에 가 있었다면 다음 build 에서 safeIndex 가 today 로
+      // fallback. _index 자체도 안전 reset.
+      setState(() {
+        if (_index >= _destinations.length - 1) _index = 0;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${category.label} 카테고리가 삭제되었어요.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // blockedByTodos — 안 todos 가 있어 차단됨. 안내 dialog.
+    final count = await ref
+        .read(categoriesRepositoryProvider)
+        .countTodosOfCategory(category.id);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('삭제할 수 없어요'),
+        content: Text(
+          '이 카테고리에 할 일이 $count건 있어요. 먼저 다른 카테고리로 옮기거나 todos 부터 삭제해 주세요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openAddTodo() async {
     // _index 가 destinations 범위를 벗어났을 수 있으므로 safe lookup.
     final dest = (_index < _destinations.length)
@@ -231,6 +303,8 @@ class _AppShellState extends ConsumerState<AppShell> {
             destinations: _destinations,
             selectedIndex: safeIndex,
             onSelect: _select,
+            onAddCategory: () => AddCategoryDialog.show(context),
+            onDeleteCategory: _deleteCategory,
           ),
           const VerticalDivider(width: AppTokens.hairline),
           Expanded(child: _MainArea(destination: destination)),
@@ -364,11 +438,15 @@ class _Sidebar extends StatelessWidget {
     required this.destinations,
     required this.selectedIndex,
     required this.onSelect,
+    required this.onAddCategory,
+    required this.onDeleteCategory,
   });
 
   final List<AppDestination> destinations;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
+  final VoidCallback onAddCategory;
+  final ValueChanged<AppDestination> onDeleteCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -403,7 +481,32 @@ class _Sidebar extends StatelessWidget {
                   destination: destinations[i],
                   selected: i == selectedIndex,
                   onTap: () => onSelect(i),
+                  // 카테고리만 long-press / right-click 으로 삭제 가능. today / outline 은 무시.
+                  onLongPress: destinations[i].kind == DestinationKind.category
+                      ? () => onDeleteCategory(destinations[i])
+                      : null,
                 ),
+              // v1.2 — 새 카테고리 추가 버튼.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppTokens.space12,
+                  AppTokens.space8,
+                  AppTokens.space12,
+                  AppTokens.space12,
+                ),
+                child: TextButton.icon(
+                  key: const ValueKey('sidebar-add-category'),
+                  onPressed: onAddCategory,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('카테고리 추가'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.72),
+                    alignment: Alignment.centerLeft,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -419,12 +522,16 @@ class SidebarItem extends StatefulWidget {
     required this.destination,
     required this.selected,
     required this.onTap,
+    this.onLongPress,
     this.autofocus = false,
   });
 
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
+
+  /// long-press / right-click — 카테고리 destination 의 삭제 진입점. null 이면 비활성.
+  final VoidCallback? onLongPress;
 
   /// 테스트 결정성 — true 면 mount 직후 InkWell 이 focus 를 잡는다.
   final bool autofocus;
@@ -470,6 +577,9 @@ class SidebarItemState extends State<SidebarItem> {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: widget.onTap,
+            onLongPress: widget.onLongPress,
+            // 데스크탑의 우클릭도 long-press 와 같은 동작 (삭제 진입점).
+            onSecondaryTap: widget.onLongPress,
             autofocus: widget.autofocus,
             // 키보드 focus 가 들어왔다 나갔다 할 때 outline ring 토글.
             onFocusChange: (f) => setState(() => _focused = f),
