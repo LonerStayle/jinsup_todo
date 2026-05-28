@@ -75,9 +75,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ AppShell desktop bottomNavigationBar:null 의도 주석 (commit `becd9d4`)
 
 **§ 10-B UI 동작 8/8 완료**. § 10-B 에러 처리 진행 중 (1/4 완료):
-- ✅ outbox count 기반 "동기화 대기" chip — HomeScreen 헤더 (commit pending)
+- ✅ outbox count 기반 "동기화 대기" chip — HomeScreen 헤더 (commit `3e765ac`)
+- ✅ Supabase auth 에러 분류 — rate limit / invalid email / OTP 만료 친화 메시지 (commit pending)
 
-다음: § 10-B 에러 처리 — Supabase OTP rate limit (1분 1번) 시 사용자에게 명확한 안내.
+다음: § 10-B 에러 처리 — Calendar 권한 거부 시 사용자 안내 (현재 silent debugPrint).
 
 ---
 

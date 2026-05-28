@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
+import 'auth_error_message.dart';
 import 'auth_service.dart';
 
 /// 이메일 OTP 6자리 코드 흐름. 두 단계:
@@ -59,7 +60,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = '코드 발송에 실패했어요. 잠시 후 다시 시도해 주십시오.\n($e)';
+        _error = friendlyAuthErrorMessage(e, forVerify: false);
       });
     }
   }
@@ -79,7 +80,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = '코드가 일치하지 않거나 만료됐어요. 다시 입력하거나 새 코드를 받아주십시오.\n($e)';
+        _error = friendlyAuthErrorMessage(e, forVerify: true);
       });
     }
   }
