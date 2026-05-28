@@ -71,9 +71,10 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ 이월 배너 다크 모드 가독성 — alpha 분기 (commit `5541a44`)
 - ✅ Dismissible threshold 0.6 + confirmDismiss 옵션 노출 (commit `f2c2bfc`)
 - ✅ FAB 위치 — mobile endContained / desktop endFloat (commit `2cf25c5`)
-- ✅ `_ShortcutsHost` 0~5 키 TextField focus 가드 (commit pending)
+- ✅ `_ShortcutsHost` 0~5 키 TextField focus 가드 (commit `f9b8ad0`)
+- ✅ AppShell desktop bottomNavigationBar:null 의도 주석 (commit pending)
 
-다음: § 10-B UI 동작 마지막 — macOS desktop 분기 의 `bottomNavigationBar: null` 의도 명시 (단순 코드 정리).
+**§ 10-B UI 동작 그룹 8/8 완료**. 다음: § 10-B **에러 처리 / UX** 그룹 — 네트워크 끊김 시 사용자 피드백.
 
 ---
 

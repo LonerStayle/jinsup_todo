@@ -100,7 +100,7 @@
 - [x] Dismissible — threshold 0.4 → 0.6 으로 상향 (실수 swipe 1차 가드) + 호출자가 원할 때 dialog 등을 띄울 수 있도록 `confirmDismiss: Future<bool> Function()?` 옵션 노출. threshold + confirmDismiss 검증 widget test 3건 추가 (총 148/148 PASS).
 - [x] FAB 가 BottomNavigationBar (Android) 와 겹쳐 가독성 떨어짐. **fix**: `floatingActionButtonLocation` 을 platform 분기 — mobile = `endContained` (M3 의 NavigationBar 친화 위치), desktop = `endFloat` 유지.
 - [x] `_ShortcutsHost` 의 1~5 키가 TextField 안에서 발화될 위험. **fix**: `_SelectDestinationAction.isEnabled` 가 `isFocusInEditableText()` 로 가드. primary focus 의 widget 또는 ancestor 가 `EditableText` 이면 Action 비활성 → key event 가 TextField 로 propagate 되어 숫자 입력만 됨. 헬퍼 검증 widget test 2건 추가 (총 150/150 PASS).
-- [ ] macOS desktop 분기에서 `bottomNavigationBar` 가 null 인데 코드는 ternary 로 남아 있음. 정상이지만 의도 명시
+- [x] macOS desktop 분기에서 `bottomNavigationBar` 가 null 인 부분에 의도 주석 추가 — _Sidebar 가 네비게이션을 담당하므로 의도적 null 임을 명시.
 
 **에러 처리 / UX**
 - [ ] 네트워크 끊김 시 사용자 피드백 0 — 오프라인 배너 또는 토스트

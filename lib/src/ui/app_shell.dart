@@ -162,6 +162,8 @@ class _AppShellState extends ConsumerState<AppShell> {
             ? FloatingActionButtonLocation.endFloat
             : FloatingActionButtonLocation.endContained,
         body: body,
+        // desktop 은 좌측 _Sidebar 가 네비게이션을 담당해 bottomNavigationBar 가 의도적으로
+        // null. mobile 만 NavigationBar 노출.
         bottomNavigationBar: AppPlatform.isDesktop
             ? null
             : NavigationBar(
