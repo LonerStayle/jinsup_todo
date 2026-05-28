@@ -11,10 +11,11 @@ void main() {
     Category initial = Category.daily,
     DateTime? initialDueAt,
     bool initialAllDay = true,
+    DateTime? fixedNow,
   }) async {
-    // 종일/시간 토글 + Calendar 토글까지 추가되면서 sheet 가 길어졌다.
+    // 종일/시간 토글 + Calendar 토글 + 빠른 dueAt 칩까지 추가되면서 sheet 가 길어졌다.
     // 800px 기본 viewport 로는 _Actions row 가 밖으로 밀려나 tap 이 무시된다.
-    await tester.binding.setSurfaceSize(const Size(400, 1200));
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final submissions = <AddTodoSubmission>[];
@@ -27,6 +28,7 @@ void main() {
               initialCategory: initial,
               initialDueAt: initialDueAt,
               initialAllDay: initialAllDay,
+              now: fixedNow == null ? null : () => fixedNow,
               onSubmit: submissions.add,
             ),
           ),
@@ -257,5 +259,134 @@ void main() {
     await tester.pump();
 
     expect(submissions, hasLength(1));
+  });
+
+  group('빠른 dueAt 칩 (오늘/내일/다음주/시간 지정)', () {
+    // 결정적 now — 2026-05-27 10:00 (수요일).
+    final now = DateTime(2026, 5, 27, 10);
+
+    testWidgets('4 개 칩 모두 렌더', (tester) async {
+      await mount(tester, fixedNow: now);
+      expect(find.byKey(const ValueKey('quick-due-today')), findsOneWidget);
+      expect(find.byKey(const ValueKey('quick-due-tomorrow')), findsOneWidget);
+      expect(find.byKey(const ValueKey('quick-due-next-week')), findsOneWidget);
+      expect(find.byKey(const ValueKey('quick-due-time')), findsOneWidget);
+    });
+
+    testWidgets('"오늘" 탭 → dueAt = 오늘 자정 + allDay, submission 에 반영', (
+      tester,
+    ) async {
+      final submissions = await mount(tester, fixedNow: now);
+
+      await tester.tap(find.byKey(const ValueKey('quick-due-today')));
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const ValueKey('add-todo-title')), 'x');
+      await tester.pump();
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '추가'))
+          .onPressed
+          ?.call();
+      await tester.pump();
+
+      expect(submissions.first.dueAt, DateTime(2026, 5, 27));
+      expect(submissions.first.isAllDay, isTrue);
+    });
+
+    testWidgets('"내일" 탭 → dueAt = 내일 자정', (tester) async {
+      final submissions = await mount(tester, fixedNow: now);
+
+      await tester.tap(find.byKey(const ValueKey('quick-due-tomorrow')));
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const ValueKey('add-todo-title')), 'x');
+      await tester.pump();
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '추가'))
+          .onPressed
+          ?.call();
+      await tester.pump();
+
+      expect(submissions.first.dueAt, DateTime(2026, 5, 28));
+      expect(submissions.first.isAllDay, isTrue);
+    });
+
+    testWidgets('"다음주" 탭 → dueAt = 오늘 + 7일 자정 (= 1주일 뒤)', (tester) async {
+      final submissions = await mount(tester, fixedNow: now);
+
+      await tester.tap(find.byKey(const ValueKey('quick-due-next-week')));
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const ValueKey('add-todo-title')), 'x');
+      await tester.pump();
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '추가'))
+          .onPressed
+          ?.call();
+      await tester.pump();
+
+      expect(submissions.first.dueAt, DateTime(2026, 6, 3));
+      expect(submissions.first.isAllDay, isTrue);
+    });
+
+    testWidgets('같은 칩 두 번 탭 → 토글 해제 (dueAt = null)', (tester) async {
+      final submissions = await mount(tester, fixedNow: now);
+
+      await tester.tap(find.byKey(const ValueKey('quick-due-today')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('quick-due-today')));
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const ValueKey('add-todo-title')), 'x');
+      await tester.pump();
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '추가'))
+          .onPressed
+          ?.call();
+      await tester.pump();
+
+      expect(submissions.first.dueAt, isNull);
+      expect(submissions.first.isAllDay, isFalse);
+    });
+
+    testWidgets('"오늘" 칩 탭 후 selected 표시 (outline 강조)', (tester) async {
+      await mount(tester, fixedNow: now);
+
+      await tester.tap(find.byKey(const ValueKey('quick-due-today')));
+      await tester.pump();
+
+      final material = tester.widget<Material>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('quick-due-today')),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      final shape = material.shape! as RoundedRectangleBorder;
+      expect(
+        shape.side.width,
+        greaterThan(0),
+        reason: 'selected 칩은 BorderSide 가 visible',
+      );
+    });
+
+    testWidgets('월 경계 — 5/31 + "내일" → 6/1', (tester) async {
+      final lateMonth = DateTime(2026, 5, 31, 10);
+      final submissions = await mount(tester, fixedNow: lateMonth);
+
+      await tester.tap(find.byKey(const ValueKey('quick-due-tomorrow')));
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const ValueKey('add-todo-title')), 'x');
+      await tester.pump();
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '추가'))
+          .onPressed
+          ?.call();
+      await tester.pump();
+
+      expect(submissions.first.dueAt, DateTime(2026, 6, 1));
+    });
   });
 }

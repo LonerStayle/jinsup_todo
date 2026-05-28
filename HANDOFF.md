@@ -100,12 +100,13 @@ Supabase OTP length 는 8자리 (앱은 6~10 가변 허용으로 대응).
 - ✅ signOut/user-전환/idempotent reemit 데이터 정리 테스트 보강 (commit `ceedf76`)
 - ✅ dueAt null (하루 종일) todo 의 watchToday / CarryoverPolicy 동작 test (commit `1baf8cc`)
 
-**§ 10-C UI/UX 보강** 진행 중 (1/5):
-- ✅ 체크 토글 후 부드러운 reorder 애니메이션 — AnimatedTodoSliver (SliverAnimatedList + id-diff) (commit pending)
+**§ 10-C UI/UX 보강** 진행 중 (2/5):
+- ✅ 체크 토글 후 부드러운 reorder 애니메이션 — AnimatedTodoSliver (SliverAnimatedList + id-diff) (commit `fdd29f9`)
+- ✅ AddTodoSheet dueAt 빠른 칩 — 오늘/내일/다음주(=오늘+7일)/시간 지정 (commit pending)
 
-총 182/182 PASS.
+총 189/189 PASS.
 
-다음: § 10-C 두번째 — AddTodoSheet 의 dueAt "오늘 / 내일 / 다음주 / 시간 지정" 빠른 칩.
+다음: § 10-C 세번째 — 사이드바 selected 상태에 키보드 focus ring 추가.
 
 ---
 

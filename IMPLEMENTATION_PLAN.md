@@ -130,7 +130,7 @@
 
 #### 10-C. UI/UX 보강 (디자인·편의성 점수 추가 향상)
 - [x] 체크 토글 후 부드러운 reorder 애니메이션 — `AnimatedTodoSliver` 신규 (SliverAnimatedList 기반 id-diff stateful widget). 외부에서는 평범한 List<Todo> 받고, didUpdateWidget 에서 (삭제/위치이동/추가/in-place 갱신) 4 케이스를 SliverAnimatedListState.removeItem/insertItem 로 발화. FadeTransition + SizeTransition + motionMid (200ms) duration. HomeScreen `SliverList.separated` → `AnimatedTodoSliver` 교체. 신규 테스트 6건 (총 182/182 PASS).
-- [ ] AddTodoSheet 의 dueAt — "오늘 / 내일 / 다음주 / 시간 지정" 빠른 칩
+- [x] AddTodoSheet 의 dueAt — "오늘 / 내일 / 다음주 / 시간 지정" 빠른 칩. `_QuickDueChips` 위젯 신규 — 일정 섹션 라벨 바로 아래에 위치, 4 종 칩 (오늘/내일/다음주/시간 지정). "다음주" = 오늘+7일 자정 (모호함 회피). 같은 날짜 칩 다시 탭하면 toggle 해제. selected 상태는 primaryContainer + outline 으로 시각 강조. "시간 지정" 은 기존 `_pickTime` 재사용. 신규 테스트 7건 (총 189/189 PASS).
 - [ ] 사이드바 selected 상태에 키보드 focus ring 추가
 - [ ] Snackbar undo 시간 시각 표시 (5초 progress bar)
 - [ ] OTP 입력 시 자동 검증 (6/8자리 모두 채워지면 자동 verify)

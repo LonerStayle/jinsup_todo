@@ -170,6 +170,30 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
     });
   }
 
+  /// 빠른 칩 — 날짜만 지정 (시간 = 자정, allDay = true).
+  /// 사용자가 같은 칩을 다시 누르면 토글 해제 (= dueAt 비우기).
+  void _setQuickDate(DateTime date) {
+    final d0 = DateTime(date.year, date.month, date.day);
+    setState(() {
+      if (_dueAt != null && _allDay && _isSameDate(_dueAt!, d0)) {
+        _dueAt = null;
+        _allDay = true;
+        _addToCalendar = false;
+      } else {
+        _dueAt = d0;
+        _allDay = true;
+      }
+    });
+  }
+
+  static bool _isSameDate(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  DateTime _today() {
+    final now = (widget.now ?? DateTime.now)();
+    return DateTime(now.year, now.month, now.day);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -240,6 +264,14 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
                   ),
                   const SizedBox(height: AppTokens.space16),
                   _SectionLabel(text: '일정'),
+                  const SizedBox(height: AppTokens.space8),
+                  _QuickDueChips(
+                    today: _today(),
+                    dueAt: _dueAt,
+                    allDay: _allDay,
+                    onSelectDate: _setQuickDate,
+                    onPickTime: _pickTime,
+                  ),
                   const SizedBox(height: AppTokens.space8),
                   _DueRow(
                     dueAt: _dueAt,
@@ -600,6 +632,141 @@ class _Actions extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 빠른 dueAt 선택 칩 — "오늘 / 내일 / 다음주 / 시간 지정".
+///
+/// "다음주" 는 오늘로부터 7일 후 자정 (= 1주일 뒤) 으로 정의 — "다음주 월요일" 처럼
+/// 주의 시작 정의에 따라 의미가 달라지는 모호함을 피하기 위함.
+///
+/// 같은 칩을 다시 누르면 toggle 해제 → dueAt 비우기. "시간 지정" 만 별개 동작 —
+/// 항상 [showTimePicker] 를 띄움 (현재 _dueAt 보존 + 시간만 변경).
+class _QuickDueChips extends StatelessWidget {
+  const _QuickDueChips({
+    required this.today,
+    required this.dueAt,
+    required this.allDay,
+    required this.onSelectDate,
+    required this.onPickTime,
+  });
+
+  final DateTime today;
+  final DateTime? dueAt;
+  final bool allDay;
+  final void Function(DateTime date) onSelectDate;
+  final VoidCallback onPickTime;
+
+  bool _isSelectedDate(DateTime target) {
+    final d = dueAt;
+    if (d == null || !allDay) return false;
+    return d.year == target.year &&
+        d.month == target.month &&
+        d.day == target.day;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tomorrow = today.add(const Duration(days: 1));
+    final nextWeek = today.add(const Duration(days: 7));
+    final timeChipSelected = dueAt != null && !allDay;
+
+    return Wrap(
+      spacing: AppTokens.space8,
+      runSpacing: AppTokens.space8,
+      children: [
+        _QuickDueChip(
+          key: const ValueKey('quick-due-today'),
+          label: '오늘',
+          icon: Icons.today_outlined,
+          selected: _isSelectedDate(today),
+          onTap: () => onSelectDate(today),
+        ),
+        _QuickDueChip(
+          key: const ValueKey('quick-due-tomorrow'),
+          label: '내일',
+          icon: Icons.update_outlined,
+          selected: _isSelectedDate(tomorrow),
+          onTap: () => onSelectDate(tomorrow),
+        ),
+        _QuickDueChip(
+          key: const ValueKey('quick-due-next-week'),
+          label: '다음주',
+          icon: Icons.next_week_outlined,
+          selected: _isSelectedDate(nextWeek),
+          onTap: () => onSelectDate(nextWeek),
+        ),
+        _QuickDueChip(
+          key: const ValueKey('quick-due-time'),
+          label: '시간 지정',
+          icon: Icons.schedule_outlined,
+          selected: timeChipSelected,
+          onTap: onPickTime,
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickDueChip extends StatelessWidget {
+  const _QuickDueChip({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final bg = selected
+        ? scheme.primaryContainer
+        : scheme.surfaceContainerHighest;
+    final fg = selected
+        ? scheme.onPrimaryContainer
+        : scheme.onSurface.withValues(alpha: 0.78);
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+      side: selected
+          ? BorderSide(color: scheme.primary, width: 1.4)
+          : BorderSide.none,
+    );
+
+    return Material(
+      color: bg,
+      shape: shape,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space12,
+            vertical: AppTokens.space8,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: fg),
+              const SizedBox(width: AppTokens.space8),
+              Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: fg,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
