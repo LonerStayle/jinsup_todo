@@ -65,12 +65,19 @@ class _AppShellState extends ConsumerState<AppShell> {
   Future<void> _registerGlobalHotkey() async {
     if (!AppPlatform.isDesktop) return;
     try {
-      await hotKeyManager.unregisterAll();
+      // `unregisterAll()` 은 hotkey_manager 의 process-scope 모든 hotkey 를 제거한다.
+      // 다른 앱 영향은 없지만, 만약 향후 우리 앱이 hotkey 를 추가하면 함께 날아갈 위험이
+      // 있어 **정확히 우리 단축키만** unregister 후 register 하는 형태로 안전화.
       final hotkey = HotKey(
         key: PhysicalKeyboardKey.keyN,
         modifiers: const [HotKeyModifier.meta],
         scope: HotKeyScope.system,
       );
+      try {
+        await hotKeyManager.unregister(hotkey);
+      } catch (_) {
+        // 등록 안 되어 있으면 무시 — register 만 진행.
+      }
       await hotKeyManager.register(
         hotkey,
         keyDownHandler: (_) {

@@ -109,7 +109,7 @@
 - [x] 인증 토큰 만료 자동 갱신 — supabase_flutter 가 자동 refresh, 실패 시 onAuthStateChange 가 signedOut emit. **fix**: `userChangeCleanupProvider` 가 sign-out 전이 (lastId != null, newId == null) 도 처리하도록 가드 보강. 토큰 만료로 외부 sign-out 된 경우 옛 user 의 outbox/todos 가 다음 sign-in 에 다른 계정으로 push 되는 사고 방지. 신규 테스트 1건 (총 161/161 PASS).
 
 **시스템 / macOS**
-- [ ] `hotkey_manager.unregisterAll()` 이 다른 앱의 글로벌 단축키도 제거할 위험 → 우리 hotkey 만 unregister
+- [x] `hotkey_manager.unregisterAll()` 의 broad scope 제거 — process 단위지만 향후 우리 앱이 hotkey 추가 시 함께 날아갈 위험. **fix**: `unregisterAll()` 대신 우리 Cmd+N hotkey 만 `unregister(hotkey)` 후 `register`. 등록 안 된 경우엔 catch 로 무시. 161/161 PASS.
 - [ ] Tray icon 이 dark/light 모드에서 단색 placeholder — macOS template image 로 자동 색 추종은 isTemplate true 로 OK 하지만 디자인 보강 필요
 - [ ] Cmd+W 등 시스템 단축키와 충돌 점검 (현재 0~5, Cmd+N 만 사용)
 - [ ] tray menu 의 "종료" 가 `SystemNavigator.pop()` — macOS 에서 confirm 없이 즉시 종료. 미저장 데이터 안전성 확인
