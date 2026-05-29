@@ -19,6 +19,9 @@ part 'category.g.dart';
 /// - [sortOrder] — sidebar / outline 정렬 키 (작은 값 먼저). 기본 0.
 /// - [isBuiltin] — 5 builtin 인지 사용자 정의인지 표시. 삭제 정책은 같지만,
 ///   향후 UX (예: builtin 만 다른 색) 분기에 쓸 수 있다.
+/// - [groupId] — 소속 그룹 [Group.id]. null = '미분류' (사이드바 최상단 섹션).
+///   builtin 5종은 모두 null 로 시작 (사용자가 '그룹 이동' 으로 배정). 역호환:
+///   기존 JSON / Supabase row 에 group_id 가 없으면 null 로 디코드된다.
 @freezed
 abstract class Category with _$Category {
   const Category._();
@@ -30,6 +33,7 @@ abstract class Category with _$Category {
     required int colorValue,
     @Default(0) int sortOrder,
     @Default(false) bool isBuiltin,
+    @Default(null) String? groupId,
   }) = _Category;
 
   factory Category.fromJson(Map<String, dynamic> json) =>
