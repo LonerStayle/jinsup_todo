@@ -61,5 +61,35 @@ void main() {
       expect(Category.longterm.id, 'longterm');
       expect(Category.idea.id, 'idea');
     });
+
+    // ===== v1.3 — groupId 필드 =====
+
+    test('builtin 5종은 groupId 가 null (미분류)', () {
+      for (final c in Category.builtinSeeds) {
+        expect(c.groupId, isNull, reason: '${c.id} 는 기본 미분류여야 함');
+      }
+    });
+
+    test('groupId JSON round-trip — 값 보존', () {
+      final c = Category.work.copyWith(groupId: 'grp-a');
+      final restored = Category.fromJson(c.toJson());
+      expect(restored.groupId, 'grp-a');
+      expect(restored, c);
+    });
+
+    test('groupId 역호환 — JSON 에 group_id 누락 시 null 로 디코드', () {
+      // v1.2 이전에 직렬화된 row 에는 group_id 키가 없다.
+      final legacy = <String, dynamic>{
+        'id': 'work',
+        'label': '회사 할일',
+        'iconCodePoint': 0xef0a,
+        'colorValue': 0xFF2A66FF,
+        'sortOrder': 0,
+        'isBuiltin': true,
+        // groupId 키 없음.
+      };
+      final c = Category.fromJson(legacy);
+      expect(c.groupId, isNull);
+    });
   });
 }
