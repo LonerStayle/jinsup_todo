@@ -2,7 +2,7 @@
 
 > ralph 자동 루프 + 사람 reader 모두 이 파일 하나로 컨텍스트 복원 가능하게 작성.
 > 매 iter 시작 시 CLAUDE.md / PROMPT.md / IMPLEMENTATION_PLAN.md 와 함께 이 파일도 읽는다.
-> 마지막 업데이트: **2026-05-29 (v1.2 종료 + 실사용 버그수정 라운드 완료, `6ffe62f`)**
+> 마지막 업데이트: **2026-05-29 (fast-tasks 라운드 — 날짜·기간 모델 + 그룹 계층 + Android 캘린더 권한, `167415d`)**
 
 ---
 
@@ -29,6 +29,7 @@
 | **§ 11 — v1.1 폴더/Outline 트리/bulk paste/메모 타입 (16 task)** | ✅ 종료 (`13b895a`) | 디자인 9.4 / 편의성 9.6 |
 | **§ 12 — v1.2 카테고리 fully 동적 + Todo description (25 ralph task)** | ✅ 종료 (`6e88d80`) | 디자인 9.4 / 편의성 9.6. CLAUDE.md § 3 갱신까지 완료 (`9694a81`) |
 | **v1.2 후속 — 실사용 버그수정 라운드** | ✅ 종료 (`6ffe62f`) | 아래 "후속 수정 내역" 참조. 대표님 실기기(맥+갤S24) 검증 중 발견된 8건 |
+| **fast-tasks — 날짜·기간 모델 + 그룹 계층 + Android 캘린더 권한 (5 task)** | ✅ 종료 (`167415d`) | 아래 "fast-tasks 내역" 참조. **DB 스키마 변경됨 → Supabase schema.sql 재실행 필요 + Google Console 설정 필요** |
 
 ### 현 상태 (2026-05-29)
 
@@ -37,7 +38,19 @@
 - **데스크탑 ↔ 폰 Supabase 동기화 정상 작동 확인됨** (대표님 실기기에서 검증 완료)
 - 갤럭시 S24 (SM S921N) 에 release APK 설치 완료
 
-### v1.2 후속 — 실사용 버그수정 내역 (이번 라운드)
+### fast-tasks 내역 (날짜·기간 + 그룹 + 캘린더 권한)
+
+Socratic 확정 1A/2A/3A/4B. 명세: `docs/features/2026-05-29-fast-tasks-date-and-grouping/date-and-grouping-tasks.md`. **make check 379/379 PASS.**
+
+1. **날짜·기간 모델** (Task 4·5·1) — Todo 에 `endAt`/`isAllDay`/`timeAnchor` 추가(`dueAt` 앵커 유지). AddTodoSheet 4 모드(하루종일/시작시간/마감시간/기간). **하루종일은 00:00 표시 안 함**(Task 1). 기간은 시작~종료 각각 시간 선택. schemaVersion **4→5**.
+2. **캘린더 종류별 매핑** (Q3=A) — 하루종일→Google 종일 이벤트, 시간모드→1시간, 기간→start~end. `calendar_service.dart` buildEvent.
+3. **Android Google Calendar 권한** (Task 3) — `google_sign_in` 7.x 는 인증≠인가. 기존 `authenticate()` 만 호출해 calendar scope 가 한 번도 부여 안 됨이 근본 원인. `authorizeScopes` 증분 동의 흐름 추가 + Android 는 initialize 에 clientId 미전달로 분기. (`google_auth_service.dart`)
+4. **그룹 계층** (Task 2, Q1=A) — 카테고리 위 '그룹(큰분류)' 신설. 그룹>카테고리>todo 트리. Group freezed + Drift `Groups` 테이블 + `Categories.groupId` + groups_dao/api/repo(outbox `grp-*`)/controller/AddGroupDialog. 사이드바 그룹 헤더(접힘) + '미분류' 섹션 + 카테고리 우클릭 '그룹 이동'. **그룹 삭제 시 속한 카테고리는 미분류로 이동(무손실)**. schemaVersion **5→6**(병합 시 재배치).
+
+**모바일 한계**: 그룹 UI 는 데스크탑 사이드바 전용. Android NavigationBar 는 평면 유지.
+**그룹 동기화**: 카테고리와 동일하게 outbox push 단방향(realtime 구독은 todos 만).
+
+### v1.2 후속 — 실사용 버그수정 내역 (직전 라운드)
 
 1. `35dc658` AddTodoSheet 상세 메모 펼침 시 bottom overflow → SingleChildScrollView 로 감쌈
 2. `166bfcb` 앱 아이콘 (체크리스트 squircle) macOS + Android — `flutter_launcher_icons`, 소스 `assets/branding/app_icon_source.png`
@@ -92,14 +105,28 @@
 | Android debug SHA-1 | `F8:EC:9C:48:5D:79:DB:8B:D3:41:42:4C:65:33:14:EB:71:35:AE:DC` |
 | Supabase OTP length | 8자리 (앱은 6~10 가변 허용) |
 | **Supabase v1.1+v1.2 마이그레이션 (parent_id/type/sort_order/description + categories)** | ✅ 완료 — schema.sql 실행 + 동기화 검증됨 (`b246b64` 수정본 기준) |
-| 갤럭시 S24 (SM S921N) release APK 설치 | ✅ |
+| **Supabase fast-tasks 마이그레이션 (todos.end_at/is_all_day/time_anchor + groups + categories.group_id)** | ⚠️ **대표님 액션 필요** — `make sql` → Supabase SQL Editor 에 schema.sql 재실행. 전체 idempotent. 미실행 시 신규 필드 동기화에서 PGRST204. |
+| **Google Cloud Console — Android OAuth client + calendar scope + 테스트 사용자** | ⚠️ **대표님 액션 필요** (Task 3). 아래 § 3 참조. 미설정 시 갤S24 캘린더 동의 차단. |
+| `.env.local` 의 `GOOGLE_OAUTH_CLIENT_ID_ANDROID` | ⚠️ Android OAuth client id 채워야 Calendar provider 활성 (실제 매칭은 SHA-1). |
+| 갤럭시 S24 (SM S921N) release APK 설치 | ✅ (단 fast-tasks 변경분은 재빌드·재설치 필요) |
 | 로컬 DB 백업 | `~/solo_todo_db_backup/solo_todo_*.sqlite` (1회성, 이제 클라우드 동기화되므로 불필요시 삭제 가능) |
 
 ---
 
 ## 3. Next Steps — v1.2 종료, v1.3 후보
 
-**현재 IMPLEMENTATION_PLAN 의 모든 task `[x]`. v1.2 + 후속 버그수정 전부 완료.** 다음 작업은 대표님 지시 대기 상태.
+**v1.2 + 후속 버그수정 + fast-tasks(날짜·기간/그룹/캘린더권한) 전부 완료.** 단 아래 외부 액션이 선행돼야 fast-tasks 기능이 실기기에서 동작한다.
+
+### ⚠️ 대표님 즉시 액션 (fast-tasks 활성화)
+
+1. **Supabase schema.sql 재실행** — `make sql` 로 클립보드 복사 → Supabase SQL Editor 붙여넣고 실행. todos 날짜컬럼 3개 + groups 테이블 + categories.group_id 추가, 끝에서 `notify pgrst` 캐시 갱신. (idempotent, 안전)
+2. **Google Cloud Console (Android 캘린더 권한, Task 3)**:
+   - 사용자 인증 정보 → OAuth 클라이언트 ID 만들기 → 유형 **Android**, 패키지명 `com.goldenplanet.solo_todo`, **SHA-1** 등록 (`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android` 의 SHA1).
+   - OAuth **동의 화면 → 범위 추가**: `https://www.googleapis.com/auth/calendar.events`.
+   - 앱이 "테스트" 상태면 **테스트 사용자**에 `dlwlstjq410@gmail.com` 추가.
+   - 만든 Android client id 를 `.env.local` 의 `GOOGLE_OAUTH_CLIENT_ID_ANDROID` 에 기입.
+3. **갤S24 재빌드·재설치** — fast-tasks 변경분 반영. `make build-apk` 후 `flutter install` (또는 `make run-android`).
+   - 첫 캘린더 등록 시 **계정 동의 팝업이 떠야 정상**. 팝업 없이 거부되면 위 2번 콘솔 설정 누락.
 
 ### 미해결 / v1.3 후보 (대표님 결정 필요)
 
