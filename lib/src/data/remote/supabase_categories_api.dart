@@ -57,6 +57,7 @@ class SupabaseCategoriesApi implements RemoteCategoriesApi {
     'color_value': c.colorValue,
     'sort_order': c.sortOrder,
     'is_builtin': c.isBuiltin,
+    'group_id': c.groupId,
   };
 
   Category _fromRow(Map<String, dynamic> row) => Category(
@@ -66,6 +67,7 @@ class SupabaseCategoriesApi implements RemoteCategoriesApi {
     colorValue: _toInt(row['color_value']),
     sortOrder: _toInt(row['sort_order']),
     isBuiltin: (row['is_builtin'] as bool?) ?? false,
+    groupId: row['group_id'] as String?,
   );
 
   /// PostgREST 가 int 를 num 으로 반환할 수 있는 경우 안전 변환 (SupabaseTodosApi 와 일관).
