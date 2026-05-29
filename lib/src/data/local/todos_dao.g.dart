@@ -5,6 +5,7 @@ part of 'todos_dao.dart';
 // ignore_for_file: type=lint
 mixin _$TodosDaoMixin on DatabaseAccessor<AppDatabase> {
   $TodosTable get todos => attachedDatabase.todos;
+  $CategoriesTable get categories => attachedDatabase.categories;
   TodosDaoManager get managers => TodosDaoManager(this);
 }
 
@@ -13,4 +14,6 @@ class TodosDaoManager {
   TodosDaoManager(this._db);
   $$TodosTableTableManager get todos =>
       $$TodosTableTableManager(_db.attachedDatabase, _db.todos);
+  $$CategoriesTableTableManager get categories =>
+      $$CategoriesTableTableManager(_db.attachedDatabase, _db.categories);
 }

@@ -76,7 +76,18 @@ class SupabaseTodosApi implements RemoteTodosApi {
   Todo _fromRow(Map<String, dynamic> row) => Todo(
     id: row['id'] as String,
     title: row['title'] as String,
-    category: Category.fromId(row['category'] as String),
+    // 사용자 추가 카테고리 id ('cat-...') 는 builtin 이 아니라 fromId 가 throw 한다.
+    // 원격 → 로컬 저장 시 category 는 id 만 보존되고 (label/color 는 local categories
+    // join 으로 복원) 이 객체의 메타는 쓰이지 않으므로, 미지 id 면 placeholder 로 안전 복원.
+    category:
+        Category.tryFromId(row['category'] as String) ??
+        Category(
+          id: row['category'] as String,
+          label: '기타',
+          iconCodePoint: 0xe893,
+          colorValue: 0xFF9E9E9E,
+          isBuiltin: false,
+        ),
     dueAt: _parseTime(row['due_at']),
     doneAt: _parseTime(row['done_at']),
     createdAt: _parseTime(row['created_at'])!,
