@@ -134,12 +134,8 @@ class AppDatabase extends _$AppDatabase {
       // 이미 description 이 있으면 (정상 v3) ALTER 가 중복되므로, 실제 컬럼 존재
       // 여부를 PRAGMA 로 확인 후에만 추가한다 (idempotent).
       if (from == 3) {
-        final info = await customSelect(
-          "PRAGMA table_info('todos')",
-        ).get();
-        final hasDescription = info.any(
-          (r) => r.data['name'] == 'description',
-        );
+        final info = await customSelect("PRAGMA table_info('todos')").get();
+        final hasDescription = info.any((r) => r.data['name'] == 'description');
         if (!hasDescription) {
           await m.addColumn(todos, todos.description);
         }
