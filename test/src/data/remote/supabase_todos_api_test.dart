@@ -206,6 +206,86 @@ void main() {
       'parent_id',
       'type',
       'sort_order',
+      'description',
+      'end_at',
+      'is_all_day',
+      'time_anchor',
+    });
+  });
+
+  group('fast-tasks — end_at / is_all_day / time_anchor 매핑', () {
+    test('_toRow — 기간 + 하루종일', () {
+      final row = _toRowForCheck(
+        Todo(
+          id: 'r',
+          title: '여행',
+          category: Category.daily,
+          dueAt: DateTime.utc(2026, 5, 27),
+          doneAt: null,
+          createdAt: DateTime.utc(2026, 5, 27, 9),
+          updatedAt: DateTime.utc(2026, 5, 27, 9),
+          calendarEventId: null,
+          endAt: DateTime.utc(2026, 5, 30),
+          isAllDay: true,
+        ),
+        'u',
+      );
+      expect(row['end_at'], '2026-05-30T00:00:00.000Z');
+      expect(row['is_all_day'], isTrue);
+      expect(row['time_anchor'], 'start');
+    });
+
+    test('round-trip — 마감시간 모드 (time_anchor=end)', () {
+      final original = Todo(
+        id: 'e',
+        title: '제출',
+        category: Category.work,
+        dueAt: DateTime.utc(2026, 5, 27, 18, 0),
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+        timeAnchor: 'end',
+      );
+      final restored = _fromRowForCheck(_toRowForCheck(original, 'u'));
+      expect(restored.timeAnchor, 'end');
+      expect(restored.endAt, isNull);
+      expect(restored.isAllDay, isFalse);
+      expect(restored.dueAt, DateTime.utc(2026, 5, 27, 18, 0));
+    });
+
+    test('_fromRow 역호환 — 신규 컬럼 누락 → 기본값', () {
+      final legacyRow = <String, dynamic>{
+        'id': 'legacy',
+        'title': '옛 todo',
+        'category': 'work',
+        'due_at': null,
+        'done_at': null,
+        'created_at': '2026-05-01T09:00:00.000Z',
+        'updated_at': '2026-05-01T09:00:00.000Z',
+        'calendar_event_id': null,
+        // end_at / is_all_day / time_anchor 자체가 row 에 없음.
+      };
+      final restored = _fromRowForCheck(legacyRow);
+      expect(restored.endAt, isNull);
+      expect(restored.isAllDay, isFalse);
+      expect(restored.timeAnchor, 'start');
+    });
+
+    test('_fromRow — is_all_day 가 num(1) 로 와도 bool 로 안전 변환', () {
+      final row = <String, dynamic>{
+        'id': 'n',
+        'title': 'y',
+        'category': 'daily',
+        'due_at': '2026-05-27T00:00:00.000Z',
+        'done_at': null,
+        'created_at': '2026-05-27T09:00:00.000Z',
+        'updated_at': '2026-05-27T09:00:00.000Z',
+        'calendar_event_id': null,
+        'is_all_day': 1,
+      };
+      final restored = _fromRowForCheck(row);
+      expect(restored.isAllDay, isTrue);
     });
   });
 }
@@ -226,6 +306,10 @@ Map<String, dynamic> _toRowForCheck(Todo t, String userId) => {
   'parent_id': t.parentId,
   'type': t.type.name,
   'sort_order': t.sortOrder,
+  'description': t.description,
+  'end_at': t.endAt?.toIso8601String(),
+  'is_all_day': t.isAllDay,
+  'time_anchor': t.timeAnchor,
 };
 
 /// 위 _toRow 의 역 — row → Todo. SupabaseTodosApi._fromRow 와 동일 logic.
@@ -243,7 +327,19 @@ Todo _fromRowForCheck(Map<String, dynamic> row) => Todo(
   sortOrder: row['sort_order'] is int
       ? row['sort_order'] as int
       : (row['sort_order'] is num ? (row['sort_order'] as num).toInt() : 0),
+  description: row['description'] as String?,
+  endAt: _parseTime(row['end_at']),
+  isAllDay: _parseBoolForCheck(row['is_all_day']),
+  timeAnchor: row['time_anchor'] is String
+      ? row['time_anchor'] as String
+      : 'start',
 );
+
+bool _parseBoolForCheck(Object? raw) {
+  if (raw is bool) return raw;
+  if (raw is num) return raw != 0;
+  return false;
+}
 
 DateTime? _parseTime(Object? value) =>
     value == null ? null : DateTime.parse(value as String).toUtc();
