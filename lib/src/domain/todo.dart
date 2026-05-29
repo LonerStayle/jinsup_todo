@@ -28,6 +28,24 @@ enum TodoType {
 /// - [type] — task / note (기본 task).
 /// - [sortOrder] — 같은 parent 내 사용자 정의 순서 (작은 값 먼저). 기본 0, drag-reorder
 ///   는 v1.2 후속. v1.1 첫 cut 에서는 createdAt fallback 정렬로 충분.
+/// - [endAt] / [isAllDay] / [timeAnchor] — fast-tasks 날짜·기간 모델 (아래 참조).
+enum TodoDateMode {
+  /// dueAt 없음.
+  none,
+
+  /// 단일·하루종일 — dueAt(date@00:00), isAllDay=true, endAt=null.
+  allDay,
+
+  /// 단일·시작시간만 — dueAt(date+time), isAllDay=false, endAt=null, timeAnchor='start'.
+  startTime,
+
+  /// 단일·마감시간만 — dueAt(date+time), isAllDay=false, endAt=null, timeAnchor='end'.
+  endTime,
+
+  /// 기간 — dueAt(시작) + endAt(종료). isAllDay 로 양끝 시간 표시 여부 단순화.
+  range,
+}
+
 @freezed
 abstract class Todo with _$Todo {
   const Todo._();
@@ -47,6 +65,14 @@ abstract class Todo with _$Todo {
     @Default(0) int sortOrder,
     // v1.2 — 상세 메모 (long text). nullable + 누락 시 null 로 안전 fallback.
     String? description,
+    // ── 날짜·기간 모델 (fast-tasks 4/5/1) — dueAt 은 앵커로 그대로 유지 ──────────
+    // [endAt] — 기간 모드의 종료 시각. 단일 모드면 null.
+    DateTime? endAt,
+    // [isAllDay] — true 면 시간 미표시 (화면 어디에도 00:00 을 찍지 않음).
+    @Default(false) bool isAllDay,
+    // [timeAnchor] — 단일·시간 모드에서 dueAt 이 '시작'('start')인지 '마감'('end')인지.
+    // 하루종일·기간 모드에서는 의미 없음 (기본 'start' 유지).
+    @Default('start') String timeAnchor,
   }) = _Todo;
 
   factory Todo.fromJson(Map<String, dynamic> json) => _$TodoFromJson(json);
@@ -62,6 +88,9 @@ abstract class Todo with _$Todo {
     TodoType type = TodoType.task,
     int sortOrder = 0,
     String? description,
+    DateTime? endAt,
+    bool isAllDay = false,
+    String timeAnchor = 'start',
   }) {
     final n = (now ?? DateTime.now)();
     return Todo(
@@ -77,7 +106,18 @@ abstract class Todo with _$Todo {
       type: type,
       sortOrder: sortOrder,
       description: description,
+      endAt: endAt,
+      isAllDay: isAllDay,
+      timeAnchor: timeAnchor,
     );
+  }
+
+  /// 직렬화된 필드 조합으로부터 현재 날짜 모드를 도출. UI / 캘린더 매핑의 단일 출처.
+  TodoDateMode get dateMode {
+    if (dueAt == null) return TodoDateMode.none;
+    if (endAt != null) return TodoDateMode.range;
+    if (isAllDay) return TodoDateMode.allDay;
+    return timeAnchor == 'end' ? TodoDateMode.endTime : TodoDateMode.startTime;
   }
 
   /// 체크된 상태인지. note 는 항상 false (체크 개념 X).

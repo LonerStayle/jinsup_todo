@@ -21,6 +21,9 @@ _Todo _$TodoFromJson(Map<String, dynamic> json) => _Todo(
   type: $enumDecodeNullable(_$TodoTypeEnumMap, json['type']) ?? TodoType.task,
   sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
   description: json['description'] as String?,
+  endAt: json['endAt'] == null ? null : DateTime.parse(json['endAt'] as String),
+  isAllDay: json['isAllDay'] as bool? ?? false,
+  timeAnchor: json['timeAnchor'] as String? ?? 'start',
 );
 
 Map<String, dynamic> _$TodoToJson(_Todo instance) => <String, dynamic>{
@@ -36,6 +39,9 @@ Map<String, dynamic> _$TodoToJson(_Todo instance) => <String, dynamic>{
   'type': _$TodoTypeEnumMap[instance.type]!,
   'sortOrder': instance.sortOrder,
   'description': instance.description,
+  'endAt': instance.endAt?.toIso8601String(),
+  'isAllDay': instance.isAllDay,
+  'timeAnchor': instance.timeAnchor,
 };
 
 const _$TodoTypeEnumMap = {TodoType.task: 'task', TodoType.note: 'note'};

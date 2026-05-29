@@ -132,6 +132,42 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _endAtMeta = const VerificationMeta('endAt');
+  @override
+  late final GeneratedColumn<DateTime> endAt = GeneratedColumn<DateTime>(
+    'end_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isAllDayMeta = const VerificationMeta(
+    'isAllDay',
+  );
+  @override
+  late final GeneratedColumn<bool> isAllDay = GeneratedColumn<bool>(
+    'is_all_day',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_all_day" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _timeAnchorMeta = const VerificationMeta(
+    'timeAnchor',
+  );
+  @override
+  late final GeneratedColumn<String> timeAnchor = GeneratedColumn<String>(
+    'time_anchor',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('start'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -146,6 +182,9 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
     type,
     sortOrder,
     description,
+    endAt,
+    isAllDay,
+    timeAnchor,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -244,6 +283,24 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
         ),
       );
     }
+    if (data.containsKey('end_at')) {
+      context.handle(
+        _endAtMeta,
+        endAt.isAcceptableOrUnknown(data['end_at']!, _endAtMeta),
+      );
+    }
+    if (data.containsKey('is_all_day')) {
+      context.handle(
+        _isAllDayMeta,
+        isAllDay.isAcceptableOrUnknown(data['is_all_day']!, _isAllDayMeta),
+      );
+    }
+    if (data.containsKey('time_anchor')) {
+      context.handle(
+        _timeAnchorMeta,
+        timeAnchor.isAcceptableOrUnknown(data['time_anchor']!, _timeAnchorMeta),
+      );
+    }
     return context;
   }
 
@@ -301,6 +358,18 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
         DriftSqlType.string,
         data['${effectivePrefix}description'],
       ),
+      endAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}end_at'],
+      ),
+      isAllDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_all_day'],
+      )!,
+      timeAnchor: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}time_anchor'],
+      )!,
     );
   }
 
@@ -323,6 +392,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
   final String type;
   final int sortOrder;
   final String? description;
+  final DateTime? endAt;
+  final bool isAllDay;
+  final String timeAnchor;
   const TodoRow({
     required this.id,
     required this.title,
@@ -336,6 +408,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     required this.type,
     required this.sortOrder,
     this.description,
+    this.endAt,
+    required this.isAllDay,
+    required this.timeAnchor,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -362,6 +437,11 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
     }
+    if (!nullToAbsent || endAt != null) {
+      map['end_at'] = Variable<DateTime>(endAt);
+    }
+    map['is_all_day'] = Variable<bool>(isAllDay);
+    map['time_anchor'] = Variable<String>(timeAnchor);
     return map;
   }
 
@@ -389,6 +469,11 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       description: description == null && nullToAbsent
           ? const Value.absent()
           : Value(description),
+      endAt: endAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endAt),
+      isAllDay: Value(isAllDay),
+      timeAnchor: Value(timeAnchor),
     );
   }
 
@@ -410,6 +495,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       type: serializer.fromJson<String>(json['type']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
       description: serializer.fromJson<String?>(json['description']),
+      endAt: serializer.fromJson<DateTime?>(json['endAt']),
+      isAllDay: serializer.fromJson<bool>(json['isAllDay']),
+      timeAnchor: serializer.fromJson<String>(json['timeAnchor']),
     );
   }
   @override
@@ -428,6 +516,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       'type': serializer.toJson<String>(type),
       'sortOrder': serializer.toJson<int>(sortOrder),
       'description': serializer.toJson<String?>(description),
+      'endAt': serializer.toJson<DateTime?>(endAt),
+      'isAllDay': serializer.toJson<bool>(isAllDay),
+      'timeAnchor': serializer.toJson<String>(timeAnchor),
     };
   }
 
@@ -444,6 +535,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     String? type,
     int? sortOrder,
     Value<String?> description = const Value.absent(),
+    Value<DateTime?> endAt = const Value.absent(),
+    bool? isAllDay,
+    String? timeAnchor,
   }) => TodoRow(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -459,6 +553,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     type: type ?? this.type,
     sortOrder: sortOrder ?? this.sortOrder,
     description: description.present ? description.value : this.description,
+    endAt: endAt.present ? endAt.value : this.endAt,
+    isAllDay: isAllDay ?? this.isAllDay,
+    timeAnchor: timeAnchor ?? this.timeAnchor,
   );
   TodoRow copyWithCompanion(TodosCompanion data) {
     return TodoRow(
@@ -478,6 +575,11 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       description: data.description.present
           ? data.description.value
           : this.description,
+      endAt: data.endAt.present ? data.endAt.value : this.endAt,
+      isAllDay: data.isAllDay.present ? data.isAllDay.value : this.isAllDay,
+      timeAnchor: data.timeAnchor.present
+          ? data.timeAnchor.value
+          : this.timeAnchor,
     );
   }
 
@@ -495,7 +597,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           ..write('parentId: $parentId, ')
           ..write('type: $type, ')
           ..write('sortOrder: $sortOrder, ')
-          ..write('description: $description')
+          ..write('description: $description, ')
+          ..write('endAt: $endAt, ')
+          ..write('isAllDay: $isAllDay, ')
+          ..write('timeAnchor: $timeAnchor')
           ..write(')'))
         .toString();
   }
@@ -514,6 +619,9 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     type,
     sortOrder,
     description,
+    endAt,
+    isAllDay,
+    timeAnchor,
   );
   @override
   bool operator ==(Object other) =>
@@ -530,7 +638,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           other.parentId == this.parentId &&
           other.type == this.type &&
           other.sortOrder == this.sortOrder &&
-          other.description == this.description);
+          other.description == this.description &&
+          other.endAt == this.endAt &&
+          other.isAllDay == this.isAllDay &&
+          other.timeAnchor == this.timeAnchor);
 }
 
 class TodosCompanion extends UpdateCompanion<TodoRow> {
@@ -546,6 +657,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
   final Value<String> type;
   final Value<int> sortOrder;
   final Value<String?> description;
+  final Value<DateTime?> endAt;
+  final Value<bool> isAllDay;
+  final Value<String> timeAnchor;
   final Value<int> rowid;
   const TodosCompanion({
     this.id = const Value.absent(),
@@ -560,6 +674,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     this.type = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.description = const Value.absent(),
+    this.endAt = const Value.absent(),
+    this.isAllDay = const Value.absent(),
+    this.timeAnchor = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TodosCompanion.insert({
@@ -575,6 +692,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     this.type = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.description = const Value.absent(),
+    this.endAt = const Value.absent(),
+    this.isAllDay = const Value.absent(),
+    this.timeAnchor = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -594,6 +714,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     Expression<String>? type,
     Expression<int>? sortOrder,
     Expression<String>? description,
+    Expression<DateTime>? endAt,
+    Expression<bool>? isAllDay,
+    Expression<String>? timeAnchor,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -609,6 +732,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
       if (type != null) 'type': type,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (description != null) 'description': description,
+      if (endAt != null) 'end_at': endAt,
+      if (isAllDay != null) 'is_all_day': isAllDay,
+      if (timeAnchor != null) 'time_anchor': timeAnchor,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -626,6 +752,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     Value<String>? type,
     Value<int>? sortOrder,
     Value<String?>? description,
+    Value<DateTime?>? endAt,
+    Value<bool>? isAllDay,
+    Value<String>? timeAnchor,
     Value<int>? rowid,
   }) {
     return TodosCompanion(
@@ -641,6 +770,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
       type: type ?? this.type,
       sortOrder: sortOrder ?? this.sortOrder,
       description: description ?? this.description,
+      endAt: endAt ?? this.endAt,
+      isAllDay: isAllDay ?? this.isAllDay,
+      timeAnchor: timeAnchor ?? this.timeAnchor,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -684,6 +816,15 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     if (description.present) {
       map['description'] = Variable<String>(description.value);
     }
+    if (endAt.present) {
+      map['end_at'] = Variable<DateTime>(endAt.value);
+    }
+    if (isAllDay.present) {
+      map['is_all_day'] = Variable<bool>(isAllDay.value);
+    }
+    if (timeAnchor.present) {
+      map['time_anchor'] = Variable<String>(timeAnchor.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -705,6 +846,9 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
           ..write('type: $type, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('description: $description, ')
+          ..write('endAt: $endAt, ')
+          ..write('isAllDay: $isAllDay, ')
+          ..write('timeAnchor: $timeAnchor, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1566,6 +1710,9 @@ typedef $$TodosTableCreateCompanionBuilder =
       Value<String> type,
       Value<int> sortOrder,
       Value<String?> description,
+      Value<DateTime?> endAt,
+      Value<bool> isAllDay,
+      Value<String> timeAnchor,
       Value<int> rowid,
     });
 typedef $$TodosTableUpdateCompanionBuilder =
@@ -1582,6 +1729,9 @@ typedef $$TodosTableUpdateCompanionBuilder =
       Value<String> type,
       Value<int> sortOrder,
       Value<String?> description,
+      Value<DateTime?> endAt,
+      Value<bool> isAllDay,
+      Value<String> timeAnchor,
       Value<int> rowid,
     });
 
@@ -1650,6 +1800,21 @@ class $$TodosTableFilterComposer extends Composer<_$AppDatabase, $TodosTable> {
 
   ColumnFilters<String> get description => $composableBuilder(
     column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endAt => $composableBuilder(
+    column: $table.endAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isAllDay => $composableBuilder(
+    column: $table.isAllDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get timeAnchor => $composableBuilder(
+    column: $table.timeAnchor,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1722,6 +1887,21 @@ class $$TodosTableOrderingComposer
     column: $table.description,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get endAt => $composableBuilder(
+    column: $table.endAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isAllDay => $composableBuilder(
+    column: $table.isAllDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get timeAnchor => $composableBuilder(
+    column: $table.timeAnchor,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TodosTableAnnotationComposer
@@ -1772,6 +1952,17 @@ class $$TodosTableAnnotationComposer
     column: $table.description,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get endAt =>
+      $composableBuilder(column: $table.endAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isAllDay =>
+      $composableBuilder(column: $table.isAllDay, builder: (column) => column);
+
+  GeneratedColumn<String> get timeAnchor => $composableBuilder(
+    column: $table.timeAnchor,
+    builder: (column) => column,
+  );
 }
 
 class $$TodosTableTableManager
@@ -1814,6 +2005,9 @@ class $$TodosTableTableManager
                 Value<String> type = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<String?> description = const Value.absent(),
+                Value<DateTime?> endAt = const Value.absent(),
+                Value<bool> isAllDay = const Value.absent(),
+                Value<String> timeAnchor = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodosCompanion(
                 id: id,
@@ -1828,6 +2022,9 @@ class $$TodosTableTableManager
                 type: type,
                 sortOrder: sortOrder,
                 description: description,
+                endAt: endAt,
+                isAllDay: isAllDay,
+                timeAnchor: timeAnchor,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1844,6 +2041,9 @@ class $$TodosTableTableManager
                 Value<String> type = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<String?> description = const Value.absent(),
+                Value<DateTime?> endAt = const Value.absent(),
+                Value<bool> isAllDay = const Value.absent(),
+                Value<String> timeAnchor = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodosCompanion.insert(
                 id: id,
@@ -1858,6 +2058,9 @@ class $$TodosTableTableManager
                 type: type,
                 sortOrder: sortOrder,
                 description: description,
+                endAt: endAt,
+                isAllDay: isAllDay,
+                timeAnchor: timeAnchor,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

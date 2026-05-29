@@ -132,6 +132,9 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
       type: _parseType(row.type),
       sortOrder: row.sortOrder,
       description: row.description,
+      endAt: row.endAt,
+      isAllDay: row.isAllDay,
+      timeAnchor: row.timeAnchor,
     );
   }
 
@@ -189,6 +192,9 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
       type: Value(t.type.name),
       sortOrder: Value(t.sortOrder),
       description: Value(t.description),
+      endAt: Value(t.endAt),
+      isAllDay: Value(t.isAllDay),
+      timeAnchor: Value(t.timeAnchor),
     );
   }
 }

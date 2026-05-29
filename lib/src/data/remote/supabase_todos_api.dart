@@ -71,6 +71,10 @@ class SupabaseTodosApi implements RemoteTodosApi {
     'sort_order': t.sortOrder,
     // v1.2 — 상세 메모
     'description': t.description,
+    // fast-tasks — 날짜·기간 모델
+    'end_at': t.endAt?.toIso8601String(),
+    'is_all_day': t.isAllDay,
+    'time_anchor': t.timeAnchor,
   };
 
   Todo _fromRow(Map<String, dynamic> row) => Todo(
@@ -101,7 +105,20 @@ class SupabaseTodosApi implements RemoteTodosApi {
         : (row['sort_order'] is num ? (row['sort_order'] as num).toInt() : 0),
     // v1.2 — 옛 v1.1 row 는 description 컬럼이 없어 null fallback.
     description: row['description'] as String?,
+    // fast-tasks — 옛 row 는 컬럼이 없어 기본값으로 안전 복원.
+    endAt: _parseTime(row['end_at']),
+    isAllDay: _parseBool(row['is_all_day']),
+    timeAnchor: row['time_anchor'] is String
+        ? row['time_anchor'] as String
+        : 'start',
   );
+
+  /// 미지/누락 시 false. PostgREST 가 bool 을 0/1 num 으로 줄 수도 있어 방어.
+  static bool _parseBool(Object? raw) {
+    if (raw is bool) return raw;
+    if (raw is num) return raw != 0;
+    return false;
+  }
 
   /// 미지의 type 문자열 또는 누락 시 'task' 로 안전 fallback (TodosDao._parseType 와 일관).
   static TodoType _parseType(Object? raw) {

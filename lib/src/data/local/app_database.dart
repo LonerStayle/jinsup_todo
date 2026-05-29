@@ -36,6 +36,12 @@ class Todos extends Table {
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   // v1.2 — 상세 메모 (long text). nullable.
   TextColumn get description => text().nullable()();
+  // fast-tasks (날짜·기간) — 기간 모드 종료 시각. 단일 모드면 null.
+  DateTimeColumn get endAt => dateTime().nullable()();
+  // fast-tasks — true 면 시간 미표시 (하루종일).
+  BoolColumn get isAllDay => boolean().withDefault(const Constant(false))();
+  // fast-tasks — 단일·시간 모드에서 dueAt 이 '시작'('start')/'마감'('end')인지.
+  TextColumn get timeAnchor => text().withDefault(const Constant('start'))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -91,7 +97,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   /// `storeDateTimeAsText: true` — DateTime 을 ISO 8601 text 로 저장.
   /// 기본 (unix int) 은 fetch 시 항상 local time 으로 변환되어 UTC↔local 구분을 잃는다.
@@ -107,6 +113,8 @@ class AppDatabase extends _$AppDatabase {
   /// - v4: todos.description 컬럼 보강. (v3 마이그레이션 중에 description 을 추가했지만
   ///   schemaVersion 을 올리지 않아, "v3 으로 이미 올라갔지만 description 컬럼이 없는"
   ///   중간 상태 DB 가 존재했다. v4 의 idempotent 가드로 그 DB 를 복구한다.)
+  /// - v5: todos 에 end_at / is_all_day / time_anchor 컬럼 추가
+  ///   (fast-tasks — 날짜·기간 모델). PRAGMA 가드로 idempotent.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
@@ -138,6 +146,21 @@ class AppDatabase extends _$AppDatabase {
         final hasDescription = info.any((r) => r.data['name'] == 'description');
         if (!hasDescription) {
           await m.addColumn(todos, todos.description);
+        }
+      }
+      // 4 → 5: 날짜·기간 모델 3 컬럼 추가. 기존 PRAGMA 가드 패턴으로 idempotent —
+      // 이미 컬럼이 있으면 (부분 마이그레이션 / 다중 디바이스) 건너뛴다.
+      if (from < 5) {
+        final info = await customSelect("PRAGMA table_info('todos')").get();
+        bool hasCol(String name) => info.any((r) => r.data['name'] == name);
+        if (!hasCol('end_at')) {
+          await m.addColumn(todos, todos.endAt);
+        }
+        if (!hasCol('is_all_day')) {
+          await m.addColumn(todos, todos.isAllDay);
+        }
+        if (!hasCol('time_anchor')) {
+          await m.addColumn(todos, todos.timeAnchor);
         }
       }
     },
