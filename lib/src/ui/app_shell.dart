@@ -287,13 +287,22 @@ class _AppShellState extends ConsumerState<AppShell> {
     final safeIndex = _index < _destinations.length ? _index : 0;
     final destination = _destinations[safeIndex];
 
-    final fab = FloatingActionButton.extended(
-      key: const ValueKey('add-todo-fab'),
-      onPressed: _openAddTodo,
-      icon: const Icon(Icons.add),
-      label: const Text('추가'),
-      tooltip: '새 할 일 (Cmd+N)',
-    );
+    // 모바일은 NavigationBar 를 가리지 않도록 컴팩트한 원형 FAB (endFloat 가 바 위로 띄움).
+    // 데스크탑은 nav bar 가 없어 넓은 extended FAB 유지.
+    final fab = AppPlatform.isDesktop
+        ? FloatingActionButton.extended(
+            key: const ValueKey('add-todo-fab'),
+            onPressed: _openAddTodo,
+            icon: const Icon(Icons.add),
+            label: const Text('추가'),
+            tooltip: '새 할 일 (Cmd+N)',
+          )
+        : FloatingActionButton(
+            key: const ValueKey('add-todo-fab'),
+            onPressed: _openAddTodo,
+            tooltip: '새 할 일',
+            child: const Icon(Icons.add),
+          );
 
     final Widget body;
     if (AppPlatform.isDesktop) {
@@ -319,11 +328,9 @@ class _AppShellState extends ConsumerState<AppShell> {
       onSelect: _selectByDigit,
       child: Scaffold(
         floatingActionButton: fab,
-        // 모바일은 NavigationBar 위에 자연스럽게 정렬되는 endContained — destination 라벨과
-        // FAB 가 겹치지 않음. desktop 은 NavigationBar 자체가 없어 기본 endFloat.
-        floatingActionButtonLocation: AppPlatform.isDesktop
-            ? FloatingActionButtonLocation.endFloat
-            : FloatingActionButtonLocation.endContained,
+        // endFloat — Scaffold 가 FAB 를 bottomNavigationBar **위로** 띄워 네비를 가리지 않음.
+        // (이전 endContained 는 nav bar 에 도킹돼 6개 destination 항목을 덮는 문제가 있었다.)
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         body: body,
         // desktop 은 좌측 _Sidebar 가 네비게이션을 담당해 bottomNavigationBar 가 의도적으로
         // null. mobile 만 NavigationBar 노출.

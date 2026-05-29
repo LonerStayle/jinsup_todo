@@ -245,4 +245,37 @@ void main() {
     );
     expect(node.onTap, isNull, reason: 'leaf 는 펼침 동작 없음');
   });
+
+  testWidgets('task 노드는 체크 토글 버튼 노출 (하위 트리 포함), note 는 없음', (tester) async {
+    // 회사 > 부모 task > 자식 task + 자식 note.
+    final parent = make(id: 'p', title: '부모 할 일');
+    final childTask = make(id: 'c1', title: '자식 할 일', parentId: 'p');
+    final childNote = make(
+      id: 'c2',
+      title: '자식 메모',
+      parentId: 'p',
+      type: TodoType.note,
+    );
+    await mount(
+      tester,
+      rootsByCategory: {
+        Category.work: [parent],
+      },
+      childrenByParent: {
+        'p': [childTask, childNote],
+      },
+      allTodos: [parent, childTask, childNote],
+    );
+
+    // task 는 부모·자식 모두 체크 토글 버튼 존재.
+    expect(find.byKey(const ValueKey('outline-check-p')), findsOneWidget);
+    expect(find.byKey(const ValueKey('outline-check-c1')), findsOneWidget);
+    // 체크 버튼은 tap 가능한 InkWell.
+    final parentCheck = tester.widget<InkWell>(
+      find.byKey(const ValueKey('outline-check-p')),
+    );
+    expect(parentCheck.onTap, isNotNull);
+    // note 는 체크 버튼 없음 (정적 sticky_note 아이콘).
+    expect(find.byKey(const ValueKey('outline-check-c2')), findsNothing);
+  });
 }

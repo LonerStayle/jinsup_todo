@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/todo.dart';
 import '../category/categories_controller.dart';
+import '../todo_actions/todo_actions_controller.dart';
 import 'tree_providers.dart';
 
 /// 전체 트리 view — 5 카테고리 root + 자식 트리를 한 화면에 펼침/접힘으로 표시.
@@ -273,20 +274,33 @@ class _OutlineNode extends ConsumerWidget {
                       : null,
                 ),
                 const SizedBox(width: AppTokens.space4),
-                Icon(
-                  isNote
-                      ? Icons.sticky_note_2_outlined
-                      : (isDone
+                // note 는 체크 개념이 없어 정적 아이콘. task 는 탭하면 체크 토글 —
+                // 하위 트리(자식) 노드까지 모두 동작 (각 todo 가 독립적으로 체크).
+                if (isNote)
+                  Icon(
+                    Icons.sticky_note_2_outlined,
+                    size: 16,
+                    color: scheme.onSurface.withValues(alpha: 0.45),
+                  )
+                else
+                  InkWell(
+                    key: ValueKey('outline-check-${node.id}'),
+                    onTap: () => ref.read(todoActionsProvider).toggle(node),
+                    customBorder: const CircleBorder(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTokens.space4),
+                      child: Icon(
+                        isDone
                             ? Icons.check_circle_rounded
-                            : Icons.radio_button_unchecked),
-                  size: 16,
-                  color: isNote
-                      ? scheme.onSurface.withValues(alpha: 0.45)
-                      : (isDone
+                            : Icons.radio_button_unchecked,
+                        size: 16,
+                        color: isDone
                             ? node.category.color
-                            : scheme.onSurface.withValues(alpha: 0.45)),
-                ),
-                const SizedBox(width: AppTokens.space8),
+                            : scheme.onSurface.withValues(alpha: 0.45),
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: AppTokens.space4),
                 Expanded(
                   child: Text(
                     node.title,
