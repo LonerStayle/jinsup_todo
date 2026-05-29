@@ -33,15 +33,14 @@ create table if not exists solo_todo.todos (
 );
 
 -- ─────────────────────────────────────────────────────────────────────
--- v1.0 → v1.1 마이그레이션 (기존 환경 — schema.sql 이미 실행된 프로젝트)
+-- v1.0 → v1.1 컬럼 보강 (활성 ALTER — 항상 실행)
 --
--- 이미 v1.0 시점에 위 create table 을 실행한 프로젝트는 컬럼이 빠진 상태이므로
--- 아래 ALTER 3 줄을 SQL Editor 에서 한 번 실행. idempotent (`if not exists`).
--- 신규 셋업은 위 create table 이 처음부터 컬럼을 포함해 ALTER 불필요.
---
--- alter table solo_todo.todos add column if not exists parent_id  text;
--- alter table solo_todo.todos add column if not exists type       text not null default 'task';
--- alter table solo_todo.todos add column if not exists sort_order integer not null default 0;
+-- ⚠️ 중요: `create table if not exists` 는 테이블이 이미 있으면 통째로 건너뛰므로,
+-- v1.0 시점에 만든 todos 테이블에는 위 create 문의 신규 컬럼이 추가되지 않는다.
+-- 따라서 아래 ALTER 를 **주석 없이 항상 실행**해 누락 컬럼을 보강한다 (idempotent).
+alter table solo_todo.todos add column if not exists parent_id  text;
+alter table solo_todo.todos add column if not exists type       text not null default 'task';
+alter table solo_todo.todos add column if not exists sort_order integer not null default 0;
 -- ─────────────────────────────────────────────────────────────────────
 
 -- 이미 만든 테이블에도 grant (default privileges 는 이후 생성 객체에만 적용)
@@ -133,6 +132,8 @@ alter table solo_todo.todos add column if not exists description text;
 -- (별도 실행이 필요한 경우 위 7~11 섹션을 그대로 복사·실행. 단, RLS drop-then-
 --  create 가 안전하게 재실행 됩니다.)
 -- ─────────────────────────────────────────────────────────────────────
-
- - Alembic 세팅 
- - 인프라 세팅 
+-- ====================================================================
+-- PostgREST 스키마 캐시 갱신 — 컬럼/테이블 추가 후 반드시 실행.
+-- PGRST204 "Could not find the '...' column in the schema cache" 방지.
+-- ====================================================================
+notify pgrst, 'reload schema';
