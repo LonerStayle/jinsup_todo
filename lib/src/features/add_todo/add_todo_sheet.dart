@@ -374,7 +374,10 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
                 },
               ),
             },
-            child: Padding(
+            // 상세 메모를 펼치면 내용이 길어져 화면을 넘어설 수 있다. SingleChildScrollView
+            // 로 감싸 bottom overflow 방지 — 모달 바텀시트는 이미 화면 높이로 max 가
+            // 제한되므로 내부 스크롤로 안전. (unbounded 환경에선 content 로 shrink-wrap.)
+            child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(
                 AppTokens.space24,
                 AppTokens.space16,
