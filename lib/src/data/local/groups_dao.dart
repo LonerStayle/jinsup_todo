@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../domain/category.dart' as cat;
 import '../../domain/group.dart' as domain;
 import 'app_database.dart';
 
@@ -59,6 +60,28 @@ class GroupsDao extends DatabaseAccessor<AppDatabase> with _$GroupsDaoMixin {
   /// 사전에 [detachCategories] 로 속한 카테고리들을 미분류(groupId=null)로 옮긴다.
   Future<int> deleteById(String id) {
     return (delete(groups)..where((g) => g.id.equals(id))).go();
+  }
+
+  /// 이 그룹에 속한 카테고리들 (groupId 매칭). 그룹 삭제 시 미분류로 옮길 대상 +
+  /// syncing 경로에서 remote 에 group_id=null 을 push 하기 위한 outbox enqueue 입력.
+  /// 반환되는 도메인 객체의 groupId 는 **이동 후 값(null)** 으로 미리 비워서 준다.
+  Future<List<cat.Category>> categoriesInGroup(String groupId) async {
+    final rows = await (select(
+      categories,
+    )..where((c) => c.groupId.equals(groupId))).get();
+    return rows
+        .map(
+          (r) => cat.Category(
+            id: r.id,
+            label: r.label,
+            iconCodePoint: r.iconCodePoint,
+            colorValue: r.colorValue,
+            sortOrder: r.sortOrder,
+            isBuiltin: r.isBuiltin,
+            groupId: null,
+          ),
+        )
+        .toList();
   }
 
   /// 이 그룹에 속한 카테고리들의 groupId 를 null 로 (미분류로 이동). 그룹 삭제 직전 호출.
