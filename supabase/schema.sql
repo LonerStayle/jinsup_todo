@@ -121,6 +121,55 @@ end $$;
 -- 11) todos.description 컬럼 (v1.2 신규)
 alter table solo_todo.todos add column if not exists description text;
 
+-- ====================================================================
+-- v1.3 — 카테고리 상위 '그룹' 계층
+-- 구조: 그룹 > 카테고리 > todo 트리. 그룹 없는 카테고리는 '미분류'(group_id null).
+-- ====================================================================
+
+-- 12) groups 테이블 (v1.3 신규). categories 와 동일 컬럼 구성 (icon 없음).
+create table if not exists solo_todo.groups (
+  id          text primary key,
+  user_id     uuid references auth.users(id) on delete cascade not null,
+  label       text not null,
+  color_value integer not null,
+  sort_order  integer not null default 0,
+  is_builtin  boolean not null default false,
+  created_at  timestamptz not null default now()
+);
+
+grant all on solo_todo.groups to anon, authenticated, service_role;
+
+-- 13) groups RLS — 본인 row 만 (categories 와 동일 패턴)
+alter table solo_todo.groups enable row level security;
+drop policy if exists "user_read_own_grp"   on solo_todo.groups;
+drop policy if exists "user_insert_own_grp" on solo_todo.groups;
+drop policy if exists "user_update_own_grp" on solo_todo.groups;
+drop policy if exists "user_delete_own_grp" on solo_todo.groups;
+create policy "user_read_own_grp"   on solo_todo.groups for select using (auth.uid() = user_id);
+create policy "user_insert_own_grp" on solo_todo.groups for insert with check (auth.uid() = user_id);
+create policy "user_update_own_grp" on solo_todo.groups for update using (auth.uid() = user_id);
+create policy "user_delete_own_grp" on solo_todo.groups for delete using (auth.uid() = user_id);
+
+-- 14) groups 정렬용 인덱스
+create index if not exists groups_user_sort
+  on solo_todo.groups (user_id, sort_order asc, created_at asc);
+
+-- 15) groups Realtime publication
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'solo_todo' and tablename = 'groups'
+  ) then
+    alter publication supabase_realtime add table solo_todo.groups;
+  end if;
+end $$;
+
+-- 16) categories.group_id 컬럼 (v1.3 신규). null = '미분류'. FK 제약 두지 않음
+-- (동기화 중 일시적 dangling 허용 + 앱이 미지 group_id 를 미분류로 fallback).
+alter table solo_todo.categories add column if not exists group_id text;
+
 -- ─────────────────────────────────────────────────────────────────────
 -- v1.1 → v1.2 마이그레이션 (기존 환경 — schema.sql 이미 실행된 프로젝트)
 --
