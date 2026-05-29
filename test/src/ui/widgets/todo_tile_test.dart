@@ -13,6 +13,9 @@ void main() {
     Category category = Category.work,
     DateTime? dueAt,
     DateTime? doneAt,
+    DateTime? endAt,
+    bool isAllDay = false,
+    String timeAnchor = 'start',
     TodoType type = TodoType.task,
   }) => Todo(
     id: id,
@@ -24,6 +27,9 @@ void main() {
     updatedAt: DateTime.utc(2026, 5, 27, 9),
     calendarEventId: null,
     type: type,
+    endAt: endAt,
+    isAllDay: isAllDay,
+    timeAnchor: timeAnchor,
   );
 
   Future<void> mount(WidgetTester tester, Todo todo, {VoidCallback? onToggle}) {
@@ -82,6 +88,30 @@ void main() {
       make(type: TodoType.note, dueAt: DateTime(2026, 5, 27, 14, 30)),
     );
     expect(find.text('14:30'), findsNothing);
+  });
+
+  testWidgets('하루종일 task — 시간(00:00) 미출력, 날짜만 표시', (tester) async {
+    await mount(tester, make(dueAt: DateTime(2026, 5, 27), isAllDay: true));
+    expect(find.text('5/27'), findsOneWidget);
+    expect(find.text('00:00'), findsNothing);
+    expect(find.textContaining('오전'), findsNothing);
+  });
+
+  testWidgets('시작시간 task — "시작 M/D HH:mm"', (tester) async {
+    await mount(tester, make(dueAt: DateTime(2026, 5, 27, 14, 30)));
+    expect(find.text('시작 5/27 14:30'), findsOneWidget);
+  });
+
+  testWidgets('기간 task — "M/D ~ M/D"', (tester) async {
+    await mount(
+      tester,
+      make(
+        dueAt: DateTime(2026, 5, 27),
+        endAt: DateTime(2026, 5, 30),
+        isAllDay: true,
+      ),
+    );
+    expect(find.text('5/27 ~ 5/30'), findsOneWidget);
   });
 
   testWidgets('task — onToggle null 이면 IconButton.onPressed null (disabled)', (

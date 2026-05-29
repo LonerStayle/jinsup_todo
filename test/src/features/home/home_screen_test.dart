@@ -94,7 +94,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('PR 리뷰'), findsOneWidget);
-    expect(find.text('14:30'), findsOneWidget);
+    // fast-tasks — 시간 모드는 "시작 M/D HH:mm" 라벨로 표시 (시각 포함).
+    expect(find.textContaining('14:30'), findsOneWidget);
     expect(find.textContaining('이월'), findsNothing);
   });
 

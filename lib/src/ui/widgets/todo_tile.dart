@@ -21,6 +21,8 @@ class TodoTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     final isDone = todo.isDone;
     final isNote = todo.type == TodoType.note;
+    // fast-tasks — 모드별 날짜 라벨. isAllDay 면 시간 미출력 (00:00 금지).
+    final dateLabel = isNote ? null : TodoDateLabel.format(todo);
 
     return Card(
       child: InkWell(
@@ -74,11 +76,11 @@ class TodoTile extends StatelessWidget {
                         ],
                       ],
                     ),
-                    if (todo.dueAt != null && !isNote)
+                    if (dateLabel != null)
                       Padding(
                         padding: const EdgeInsets.only(top: AppTokens.space2),
                         child: Text(
-                          KoDate.time(todo.dueAt!),
+                          dateLabel,
                           style: theme.textTheme.bodySmall,
                         ),
                       ),

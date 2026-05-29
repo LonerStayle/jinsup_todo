@@ -1,3 +1,5 @@
+import '../domain/todo.dart';
+
 /// 가벼운 한국어 날짜 포맷터. intl 의 locale data 초기화 의존성 없이 동작.
 ///
 /// 예: 2026-05-27 → "5월 27일 화요일"
@@ -12,4 +14,46 @@ class KoDate {
   /// 시간만 — "14:30". 24h.
   static String time(DateTime d) =>
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+  /// "M/D" — 짧은 날짜. 기간 표시용.
+  static String shortDate(DateTime d) => '${d.month}/${d.day}';
+
+  /// "M/D HH:mm" — 짧은 날짜 + 24h 시각.
+  static String shortDateTime(DateTime d) => '${shortDate(d)} ${time(d)}';
+}
+
+/// Todo 의 날짜·기간 모델을 화면용 짧은 라벨로 변환. 단일 출처.
+///
+/// fast-tasks 핵심: [Todo.isAllDay] 가 true 면 시간 컴포넌트를 절대 출력하지 않는다
+/// ('00:00' / '오전 12:00' 금지). TodoTile / 기타 위치가 공유.
+///
+/// - none      → null (라벨 없음)
+/// - allDay    → "5/27"
+/// - startTime → "시작 5/27 14:30"
+/// - endTime   → "마감 5/27 14:30"
+/// - range     → "5/27 ~ 5/30" (+ !isAllDay 면 양끝 시각)
+class TodoDateLabel {
+  const TodoDateLabel._();
+
+  static String? format(Todo todo) {
+    final due = todo.dueAt;
+    if (due == null) return null;
+    switch (todo.dateMode) {
+      case TodoDateMode.none:
+        return null;
+      case TodoDateMode.allDay:
+        return KoDate.shortDate(due);
+      case TodoDateMode.startTime:
+        return '시작 ${KoDate.shortDateTime(due)}';
+      case TodoDateMode.endTime:
+        return '마감 ${KoDate.shortDateTime(due)}';
+      case TodoDateMode.range:
+        final end = todo.endAt;
+        if (end == null) return KoDate.shortDate(due);
+        if (todo.isAllDay) {
+          return '${KoDate.shortDate(due)} ~ ${KoDate.shortDate(end)}';
+        }
+        return '${KoDate.shortDateTime(due)} ~ ${KoDate.shortDateTime(end)}';
+    }
+  }
 }
