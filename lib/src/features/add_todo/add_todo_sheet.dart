@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/todo.dart' show Todo, TodoType;
+import '../category/categories_controller.dart';
 
 /// "빠른 추가" 입력 패널.
 ///
@@ -12,7 +14,7 @@ import '../../domain/todo.dart' show Todo, TodoType;
 /// (phase 5 의 "추가 흐름" task) 가 담당한다.
 ///
 /// UX 강조 (CLAUDE.md 비전): Calendar 등록은 토글 1 번이면 자동. Esc 로 취소, Enter 로 저장.
-class AddTodoSheet extends StatefulWidget {
+class AddTodoSheet extends ConsumerStatefulWidget {
   const AddTodoSheet({
     super.key,
     this.initialCategory = Category.daily,
@@ -84,10 +86,10 @@ class AddTodoSheet extends StatefulWidget {
   }
 
   @override
-  State<AddTodoSheet> createState() => _AddTodoSheetState();
+  ConsumerState<AddTodoSheet> createState() => _AddTodoSheetState();
 }
 
-class _AddTodoSheetState extends State<AddTodoSheet> {
+class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _descriptionCtrl;
   late Category _category;
@@ -351,6 +353,18 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
+    // v1.2 — 동적 카테고리. categoriesProvider 의 stream 으로 sidebar 와 동일 출처.
+    // loading / error 시 builtin 5종 fallback.
+    final categories =
+        ref.watch(categoriesProvider).asData?.value ?? Category.builtinSeeds;
+    // 선택된 카테고리가 목록에 없으면 (삭제됨 / 초기값 불일치) 첫 항목으로 자동 보정.
+    // build 중 setState 금지 → post-frame 으로 안전하게 갱신.
+    if (categories.isNotEmpty && !categories.any((c) => c.id == _category.id)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _category = categories.first);
+      });
+    }
+
     return Material(
       color: scheme.surface,
       shape: const RoundedRectangleBorder(
@@ -448,6 +462,7 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
                   _SectionLabel(text: '카테고리'),
                   const SizedBox(height: AppTokens.space8),
                   _CategoryChips(
+                    categories: categories,
                     selected: _category,
                     onSelect: (c) => setState(() => _category = c),
                   ),
@@ -549,8 +564,14 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _CategoryChips extends StatelessWidget {
-  const _CategoryChips({required this.selected, required this.onSelect});
+  const _CategoryChips({
+    required this.categories,
+    required this.selected,
+    required this.onSelect,
+  });
 
+  /// v1.2 — 동적 카테고리 목록 (categoriesProvider). builtin + 사용자 추가 모두 포함.
+  final List<Category> categories;
   final Category selected;
   final ValueChanged<Category> onSelect;
 
@@ -560,10 +581,11 @@ class _CategoryChips extends StatelessWidget {
       spacing: AppTokens.space8,
       runSpacing: AppTokens.space8,
       children: [
-        for (final c in Category.values)
+        for (final c in categories)
           _CategoryChip(
             category: c,
-            selected: c == selected,
+            // 전체 동등 비교는 DB 인스턴스 ↔ const 차이로 어긋날 수 있어 id 로 비교.
+            selected: c.id == selected.id,
             onTap: () => onSelect(c),
           ),
       ],

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:solo_todo/src/core/theme.dart';
 import 'package:solo_todo/src/domain/category.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/add_todo/add_todo_sheet.dart';
+import 'package:solo_todo/src/features/category/categories_controller.dart';
 
 void main() {
   Future<List<AddTodoSubmission>> mount(
@@ -21,21 +23,30 @@ void main() {
 
     final submissions = <AddTodoSubmission>[];
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.mobileLight(),
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: AddTodoSheet(
-              initialCategory: initial,
-              initialDueAt: initialDueAt,
-              initialAllDay: initialAllDay,
-              now: fixedNow == null ? null : () => fixedNow,
-              onSubmit: submissions.add,
+      ProviderScope(
+        overrides: [
+          // v1.2 — AddTodoSheet 가 categoriesProvider 를 watch (동적 카테고리 칩).
+          categoriesProvider.overrideWith(
+            (_) => Stream.value(Category.builtinSeeds),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.mobileLight(),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: AddTodoSheet(
+                initialCategory: initial,
+                initialDueAt: initialDueAt,
+                initialAllDay: initialAllDay,
+                now: fixedNow == null ? null : () => fixedNow,
+                onSubmit: submissions.add,
+              ),
             ),
           ),
         ),
       ),
     );
+    await tester.pump(); // categoriesProvider stream emit 흡수
     return submissions;
   }
 
