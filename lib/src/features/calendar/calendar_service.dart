@@ -76,13 +76,33 @@ class CalendarService {
     return _AuthedCalendarApi(gcal.CalendarApi(client), client);
   }
 
-  gcal.Event _toEvent(Todo todo, {bool isAllDay = false}) {
+  gcal.Event _toEvent(Todo todo, {bool isAllDay = false}) =>
+      buildEvent(todo, isAllDayHint: isAllDay);
+
+  /// fast-tasks — Todo 의 날짜·기간 모델을 Google Calendar Event 로 매핑. 단일 출처.
+  ///
+  /// - 하루종일 / 기간+isAllDay → all-day 이벤트 (start.date / end.date,
+  ///   end.date 는 종료+1일 — Google 의 exclusive 종료 규칙).
+  /// - 단일 시간 (start/end anchor) → 그 시각 기준 기본 1시간 이벤트.
+  /// - 기간(!isAllDay) → start.dateTime=dueAt, end.dateTime=endAt.
+  ///
+  /// [isAllDayHint] 는 호출자가 모델 없이 종일 의도를 줄 때의 fallback —
+  /// todo 자체의 모드가 우선한다.
+  @visibleForTesting
+  static gcal.Event buildEvent(Todo todo, {bool isAllDayHint = false}) {
     final desc = '${todo.category.label} · Solo Todo 자동 등록';
-    if (isAllDay) {
-      // Google Calendar 의 종일 이벤트는 `date` (날짜만, end 는 exclusive 다음날) 사용.
-      final local = todo.dueAt!.toLocal();
-      final startDate = DateTime(local.year, local.month, local.day);
-      final endDate = startDate.add(const Duration(days: 1));
+    final due = todo.dueAt!;
+
+    gcal.Event allDayEvent(DateTime start, DateTime endInclusive) {
+      final s = start.toLocal();
+      final e = endInclusive.toLocal();
+      final startDate = DateTime(s.year, s.month, s.day);
+      // Google 종일 이벤트의 end.date 는 exclusive → 종료 다음날.
+      final endDate = DateTime(
+        e.year,
+        e.month,
+        e.day,
+      ).add(const Duration(days: 1));
       return gcal.Event(
         summary: todo.title,
         description: desc,
@@ -90,14 +110,29 @@ class CalendarService {
         end: gcal.EventDateTime(date: endDate),
       );
     }
-    final start = todo.dueAt!.toUtc();
-    final end = start.add(const Duration(hours: 1));
-    return gcal.Event(
+
+    gcal.Event timedEvent(DateTime start, DateTime end) => gcal.Event(
       summary: todo.title,
       description: desc,
-      start: gcal.EventDateTime(dateTime: start, timeZone: 'UTC'),
-      end: gcal.EventDateTime(dateTime: end, timeZone: 'UTC'),
+      start: gcal.EventDateTime(dateTime: start.toUtc(), timeZone: 'UTC'),
+      end: gcal.EventDateTime(dateTime: end.toUtc(), timeZone: 'UTC'),
     );
+
+    switch (todo.dateMode) {
+      case TodoDateMode.none:
+        // dueAt!.toUtc() 가 위에서 보장되므로 도달 안 함. 안전상 종일로.
+        return allDayEvent(due, due);
+      case TodoDateMode.allDay:
+        return allDayEvent(due, due);
+      case TodoDateMode.startTime:
+      case TodoDateMode.endTime:
+        // 시각 기준 기본 1시간. (anchor 는 표시 의미라 캘린더는 동일하게 1h 블록.)
+        return timedEvent(due, due.add(const Duration(hours: 1)));
+      case TodoDateMode.range:
+        final end = todo.endAt ?? due;
+        if (todo.isAllDay) return allDayEvent(due, end);
+        return timedEvent(due, end);
+    }
   }
 }
 
