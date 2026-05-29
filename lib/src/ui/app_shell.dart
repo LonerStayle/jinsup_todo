@@ -241,6 +241,45 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
+  /// 그룹 삭제 — confirm dialog 후 controller 호출. 차단 없음: 속한 카테고리는
+  /// '미분류'로 이동되고 그룹만 사라진다 (todos / 카테고리 데이터 무손실).
+  Future<void> _deleteGroup(Group group) async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text("'${group.label}' 그룹 삭제"),
+            content: const Text(
+              '그룹을 삭제하면 속한 카테고리는 \'미분류\'로 이동돼요. 카테고리와 할 일은 그대로 남아요.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(ctx).colorScheme.error,
+                ),
+                child: const Text('삭제'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    await ref.read(groupsControllerProvider).delete(group.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("'${group.label}' 그룹이 삭제됐어요. 카테고리는 미분류로 이동했어요."),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   /// 카테고리 '그룹 이동' — 그룹 선택 bottom sheet 후 controller.moveToGroup 호출.
   /// 선택지: 미분류(null) + 현재 그룹들. today / outline 은 무시.
   Future<void> _moveCategoryToGroup(AppDestination dest) async {
@@ -359,6 +398,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             onAddGroup: () => AddGroupDialog.show(context),
             onDeleteCategory: _deleteCategory,
             onMoveCategory: _moveCategoryToGroup,
+            onDeleteGroup: _deleteGroup,
           ),
           const VerticalDivider(width: AppTokens.hairline),
           Expanded(child: _MainArea(destination: destination)),
@@ -505,6 +545,7 @@ class _Sidebar extends StatefulWidget {
     required this.onAddGroup,
     required this.onDeleteCategory,
     required this.onMoveCategory,
+    required this.onDeleteGroup,
   });
 
   final List<AppDestination> destinations;
@@ -515,6 +556,7 @@ class _Sidebar extends StatefulWidget {
   final VoidCallback onAddGroup;
   final ValueChanged<AppDestination> onDeleteCategory;
   final ValueChanged<AppDestination> onMoveCategory;
+  final ValueChanged<Group> onDeleteGroup;
 
   @override
   State<_Sidebar> createState() => _SidebarState();
@@ -576,6 +618,33 @@ class _SidebarState extends State<_Sidebar> {
     }
   }
 
+  /// 그룹 헤더 long-press / 우클릭 메뉴 — 삭제. (그룹 삭제 시 속한 카테고리는
+  /// '미분류'로 이동되며 차단되지 않는다 — repo deleteById 의 detach 로직.)
+  Future<void> _showGroupMenu(Group group) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline,
+                color: Theme.of(ctx).colorScheme.error,
+              ),
+              title: Text("'${group.label}' 그룹 삭제"),
+              onTap: () => Navigator.of(ctx).pop('delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'delete') {
+      widget.onDeleteGroup(group);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -632,6 +701,7 @@ class _SidebarState extends State<_Sidebar> {
           group: g,
           collapsed: _collapsed.contains(g.id),
           onTap: () => _toggle(g.id),
+          onLongPress: () => _showGroupMenu(g),
         ),
         if (!_collapsed.contains(g.id))
           for (final i in (byGroup[g.id] ?? const <int>[])) _item(i),
@@ -726,11 +796,15 @@ class _GroupHeader extends StatelessWidget {
     required this.group,
     required this.collapsed,
     required this.onTap,
+    this.onLongPress,
   });
 
   final Group group;
   final bool collapsed;
   final VoidCallback onTap;
+
+  /// long-press / 우클릭 — 그룹 컨텍스트 메뉴 (삭제). 카테고리 아이템과 동일 패턴.
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -745,6 +819,8 @@ class _GroupHeader extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(AppTokens.radiusM),
         onTap: onTap,
+        onLongPress: onLongPress,
+        onSecondaryTap: onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppTokens.space12,
