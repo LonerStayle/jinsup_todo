@@ -75,19 +75,21 @@ run-android:
 		exit 1; \
 	fi; \
 	echo "→ device: $$DEV"; \
-	flutter run -d $$DEV $(DART_DEFINE)
+	flutter run -d $$DEV --no-tree-shake-icons $(DART_DEFINE)
 
 # ────────────────────────────────────────────────────────────────────────────
 # Build (release)
 # ────────────────────────────────────────────────────────────────────────────
+# --no-tree-shake-icons: 카테고리 아이콘을 codepoint 로 동적 생성 (사용자 선택) 하므로
+# non-const IconData 가 필수 → tree-shaking 비활성. 폰트 전체 번들 (APK 약간 커짐).
 .PHONY: build-macos
 build-macos:
-	flutter build macos --release $(DART_DEFINE)
+	flutter build macos --release --no-tree-shake-icons $(DART_DEFINE)
 	@echo "✓ build/macos/Build/Products/Release/solo_todo.app"
 
 .PHONY: build-apk
 build-apk:
-	flutter build apk --release $(DART_DEFINE)
+	flutter build apk --release --no-tree-shake-icons $(DART_DEFINE)
 	@echo "✓ build/app/outputs/flutter-apk/app-release.apk"
 
 # ────────────────────────────────────────────────────────────────────────────

@@ -133,3 +133,6 @@ alter table solo_todo.todos add column if not exists description text;
 -- (별도 실행이 필요한 경우 위 7~11 섹션을 그대로 복사·실행. 단, RLS drop-then-
 --  create 가 안전하게 재실행 됩니다.)
 -- ─────────────────────────────────────────────────────────────────────
+
+ - Alembic 세팅 
+ - 인프라 세팅 
