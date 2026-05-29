@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../domain/category.dart' as domain;
 import 'categories_dao.dart';
+import 'groups_dao.dart';
 import 'outbox_dao.dart';
 import 'todos_dao.dart';
 
@@ -64,6 +65,28 @@ class Categories extends Table {
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   BoolColumn get isBuiltin => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
+  // v1.3 — 소속 그룹 (Groups.id). null = '미분류'. FK 제약 두지 않음 (Supabase
+  // 동기화 중 일시적 dangling 허용 + UI 가 미지 groupId 를 미분류로 안전 fallback).
+  TextColumn get groupId => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// v1.3 — 그룹 테이블 (카테고리 상위 '큰분류'). 전부 사용자 정의 (builtin seed 없음).
+///
+/// 구조: 그룹 > 카테고리 > todo 트리. 사이드바가 그룹 단위로 접히고, groupId 가
+/// null 인 카테고리는 최상단 '미분류' 섹션에 모인다.
+///
+/// 정렬은 (sortOrder asc, createdAt asc) — Categories 와 동일.
+@DataClassName('GroupRow')
+class Groups extends Table {
+  TextColumn get id => text()();
+  TextColumn get label => text()();
+  IntColumn get colorValue => integer()();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  BoolColumn get isBuiltin => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -87,8 +110,8 @@ class OutboxEntries extends Table {
 }
 
 @DriftDatabase(
-  tables: [Todos, Categories, OutboxEntries],
-  daos: [TodosDao, CategoriesDao, OutboxDao],
+  tables: [Todos, Categories, Groups, OutboxEntries],
+  daos: [TodosDao, CategoriesDao, GroupsDao, OutboxDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openOnDisk());
@@ -97,7 +120,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   /// `storeDateTimeAsText: true` — DateTime 을 ISO 8601 text 로 저장.
   /// 기본 (unix int) 은 fetch 시 항상 local time 으로 변환되어 UTC↔local 구분을 잃는다.
@@ -115,6 +138,7 @@ class AppDatabase extends _$AppDatabase {
   ///   중간 상태 DB 가 존재했다. v4 의 idempotent 가드로 그 DB 를 복구한다.)
   /// - v5: todos 에 end_at / is_all_day / time_anchor 컬럼 추가
   ///   (fast-tasks — 날짜·기간 모델). PRAGMA 가드로 idempotent.
+  /// - v6: groups 테이블 신규 + categories.group_id 컬럼 (그룹 계층). 가드 idempotent.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
@@ -161,6 +185,24 @@ class AppDatabase extends _$AppDatabase {
         }
         if (!hasCol('time_anchor')) {
           await m.addColumn(todos, todos.timeAnchor);
+        }
+      }
+      // 5 → 6: groups 테이블 신규 + categories.group_id ALTER. (그룹 계층)
+      // 둘 다 PRAGMA / sqlite_master 가드로 idempotent — 부분 적용된 중간 상태 DB 도
+      // 안전하게 복구. groups seed 는 없음 (모든 그룹이 사용자 정의).
+      if (from < 6) {
+        final tables = await customSelect(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='groups'",
+        ).get();
+        if (tables.isEmpty) {
+          await m.createTable(groups);
+        }
+        final catInfo = await customSelect(
+          "PRAGMA table_info('categories')",
+        ).get();
+        final hasGroupId = catInfo.any((r) => r.data['name'] == 'group_id');
+        if (!hasGroupId) {
+          await m.addColumn(categories, categories.groupId);
         }
       }
     },

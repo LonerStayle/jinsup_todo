@@ -939,6 +939,17 @@ class $CategoriesTable extends Categories
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<String> groupId = GeneratedColumn<String>(
+    'group_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -948,6 +959,7 @@ class $CategoriesTable extends Categories
     sortOrder,
     isBuiltin,
     createdAt,
+    groupId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1013,6 +1025,12 @@ class $CategoriesTable extends Categories
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    }
     return context;
   }
 
@@ -1050,6 +1068,10 @@ class $CategoriesTable extends Categories
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_id'],
+      ),
     );
   }
 
@@ -1067,6 +1089,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
   final int sortOrder;
   final bool isBuiltin;
   final DateTime createdAt;
+  final String? groupId;
   const CategoryRow({
     required this.id,
     required this.label,
@@ -1075,6 +1098,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     required this.sortOrder,
     required this.isBuiltin,
     required this.createdAt,
+    this.groupId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1086,6 +1110,9 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     map['sort_order'] = Variable<int>(sortOrder);
     map['is_builtin'] = Variable<bool>(isBuiltin);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || groupId != null) {
+      map['group_id'] = Variable<String>(groupId);
+    }
     return map;
   }
 
@@ -1098,6 +1125,9 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       sortOrder: Value(sortOrder),
       isBuiltin: Value(isBuiltin),
       createdAt: Value(createdAt),
+      groupId: groupId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(groupId),
     );
   }
 
@@ -1114,6 +1144,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
       isBuiltin: serializer.fromJson<bool>(json['isBuiltin']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      groupId: serializer.fromJson<String?>(json['groupId']),
     );
   }
   @override
@@ -1127,6 +1158,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       'sortOrder': serializer.toJson<int>(sortOrder),
       'isBuiltin': serializer.toJson<bool>(isBuiltin),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'groupId': serializer.toJson<String?>(groupId),
     };
   }
 
@@ -1138,6 +1170,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     int? sortOrder,
     bool? isBuiltin,
     DateTime? createdAt,
+    Value<String?> groupId = const Value.absent(),
   }) => CategoryRow(
     id: id ?? this.id,
     label: label ?? this.label,
@@ -1146,6 +1179,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     sortOrder: sortOrder ?? this.sortOrder,
     isBuiltin: isBuiltin ?? this.isBuiltin,
     createdAt: createdAt ?? this.createdAt,
+    groupId: groupId.present ? groupId.value : this.groupId,
   );
   CategoryRow copyWithCompanion(CategoriesCompanion data) {
     return CategoryRow(
@@ -1160,6 +1194,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
       isBuiltin: data.isBuiltin.present ? data.isBuiltin.value : this.isBuiltin,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
     );
   }
 
@@ -1172,7 +1207,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           ..write('colorValue: $colorValue, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('isBuiltin: $isBuiltin, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('groupId: $groupId')
           ..write(')'))
         .toString();
   }
@@ -1186,6 +1222,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     sortOrder,
     isBuiltin,
     createdAt,
+    groupId,
   );
   @override
   bool operator ==(Object other) =>
@@ -1197,7 +1234,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           other.colorValue == this.colorValue &&
           other.sortOrder == this.sortOrder &&
           other.isBuiltin == this.isBuiltin &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.groupId == this.groupId);
 }
 
 class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
@@ -1208,6 +1246,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
   final Value<int> sortOrder;
   final Value<bool> isBuiltin;
   final Value<DateTime> createdAt;
+  final Value<String?> groupId;
   final Value<int> rowid;
   const CategoriesCompanion({
     this.id = const Value.absent(),
@@ -1217,6 +1256,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     this.sortOrder = const Value.absent(),
     this.isBuiltin = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.groupId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CategoriesCompanion.insert({
@@ -1227,6 +1267,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     this.sortOrder = const Value.absent(),
     this.isBuiltin = const Value.absent(),
     required DateTime createdAt,
+    this.groupId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        label = Value(label),
@@ -1241,6 +1282,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Expression<int>? sortOrder,
     Expression<bool>? isBuiltin,
     Expression<DateTime>? createdAt,
+    Expression<String>? groupId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1251,6 +1293,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       if (sortOrder != null) 'sort_order': sortOrder,
       if (isBuiltin != null) 'is_builtin': isBuiltin,
       if (createdAt != null) 'created_at': createdAt,
+      if (groupId != null) 'group_id': groupId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1263,6 +1306,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Value<int>? sortOrder,
     Value<bool>? isBuiltin,
     Value<DateTime>? createdAt,
+    Value<String?>? groupId,
     Value<int>? rowid,
   }) {
     return CategoriesCompanion(
@@ -1273,6 +1317,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       sortOrder: sortOrder ?? this.sortOrder,
       isBuiltin: isBuiltin ?? this.isBuiltin,
       createdAt: createdAt ?? this.createdAt,
+      groupId: groupId ?? this.groupId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1301,6 +1346,9 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (groupId.present) {
+      map['group_id'] = Variable<String>(groupId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1313,6 +1361,415 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
           ..write('id: $id, ')
           ..write('label: $label, ')
           ..write('iconCodePoint: $iconCodePoint, ')
+          ..write('colorValue: $colorValue, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('isBuiltin: $isBuiltin, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('groupId: $groupId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GroupsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _labelMeta = const VerificationMeta('label');
+  @override
+  late final GeneratedColumn<String> label = GeneratedColumn<String>(
+    'label',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _colorValueMeta = const VerificationMeta(
+    'colorValue',
+  );
+  @override
+  late final GeneratedColumn<int> colorValue = GeneratedColumn<int>(
+    'color_value',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isBuiltinMeta = const VerificationMeta(
+    'isBuiltin',
+  );
+  @override
+  late final GeneratedColumn<bool> isBuiltin = GeneratedColumn<bool>(
+    'is_builtin',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_builtin" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    label,
+    colorValue,
+    sortOrder,
+    isBuiltin,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'groups';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<GroupRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('label')) {
+      context.handle(
+        _labelMeta,
+        label.isAcceptableOrUnknown(data['label']!, _labelMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_labelMeta);
+    }
+    if (data.containsKey('color_value')) {
+      context.handle(
+        _colorValueMeta,
+        colorValue.isAcceptableOrUnknown(data['color_value']!, _colorValueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_colorValueMeta);
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
+    if (data.containsKey('is_builtin')) {
+      context.handle(
+        _isBuiltinMeta,
+        isBuiltin.isAcceptableOrUnknown(data['is_builtin']!, _isBuiltinMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  GroupRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GroupRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      label: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}label'],
+      )!,
+      colorValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color_value'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      isBuiltin: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_builtin'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $GroupsTable createAlias(String alias) {
+    return $GroupsTable(attachedDatabase, alias);
+  }
+}
+
+class GroupRow extends DataClass implements Insertable<GroupRow> {
+  final String id;
+  final String label;
+  final int colorValue;
+  final int sortOrder;
+  final bool isBuiltin;
+  final DateTime createdAt;
+  const GroupRow({
+    required this.id,
+    required this.label,
+    required this.colorValue,
+    required this.sortOrder,
+    required this.isBuiltin,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['label'] = Variable<String>(label);
+    map['color_value'] = Variable<int>(colorValue);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['is_builtin'] = Variable<bool>(isBuiltin);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  GroupsCompanion toCompanion(bool nullToAbsent) {
+    return GroupsCompanion(
+      id: Value(id),
+      label: Value(label),
+      colorValue: Value(colorValue),
+      sortOrder: Value(sortOrder),
+      isBuiltin: Value(isBuiltin),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory GroupRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GroupRow(
+      id: serializer.fromJson<String>(json['id']),
+      label: serializer.fromJson<String>(json['label']),
+      colorValue: serializer.fromJson<int>(json['colorValue']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      isBuiltin: serializer.fromJson<bool>(json['isBuiltin']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'label': serializer.toJson<String>(label),
+      'colorValue': serializer.toJson<int>(colorValue),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'isBuiltin': serializer.toJson<bool>(isBuiltin),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  GroupRow copyWith({
+    String? id,
+    String? label,
+    int? colorValue,
+    int? sortOrder,
+    bool? isBuiltin,
+    DateTime? createdAt,
+  }) => GroupRow(
+    id: id ?? this.id,
+    label: label ?? this.label,
+    colorValue: colorValue ?? this.colorValue,
+    sortOrder: sortOrder ?? this.sortOrder,
+    isBuiltin: isBuiltin ?? this.isBuiltin,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  GroupRow copyWithCompanion(GroupsCompanion data) {
+    return GroupRow(
+      id: data.id.present ? data.id.value : this.id,
+      label: data.label.present ? data.label.value : this.label,
+      colorValue: data.colorValue.present
+          ? data.colorValue.value
+          : this.colorValue,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      isBuiltin: data.isBuiltin.present ? data.isBuiltin.value : this.isBuiltin,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GroupRow(')
+          ..write('id: $id, ')
+          ..write('label: $label, ')
+          ..write('colorValue: $colorValue, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('isBuiltin: $isBuiltin, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, label, colorValue, sortOrder, isBuiltin, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GroupRow &&
+          other.id == this.id &&
+          other.label == this.label &&
+          other.colorValue == this.colorValue &&
+          other.sortOrder == this.sortOrder &&
+          other.isBuiltin == this.isBuiltin &&
+          other.createdAt == this.createdAt);
+}
+
+class GroupsCompanion extends UpdateCompanion<GroupRow> {
+  final Value<String> id;
+  final Value<String> label;
+  final Value<int> colorValue;
+  final Value<int> sortOrder;
+  final Value<bool> isBuiltin;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const GroupsCompanion({
+    this.id = const Value.absent(),
+    this.label = const Value.absent(),
+    this.colorValue = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.isBuiltin = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GroupsCompanion.insert({
+    required String id,
+    required String label,
+    required int colorValue,
+    this.sortOrder = const Value.absent(),
+    this.isBuiltin = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       label = Value(label),
+       colorValue = Value(colorValue),
+       createdAt = Value(createdAt);
+  static Insertable<GroupRow> custom({
+    Expression<String>? id,
+    Expression<String>? label,
+    Expression<int>? colorValue,
+    Expression<int>? sortOrder,
+    Expression<bool>? isBuiltin,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (label != null) 'label': label,
+      if (colorValue != null) 'color_value': colorValue,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (isBuiltin != null) 'is_builtin': isBuiltin,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GroupsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? label,
+    Value<int>? colorValue,
+    Value<int>? sortOrder,
+    Value<bool>? isBuiltin,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return GroupsCompanion(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      colorValue: colorValue ?? this.colorValue,
+      sortOrder: sortOrder ?? this.sortOrder,
+      isBuiltin: isBuiltin ?? this.isBuiltin,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (label.present) {
+      map['label'] = Variable<String>(label.value);
+    }
+    if (colorValue.present) {
+      map['color_value'] = Variable<int>(colorValue.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (isBuiltin.present) {
+      map['is_builtin'] = Variable<bool>(isBuiltin.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GroupsCompanion(')
+          ..write('id: $id, ')
+          ..write('label: $label, ')
           ..write('colorValue: $colorValue, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('isBuiltin: $isBuiltin, ')
@@ -1681,9 +2138,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $TodosTable todos = $TodosTable(this);
   late final $CategoriesTable categories = $CategoriesTable(this);
+  late final $GroupsTable groups = $GroupsTable(this);
   late final $OutboxEntriesTable outboxEntries = $OutboxEntriesTable(this);
   late final TodosDao todosDao = TodosDao(this as AppDatabase);
   late final CategoriesDao categoriesDao = CategoriesDao(this as AppDatabase);
+  late final GroupsDao groupsDao = GroupsDao(this as AppDatabase);
   late final OutboxDao outboxDao = OutboxDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -1692,6 +2151,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     todos,
     categories,
+    groups,
     outboxEntries,
   ];
 }
@@ -2094,6 +2554,7 @@ typedef $$CategoriesTableCreateCompanionBuilder =
       Value<int> sortOrder,
       Value<bool> isBuiltin,
       required DateTime createdAt,
+      Value<String?> groupId,
       Value<int> rowid,
     });
 typedef $$CategoriesTableUpdateCompanionBuilder =
@@ -2105,6 +2566,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder =
       Value<int> sortOrder,
       Value<bool> isBuiltin,
       Value<DateTime> createdAt,
+      Value<String?> groupId,
       Value<int> rowid,
     });
 
@@ -2149,6 +2611,11 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupId => $composableBuilder(
+    column: $table.groupId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2196,6 +2663,11 @@ class $$CategoriesTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CategoriesTableAnnotationComposer
@@ -2231,6 +2703,9 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get groupId =>
+      $composableBuilder(column: $table.groupId, builder: (column) => column);
 }
 
 class $$CategoriesTableTableManager
@@ -2271,6 +2746,7 @@ class $$CategoriesTableTableManager
                 Value<int> sortOrder = const Value.absent(),
                 Value<bool> isBuiltin = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> groupId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CategoriesCompanion(
                 id: id,
@@ -2280,6 +2756,7 @@ class $$CategoriesTableTableManager
                 sortOrder: sortOrder,
                 isBuiltin: isBuiltin,
                 createdAt: createdAt,
+                groupId: groupId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2291,6 +2768,7 @@ class $$CategoriesTableTableManager
                 Value<int> sortOrder = const Value.absent(),
                 Value<bool> isBuiltin = const Value.absent(),
                 required DateTime createdAt,
+                Value<String?> groupId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CategoriesCompanion.insert(
                 id: id,
@@ -2300,6 +2778,7 @@ class $$CategoriesTableTableManager
                 sortOrder: sortOrder,
                 isBuiltin: isBuiltin,
                 createdAt: createdAt,
+                groupId: groupId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -2325,6 +2804,221 @@ typedef $$CategoriesTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $CategoriesTable, CategoryRow>,
       ),
       CategoryRow,
+      PrefetchHooks Function()
+    >;
+typedef $$GroupsTableCreateCompanionBuilder =
+    GroupsCompanion Function({
+      required String id,
+      required String label,
+      required int colorValue,
+      Value<int> sortOrder,
+      Value<bool> isBuiltin,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$GroupsTableUpdateCompanionBuilder =
+    GroupsCompanion Function({
+      Value<String> id,
+      Value<String> label,
+      Value<int> colorValue,
+      Value<int> sortOrder,
+      Value<bool> isBuiltin,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$GroupsTableFilterComposer
+    extends Composer<_$AppDatabase, $GroupsTable> {
+  $$GroupsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get label => $composableBuilder(
+    column: $table.label,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get colorValue => $composableBuilder(
+    column: $table.colorValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isBuiltin => $composableBuilder(
+    column: $table.isBuiltin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$GroupsTableOrderingComposer
+    extends Composer<_$AppDatabase, $GroupsTable> {
+  $$GroupsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get label => $composableBuilder(
+    column: $table.label,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get colorValue => $composableBuilder(
+    column: $table.colorValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isBuiltin => $composableBuilder(
+    column: $table.isBuiltin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$GroupsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $GroupsTable> {
+  $$GroupsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get label =>
+      $composableBuilder(column: $table.label, builder: (column) => column);
+
+  GeneratedColumn<int> get colorValue => $composableBuilder(
+    column: $table.colorValue,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<bool> get isBuiltin =>
+      $composableBuilder(column: $table.isBuiltin, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$GroupsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $GroupsTable,
+          GroupRow,
+          $$GroupsTableFilterComposer,
+          $$GroupsTableOrderingComposer,
+          $$GroupsTableAnnotationComposer,
+          $$GroupsTableCreateCompanionBuilder,
+          $$GroupsTableUpdateCompanionBuilder,
+          (GroupRow, BaseReferences<_$AppDatabase, $GroupsTable, GroupRow>),
+          GroupRow,
+          PrefetchHooks Function()
+        > {
+  $$GroupsTableTableManager(_$AppDatabase db, $GroupsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GroupsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GroupsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GroupsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> label = const Value.absent(),
+                Value<int> colorValue = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<bool> isBuiltin = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GroupsCompanion(
+                id: id,
+                label: label,
+                colorValue: colorValue,
+                sortOrder: sortOrder,
+                isBuiltin: isBuiltin,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String label,
+                required int colorValue,
+                Value<int> sortOrder = const Value.absent(),
+                Value<bool> isBuiltin = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => GroupsCompanion.insert(
+                id: id,
+                label: label,
+                colorValue: colorValue,
+                sortOrder: sortOrder,
+                isBuiltin: isBuiltin,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$GroupsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $GroupsTable,
+      GroupRow,
+      $$GroupsTableFilterComposer,
+      $$GroupsTableOrderingComposer,
+      $$GroupsTableAnnotationComposer,
+      $$GroupsTableCreateCompanionBuilder,
+      $$GroupsTableUpdateCompanionBuilder,
+      (GroupRow, BaseReferences<_$AppDatabase, $GroupsTable, GroupRow>),
+      GroupRow,
       PrefetchHooks Function()
     >;
 typedef $$OutboxEntriesTableCreateCompanionBuilder =
@@ -2535,6 +3229,8 @@ class $AppDatabaseManager {
       $$TodosTableTableManager(_db, _db.todos);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db, _db.categories);
+  $$GroupsTableTableManager get groups =>
+      $$GroupsTableTableManager(_db, _db.groups);
   $$OutboxEntriesTableTableManager get outboxEntries =>
       $$OutboxEntriesTableTableManager(_db, _db.outboxEntries);
 }

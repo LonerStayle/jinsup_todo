@@ -2,12 +2,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/auth_providers.dart';
 import 'categories_repository.dart';
+import 'groups_repository.dart';
 import 'local/app_database.dart';
 import 'local/local_categories_repository.dart';
+import 'local/local_groups_repository.dart';
 import 'local/local_todo_repository.dart';
 import 'remote/supabase_categories_api.dart';
+import 'remote/supabase_groups_api.dart';
 import 'remote/supabase_todos_api.dart';
 import 'syncing_categories_repository.dart';
+import 'syncing_groups_repository.dart';
 import 'syncing_todo_repository.dart';
 import 'todo_repository.dart';
 
@@ -71,6 +75,24 @@ final categoriesRepositoryProvider = Provider<CategoriesRepository>((ref) {
   }
   return SyncingCategoriesRepository(
     local: db.categoriesDao,
+    outbox: db.outboxDao,
+    api: api,
+    userIdGetter: () => ref.read(currentUserProvider)?.id,
+  );
+});
+
+/// [GroupsRepository] — Supabase enabled + 인증 user 있으면 [SyncingGroupsRepository]
+/// (local + outbox + remote push), 아니면 [LocalGroupsRepository] (local only).
+/// categories 의 [categoriesRepositoryProvider] 와 동일 패턴.
+final groupsRepositoryProvider = Provider<GroupsRepository>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  final api = ref.watch(supabaseGroupsApiProvider);
+
+  if (api == null) {
+    return LocalGroupsRepository(db.groupsDao);
+  }
+  return SyncingGroupsRepository(
+    local: db.groupsDao,
     outbox: db.outboxDao,
     api: api,
     userIdGetter: () => ref.read(currentUserProvider)?.id,

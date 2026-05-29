@@ -69,13 +69,13 @@ run:
 
 .PHONY: run-android
 run-android:
-	@DEV=$$(flutter devices --machine 2>/dev/null | grep -oE '"id":"[^"]+(emulator|android)[^"]*"' | head -1 | sed 's/"id":"//; s/"//'); \
+	@DEV=$$(flutter devices --machine 2>/dev/null | awk -F'"' '/"id":/{id=$$4} /targetPlatform/ && /android/{print id; exit}'); \
 	if [ -z "$$DEV" ]; then \
 		echo "❌ 연결된 Android 기기 없음. flutter devices 로 확인"; \
 		exit 1; \
 	fi; \
 	echo "→ device: $$DEV"; \
-	flutter run -d $$DEV --no-tree-shake-icons $(DART_DEFINE)
+	flutter run -d $$DEV $(DART_DEFINE)
 
 # ────────────────────────────────────────────────────────────────────────────
 # Build (release)

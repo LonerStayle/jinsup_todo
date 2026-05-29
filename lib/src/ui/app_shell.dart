@@ -8,11 +8,14 @@ import '../core/theme.dart';
 import '../data/providers.dart';
 import '../data/remote/supabase_realtime_sync.dart';
 import '../domain/category.dart';
+import '../domain/group.dart';
 import '../features/add_todo/add_todo_controller.dart';
 import '../features/add_todo/add_todo_sheet.dart';
 import '../features/auth/auth_providers.dart';
 import '../features/category/add_category_dialog.dart';
+import '../features/category/add_group_dialog.dart';
 import '../features/category/categories_controller.dart';
+import '../features/category/groups_controller.dart';
 import '../features/category/category_view.dart';
 import '../features/home/home_screen.dart';
 import '../features/home/today_providers.dart';
@@ -238,6 +241,42 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
+  /// 카테고리 '그룹 이동' — 그룹 선택 bottom sheet 후 controller.moveToGroup 호출.
+  /// 선택지: 미분류(null) + 현재 그룹들. today / outline 은 무시.
+  Future<void> _moveCategoryToGroup(AppDestination dest) async {
+    final category = dest.category;
+    if (category == null) return;
+
+    final groups = ref.read(groupsProvider).asData?.value ?? const <Group>[];
+    final picked = await showModalBottomSheet<_GroupChoice>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.layers_clear_outlined),
+              title: const Text('미분류'),
+              selected: category.groupId == null,
+              onTap: () => Navigator.of(ctx).pop(const _GroupChoice(null)),
+            ),
+            for (final g in groups)
+              ListTile(
+                leading: Icon(Icons.circle, size: 14, color: g.color),
+                title: Text(g.label),
+                selected: category.groupId == g.id,
+                onTap: () => Navigator.of(ctx).pop(_GroupChoice(g.id)),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    await ref
+        .read(categoriesControllerProvider)
+        .moveToGroup(category.id, picked.groupId);
+  }
+
   Future<void> _openAddTodo() async {
     // _index 가 destinations 범위를 벗어났을 수 있으므로 safe lookup.
     final dest = (_index < _destinations.length)
@@ -283,6 +322,9 @@ class _AppShellState extends ConsumerState<AppShell> {
         ref.watch(categoriesProvider).asData?.value ?? Category.builtinSeeds;
     _destinations = AppDestination.buildAll(categories);
 
+    // v1.3 — 그룹 stream. 사이드바가 그룹 헤더 + 미분류 섹션으로 카테고리를 묶는다.
+    final groups = ref.watch(groupsProvider).asData?.value ?? const <Group>[];
+
     // _index 가 destinations.length 초과 (카테고리 삭제 직후 등) 면 Today (0) 으로 안전 fallback.
     final safeIndex = _index < _destinations.length ? _index : 0;
     final destination = _destinations[safeIndex];
@@ -310,10 +352,13 @@ class _AppShellState extends ConsumerState<AppShell> {
         children: [
           _Sidebar(
             destinations: _destinations,
+            groups: groups,
             selectedIndex: safeIndex,
             onSelect: _select,
             onAddCategory: () => AddCategoryDialog.show(context),
+            onAddGroup: () => AddGroupDialog.show(context),
             onDeleteCategory: _deleteCategory,
+            onMoveCategory: _moveCategoryToGroup,
           ),
           const VerticalDivider(width: AppTokens.hairline),
           Expanded(child: _MainArea(destination: destination)),
@@ -440,25 +485,196 @@ bool isFocusInEditableText() {
   return ctx.findAncestorWidgetOfExactType<EditableText>() != null;
 }
 
-class _Sidebar extends StatelessWidget {
+/// 사이드바의 카테고리 그룹 선택 결과 (미분류 = null).
+class _GroupChoice {
+  const _GroupChoice(this.groupId);
+  final String? groupId;
+}
+
+/// v1.3 — 데스크탑 사이드바. 그룹 헤더(접힘 가능) → 그 그룹의 카테고리 + 최상단
+/// '미분류' 섹션 (groupId == null 카테고리). Today / Outline / 단축키 매핑은
+/// [destinations] 의 index 를 그대로 사용 — 시각적 재배치일 뿐 selection 인덱싱은
+/// 보존된다.
+class _Sidebar extends StatefulWidget {
   const _Sidebar({
     required this.destinations,
+    required this.groups,
     required this.selectedIndex,
     required this.onSelect,
     required this.onAddCategory,
+    required this.onAddGroup,
     required this.onDeleteCategory,
+    required this.onMoveCategory,
   });
 
   final List<AppDestination> destinations;
+  final List<Group> groups;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onAddCategory;
+  final VoidCallback onAddGroup;
   final ValueChanged<AppDestination> onDeleteCategory;
+  final ValueChanged<AppDestination> onMoveCategory;
+
+  @override
+  State<_Sidebar> createState() => _SidebarState();
+}
+
+class _SidebarState extends State<_Sidebar> {
+  /// 접힌 그룹 id 집합. 기본은 모두 펼침.
+  final Set<String> _collapsed = <String>{};
+
+  void _toggle(String groupId) {
+    setState(() {
+      if (!_collapsed.remove(groupId)) _collapsed.add(groupId);
+    });
+  }
+
+  /// destination index → SidebarItem 위젯. 카테고리만 삭제/이동 컨텍스트 메뉴.
+  Widget _item(int index) {
+    final dest = widget.destinations[index];
+    final isCategory = dest.kind == DestinationKind.category;
+    return SidebarItem(
+      destination: dest,
+      selected: index == widget.selectedIndex,
+      onTap: () => widget.onSelect(index),
+      // 카테고리만 long-press / right-click 으로 컨텍스트 메뉴 (삭제 / 그룹 이동).
+      onLongPress: isCategory ? () => _showCategoryMenu(dest) : null,
+    );
+  }
+
+  /// 카테고리 long-press / 우클릭 메뉴 — 삭제 / 그룹 이동.
+  Future<void> _showCategoryMenu(AppDestination dest) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.drive_file_move_outlined),
+              title: const Text('그룹 이동'),
+              onTap: () => Navigator.of(ctx).pop('move'),
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline,
+                color: Theme.of(ctx).colorScheme.error,
+              ),
+              title: const Text('삭제'),
+              onTap: () => Navigator.of(ctx).pop('delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'move') {
+      widget.onMoveCategory(dest);
+    } else if (action == 'delete') {
+      widget.onDeleteCategory(dest);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+
+    // 카테고리 destination 들을 groupId 별로 분류 (index 보존).
+    final ungrouped = <int>[];
+    final byGroup = <String, List<int>>{};
+    int? outlineIndex;
+    int? todayIndex;
+    for (var i = 0; i < widget.destinations.length; i++) {
+      final d = widget.destinations[i];
+      switch (d.kind) {
+        case DestinationKind.today:
+          todayIndex = i;
+          break;
+        case DestinationKind.outline:
+          outlineIndex = i;
+          break;
+        case DestinationKind.category:
+          final gid = d.category?.groupId;
+          if (gid == null) {
+            ungrouped.add(i);
+          } else {
+            byGroup.putIfAbsent(gid, () => <int>[]).add(i);
+          }
+          break;
+      }
+    }
+
+    final children = <Widget>[
+      Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppTokens.space20,
+          AppTokens.space8,
+          AppTokens.space20,
+          AppTokens.space16,
+        ),
+        child: Text(
+          'Solo Todo',
+          style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ),
+      if (todayIndex != null) _item(todayIndex),
+      // 미분류 섹션 — groupId == null 카테고리. 그룹이 하나라도 있을 때만 헤더 라벨.
+      if (ungrouped.isNotEmpty) ...[
+        if (widget.groups.isNotEmpty)
+          _SectionLabel(label: '미분류', textTheme: textTheme),
+        for (final i in ungrouped) _item(i),
+      ],
+      // 그룹별 섹션 — 헤더(접힘 토글) + 그 그룹의 카테고리.
+      for (final g in widget.groups) ...[
+        _GroupHeader(
+          group: g,
+          collapsed: _collapsed.contains(g.id),
+          onTap: () => _toggle(g.id),
+        ),
+        if (!_collapsed.contains(g.id))
+          for (final i in (byGroup[g.id] ?? const <int>[])) _item(i),
+      ],
+      if (outlineIndex != null) _item(outlineIndex),
+      // v1.2 — 카테고리 추가 / v1.3 — 그룹 추가 버튼.
+      Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppTokens.space12,
+          AppTokens.space8,
+          AppTokens.space12,
+          AppTokens.space4,
+        ),
+        child: TextButton.icon(
+          key: const ValueKey('sidebar-add-category'),
+          onPressed: widget.onAddCategory,
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('카테고리 추가'),
+          style: TextButton.styleFrom(
+            foregroundColor: colorScheme.onSurface.withValues(alpha: 0.72),
+            alignment: Alignment.centerLeft,
+          ),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppTokens.space12,
+          AppTokens.space2,
+          AppTokens.space12,
+          AppTokens.space12,
+        ),
+        child: TextButton.icon(
+          key: const ValueKey('sidebar-add-group'),
+          onPressed: widget.onAddGroup,
+          icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+          label: const Text('그룹 추가'),
+          style: TextButton.styleFrom(
+            foregroundColor: colorScheme.onSurface.withValues(alpha: 0.72),
+            alignment: Alignment.centerLeft,
+          ),
+        ),
+      ),
+    ];
 
     return SizedBox(
       width: 220,
@@ -468,51 +684,90 @@ class _Sidebar extends StatelessWidget {
           right: false,
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: AppTokens.space12),
+            children: children,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// '미분류' 등 섹션 라벨 (그룹 헤더보다 약한 시각 강조).
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.label, required this.textTheme});
+
+  final String label;
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTokens.space20,
+        AppTokens.space12,
+        AppTokens.space20,
+        AppTokens.space4,
+      ),
+      child: Text(
+        label,
+        style: textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+/// 그룹 헤더 — 색 dot + label + 접힘 chevron. tap 으로 접힘 토글.
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({
+    required this.group,
+    required this.collapsed,
+    required this.onTap,
+  });
+
+  final Group group;
+  final bool collapsed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTokens.space8,
+        AppTokens.space8,
+        AppTokens.space8,
+        AppTokens.space2,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTokens.radiusM),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space12,
+            vertical: AppTokens.space8,
+          ),
+          child: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppTokens.space20,
-                  AppTokens.space8,
-                  AppTokens.space20,
-                  AppTokens.space16,
-                ),
+              Icon(Icons.circle, size: 12, color: group.color),
+              const SizedBox(width: AppTokens.space8),
+              Expanded(
                 child: Text(
-                  'Solo Todo',
-                  style: textTheme.titleLarge?.copyWith(
+                  group.label,
+                  style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              for (var i = 0; i < destinations.length; i++)
-                SidebarItem(
-                  destination: destinations[i],
-                  selected: i == selectedIndex,
-                  onTap: () => onSelect(i),
-                  // 카테고리만 long-press / right-click 으로 삭제 가능. today / outline 은 무시.
-                  onLongPress: destinations[i].kind == DestinationKind.category
-                      ? () => onDeleteCategory(destinations[i])
-                      : null,
-                ),
-              // v1.2 — 새 카테고리 추가 버튼.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppTokens.space12,
-                  AppTokens.space8,
-                  AppTokens.space12,
-                  AppTokens.space12,
-                ),
-                child: TextButton.icon(
-                  key: const ValueKey('sidebar-add-category'),
-                  onPressed: onAddCategory,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('카테고리 추가'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.72),
-                    alignment: Alignment.centerLeft,
-                  ),
-                ),
+              Icon(
+                collapsed ? Icons.chevron_right : Icons.expand_more,
+                size: 18,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ],
           ),

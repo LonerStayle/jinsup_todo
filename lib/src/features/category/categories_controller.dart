@@ -21,6 +21,14 @@ class CategoriesController {
   /// 새 카테고리 추가 (또는 기존 id 면 update — label / color / icon / sortOrder 갱신).
   Future<void> add(Category category) => _repo.upsert(category);
 
+  /// 카테고리를 그룹으로 이동 (또는 [groupId] == null 이면 미분류로). 사이드바의
+  /// '그룹 이동' 메뉴가 호출. 대상 카테고리가 없으면 no-op.
+  Future<void> moveToGroup(String categoryId, String? groupId) async {
+    final category = await _repo.getById(categoryId);
+    if (category == null) return;
+    await _repo.upsert(category.copyWith(groupId: groupId));
+  }
+
   /// id 기준 삭제 시도.
   ///
   /// 반환값:
