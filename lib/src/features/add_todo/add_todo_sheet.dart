@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
-import '../../domain/todo.dart' show Todo, TodoType;
+import '../../domain/todo.dart' show Todo, TodoDateMode, TodoType;
 import '../category/categories_controller.dart';
 
 /// "빠른 추가" 입력 패널.
@@ -100,6 +100,15 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
   bool _allDay = true;
   bool _addToCalendar = false;
 
+  /// fast-tasks — 날짜 입력 모드. 단일 3 모드(하루종일/시작/마감) + 기간.
+  _DateInputMode _dateMode = _DateInputMode.allDay;
+
+  /// 기간 모드의 종료 시각. _dateMode == range 일 때만 의미.
+  DateTime? _endAt;
+
+  /// 기간 모드에서 양끝 시간 표시 여부 (true = 하루종일 기간).
+  bool _rangeAllDay = true;
+
   /// v1.1 — 추가할 항목의 종류. note 면 일정/캘린더 영역은 비활성 (의미 없음).
   TodoType _type = TodoType.task;
 
@@ -125,6 +134,37 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
     _type = initial?.type ?? TodoType.task;
     // edit 모드에서 description 이 비어있지 않으면 펼친 상태로 시작.
     _showDescription = (initial?.description ?? '').isNotEmpty;
+    _restoreDateMode(initial);
+  }
+
+  /// edit 모드 — initialTodo 의 날짜·기간 필드로 모드/상태 복원.
+  /// add 모드 (initial == null) 면 initialDueAt/initialAllDay 만 반영.
+  void _restoreDateMode(Todo? initial) {
+    if (initial == null) {
+      // add 모드 — 기존 단일 흐름. dueAt 이 있고 시간이 있으면 시작시간 모드.
+      _dateMode = (_dueAt != null && !_allDay)
+          ? _DateInputMode.startTime
+          : _DateInputMode.allDay;
+      return;
+    }
+    switch (initial.dateMode) {
+      case TodoDateMode.none:
+        _dateMode = _DateInputMode.allDay;
+        _allDay = true;
+      case TodoDateMode.allDay:
+        _dateMode = _DateInputMode.allDay;
+        _allDay = true;
+      case TodoDateMode.startTime:
+        _dateMode = _DateInputMode.startTime;
+        _allDay = false;
+      case TodoDateMode.endTime:
+        _dateMode = _DateInputMode.endTime;
+        _allDay = false;
+      case TodoDateMode.range:
+        _dateMode = _DateInputMode.range;
+        _endAt = initial.endAt;
+        _rangeAllDay = initial.isAllDay;
+    }
   }
 
   @override
@@ -134,14 +174,63 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
     super.dispose();
   }
 
-  bool get _canSubmit => !_submitted && _titleCtrl.text.trim().isNotEmpty;
+  /// 현재 모드/state → 직렬화 4-tuple. note 면 모두 무효 (dueAt=null).
+  /// 기간 모드에서 종료 < 시작 이면 [_DateSerialized.invalid] 가 true.
+  _DateSerialized _serializeDate() {
+    if (_type == TodoType.note || _dueAt == null) {
+      return const _DateSerialized(dueAt: null);
+    }
+    switch (_dateMode) {
+      case _DateInputMode.allDay:
+        final d = _dueAt!;
+        return _DateSerialized(
+          dueAt: DateTime(d.year, d.month, d.day),
+          isAllDay: true,
+        );
+      case _DateInputMode.startTime:
+        return _DateSerialized(dueAt: _dueAt, timeAnchor: 'start');
+      case _DateInputMode.endTime:
+        return _DateSerialized(dueAt: _dueAt, timeAnchor: 'end');
+      case _DateInputMode.range:
+        final end = _endAt;
+        if (end == null) {
+          // 종료 미지정 — 단일 하루종일로 안전 처리.
+          final d = _dueAt!;
+          return _DateSerialized(
+            dueAt: DateTime(d.year, d.month, d.day),
+            isAllDay: true,
+          );
+        }
+        final start = _rangeAllDay
+            ? DateTime(_dueAt!.year, _dueAt!.month, _dueAt!.day)
+            : _dueAt!;
+        final finish = _rangeAllDay
+            ? DateTime(end.year, end.month, end.day)
+            : end;
+        return _DateSerialized(
+          dueAt: start,
+          endAt: finish,
+          isAllDay: _rangeAllDay,
+          invalid: finish.isBefore(start),
+        );
+    }
+  }
+
+  bool get _rangeInvalid =>
+      _type == TodoType.task &&
+      _dateMode == _DateInputMode.range &&
+      _serializeDate().invalid;
+
+  bool get _canSubmit =>
+      !_submitted && _titleCtrl.text.trim().isNotEmpty && !_rangeInvalid;
 
   void _submit() {
-    if (_submitted || _titleCtrl.text.trim().isEmpty) return;
+    if (_submitted || _titleCtrl.text.trim().isEmpty || _rangeInvalid) return;
     _submitted = true;
     final isNote = _type == TodoType.note;
     final trimmedDesc = _descriptionCtrl.text.trim();
     final descOrNull = trimmedDesc.isEmpty ? null : trimmedDesc;
+    final date = _serializeDate();
 
     // edit 모드 — onUpdate 콜백 호출 (updatedAt 갱신은 호출자/Controller 책임).
     final initial = widget.initialTodo;
@@ -149,7 +238,10 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
       final updated = initial.copyWith(
         title: _titleCtrl.text.trim(),
         category: _category,
-        dueAt: isNote ? null : _dueAt,
+        dueAt: date.dueAt,
+        endAt: date.endAt,
+        isAllDay: date.isAllDay,
+        timeAnchor: date.timeAnchor,
         type: _type,
         description: descOrNull,
       );
@@ -158,14 +250,16 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
       return;
     }
 
-    // add 모드 — 기존 흐름. note 는 일정/캘린더 모두 강제 null/false.
+    // add 모드 — note 는 일정/캘린더 모두 강제 null/false.
     widget.onSubmit(
       AddTodoSubmission(
         title: _titleCtrl.text.trim(),
         category: _category,
-        dueAt: isNote ? null : _dueAt,
-        isAllDay: !isNote && _dueAt != null && _allDay,
-        addToCalendar: !isNote && _dueAt != null && _addToCalendar,
+        dueAt: date.dueAt,
+        endAt: date.endAt,
+        isAllDay: date.isAllDay,
+        timeAnchor: date.timeAnchor,
+        addToCalendar: !isNote && date.dueAt != null && _addToCalendar,
         type: _type,
         description: descOrNull,
       ),
@@ -176,19 +270,22 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
   /// 같은 카테고리 / parent / dueAt / type 으로 N건 일괄 추가. _submitted race 가드.
   /// v1.1 첫 cut — 평탄 (들여쓰기 인식 X). 들여쓰기 자동 트리화는 v1.2.
   void _submitBulk(List<String> titles) {
-    if (_submitted || titles.isEmpty) return;
+    if (_submitted || titles.isEmpty || _rangeInvalid) return;
     _submitted = true;
     final isNote = _type == TodoType.note;
     final trimmedDesc = _descriptionCtrl.text.trim();
     final descOrNull = trimmedDesc.isEmpty ? null : trimmedDesc;
+    final date = _serializeDate();
     for (final t in titles) {
       widget.onSubmit(
         AddTodoSubmission(
           title: t,
           category: _category,
-          dueAt: isNote ? null : _dueAt,
-          isAllDay: !isNote && _dueAt != null && _allDay,
-          addToCalendar: !isNote && _dueAt != null && _addToCalendar,
+          dueAt: date.dueAt,
+          endAt: date.endAt,
+          isAllDay: date.isAllDay,
+          timeAnchor: date.timeAnchor,
+          addToCalendar: !isNote && date.dueAt != null && _addToCalendar,
           type: _type,
           description: descOrNull,
         ),
@@ -258,11 +355,48 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
       _type = t;
       if (t == TodoType.note) {
         _dueAt = null;
+        _endAt = null;
         _allDay = true;
+        _dateMode = _DateInputMode.allDay;
         _addToCalendar = false;
       }
     });
   }
+
+  /// fast-tasks — 4 모드 (하루종일/시작시간/마감시간/기간) 선택.
+  void _setDateMode(_DateInputMode mode) {
+    if (mode == _dateMode) return;
+    setState(() {
+      _dateMode = mode;
+      switch (mode) {
+        case _DateInputMode.allDay:
+          _allDay = true;
+          _endAt = null;
+          if (_dueAt != null) {
+            _dueAt = DateTime(_dueAt!.year, _dueAt!.month, _dueAt!.day);
+          }
+        case _DateInputMode.startTime:
+        case _DateInputMode.endTime:
+          // 단일·시간 모드 — 기존 시간 유지, 없으면 09:00 디폴트로 채움.
+          _endAt = null;
+          _allDay = false;
+          final base = _dueAt ?? (widget.now ?? DateTime.now)();
+          if (_dueAt == null || _isMidnight(_dueAt!)) {
+            _dueAt = DateTime(base.year, base.month, base.day, 9, 0);
+          }
+        case _DateInputMode.range:
+          // 기간 — 시작은 현재 dueAt(날짜), 종료는 시작 다음날 디폴트.
+          final base = _dueAt ?? (widget.now ?? DateTime.now)();
+          final startDay = DateTime(base.year, base.month, base.day);
+          _dueAt = startDay;
+          _endAt = startDay.add(const Duration(days: 1));
+          _rangeAllDay = true;
+          _allDay = true;
+      }
+    });
+  }
+
+  static bool _isMidnight(DateTime d) => d.hour == 0 && d.minute == 0;
 
   /// 날짜만 받는다 — 시간 picker 는 강제하지 않고, 기본은 "하루 종일".
   /// 사용자가 시간이 필요하면 [_pickTime] 액션 또는 [_DueRow] 의 시간 칩으로 추가.
@@ -304,6 +438,10 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
       final d = _dueAt ?? base;
       _dueAt = DateTime(d.year, d.month, d.day, time.hour, time.minute);
       _allDay = false;
+      // 단일 모드에서 시간을 지정하면 시작/마감 anchor 모드로. 이미 마감 모드면 유지.
+      if (_dateMode == _DateInputMode.allDay) {
+        _dateMode = _DateInputMode.startTime;
+      }
     });
   }
 
@@ -313,13 +451,16 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
     setState(() {
       _dueAt = DateTime(d.year, d.month, d.day);
       _allDay = true;
+      _dateMode = _DateInputMode.allDay;
     });
   }
 
   void _clearDueAt() {
     setState(() {
       _dueAt = null;
+      _endAt = null;
       _allDay = true;
+      _dateMode = _DateInputMode.allDay;
       _addToCalendar = false;
     });
   }
@@ -331,17 +472,108 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
     setState(() {
       if (_dueAt != null && _allDay && _isSameDate(_dueAt!, d0)) {
         _dueAt = null;
+        _endAt = null;
         _allDay = true;
+        _dateMode = _DateInputMode.allDay;
         _addToCalendar = false;
       } else {
         _dueAt = d0;
+        _endAt = null;
         _allDay = true;
+        _dateMode = _DateInputMode.allDay;
       }
     });
   }
 
   static bool _isSameDate(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
+
+  // ── 기간 모드 picker 들 ───────────────────────────────────────────────
+  Future<DateTime?> _pickDate(DateTime base) async {
+    final nowFn = widget.now ?? DateTime.now;
+    return showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: DateTime(nowFn().year - 1),
+      lastDate: DateTime(nowFn().year + 3),
+    );
+  }
+
+  Future<void> _pickRangeStartDate() async {
+    final d = await _pickDate(_dueAt ?? (widget.now ?? DateTime.now)());
+    if (d == null || !mounted) return;
+    setState(() {
+      final cur = _dueAt;
+      _dueAt = (cur != null && !_rangeAllDay)
+          ? DateTime(d.year, d.month, d.day, cur.hour, cur.minute)
+          : DateTime(d.year, d.month, d.day);
+    });
+  }
+
+  Future<void> _pickRangeEndDate() async {
+    final d = await _pickDate(
+      _endAt ?? _dueAt ?? (widget.now ?? DateTime.now)(),
+    );
+    if (d == null || !mounted) return;
+    setState(() {
+      final cur = _endAt;
+      _endAt = (cur != null && !_rangeAllDay)
+          ? DateTime(d.year, d.month, d.day, cur.hour, cur.minute)
+          : DateTime(d.year, d.month, d.day);
+    });
+  }
+
+  Future<void> _pickRangeStartTime() async {
+    final base = _dueAt ?? (widget.now ?? DateTime.now)();
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(base),
+    );
+    if (time == null || !mounted) return;
+    setState(() {
+      _rangeAllDay = false;
+      _dueAt = DateTime(
+        base.year,
+        base.month,
+        base.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  Future<void> _pickRangeEndTime() async {
+    final base = _endAt ?? _dueAt ?? (widget.now ?? DateTime.now)();
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(base),
+    );
+    if (time == null || !mounted) return;
+    setState(() {
+      _rangeAllDay = false;
+      _endAt = DateTime(
+        base.year,
+        base.month,
+        base.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  void _toggleRangeAllDay() {
+    setState(() {
+      _rangeAllDay = !_rangeAllDay;
+      if (_rangeAllDay) {
+        if (_dueAt != null) {
+          _dueAt = DateTime(_dueAt!.year, _dueAt!.month, _dueAt!.day);
+        }
+        if (_endAt != null) {
+          _endAt = DateTime(_endAt!.year, _endAt!.month, _endAt!.day);
+        }
+      }
+    });
+  }
 
   DateTime _today() {
     final now = (widget.now ?? DateTime.now)();
@@ -475,22 +707,42 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
                   if (_type == TodoType.task) ...[
                     _SectionLabel(text: '일정'),
                     const SizedBox(height: AppTokens.space8),
-                    _QuickDueChips(
-                      today: _today(),
-                      dueAt: _dueAt,
-                      allDay: _allDay,
-                      onSelectDate: _setQuickDate,
-                      onPickTime: _pickTime,
+                    _DateModeSelector(
+                      selected: _dateMode,
+                      onSelect: _setDateMode,
                     ),
-                    const SizedBox(height: AppTokens.space8),
-                    _DueRow(
-                      dueAt: _dueAt,
-                      allDay: _allDay,
-                      onPickDate: _pickDueDate,
-                      onPickTime: _pickTime,
-                      onMakeAllDay: _makeAllDay,
-                      onClear: _clearDueAt,
-                    ),
+                    const SizedBox(height: AppTokens.space12),
+                    if (_dateMode == _DateInputMode.range)
+                      _RangeSection(
+                        startAt: _dueAt,
+                        endAt: _endAt,
+                        allDay: _rangeAllDay,
+                        invalid: _rangeInvalid,
+                        onPickStartDate: _pickRangeStartDate,
+                        onPickStartTime: _pickRangeStartTime,
+                        onPickEndDate: _pickRangeEndDate,
+                        onPickEndTime: _pickRangeEndTime,
+                        onToggleAllDay: _toggleRangeAllDay,
+                      )
+                    else ...[
+                      // 단일 모드 (하루종일/시작/마감) — 기존 빠른 칩 + DueRow.
+                      _QuickDueChips(
+                        today: _today(),
+                        dueAt: _dueAt,
+                        allDay: _allDay,
+                        onSelectDate: _setQuickDate,
+                        onPickTime: _pickTime,
+                      ),
+                      const SizedBox(height: AppTokens.space8),
+                      _DueRow(
+                        dueAt: _dueAt,
+                        allDay: _allDay,
+                        onPickDate: _pickDueDate,
+                        onPickTime: _pickTime,
+                        onMakeAllDay: _makeAllDay,
+                        onClear: _clearDueAt,
+                      ),
+                    ],
                     AnimatedSize(
                       duration: AppTokens.motionFast,
                       alignment: Alignment.topCenter,
@@ -526,6 +778,28 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
 
 class _DismissIntent extends Intent {
   const _DismissIntent();
+}
+
+/// fast-tasks — AddTodoSheet 의 날짜 입력 모드. 단일 3 + 기간.
+enum _DateInputMode { allDay, startTime, endTime, range }
+
+/// 현재 모드/state 로부터 도출한 직렬화 4-tuple. Todo 직렬화 규칙의 단일 출처.
+class _DateSerialized {
+  const _DateSerialized({
+    required this.dueAt,
+    this.endAt,
+    this.isAllDay = false,
+    this.timeAnchor = 'start',
+    this.invalid = false,
+  });
+
+  final DateTime? dueAt;
+  final DateTime? endAt;
+  final bool isAllDay;
+  final String timeAnchor;
+
+  /// 기간 모드에서 종료 < 시작 이면 true → 저장 차단.
+  final bool invalid;
 }
 
 class _Grabber extends StatelessWidget {
@@ -1122,6 +1396,206 @@ class _QuickDueChip extends StatelessWidget {
   }
 }
 
+/// fast-tasks — 4 모드 (하루종일/시작시간/마감시간/기간) 선택 ChoiceChip 줄.
+class _DateModeSelector extends StatelessWidget {
+  const _DateModeSelector({required this.selected, required this.onSelect});
+
+  final _DateInputMode selected;
+  final ValueChanged<_DateInputMode> onSelect;
+
+  static const _items = <(_DateInputMode, String, IconData, String)>[
+    (
+      _DateInputMode.allDay,
+      '하루종일',
+      Icons.wb_sunny_outlined,
+      'date-mode-all-day',
+    ),
+    (
+      _DateInputMode.startTime,
+      '시작시간',
+      Icons.play_arrow_outlined,
+      'date-mode-start',
+    ),
+    (_DateInputMode.endTime, '마감시간', Icons.flag_outlined, 'date-mode-end'),
+    (_DateInputMode.range, '기간', Icons.date_range_outlined, 'date-mode-range'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppTokens.space8,
+      runSpacing: AppTokens.space8,
+      children: [
+        for (final (mode, label, icon, key) in _items)
+          _TypeChip(
+            key: ValueKey(key),
+            label: label,
+            icon: icon,
+            selected: selected == mode,
+            onTap: () => onSelect(mode),
+          ),
+      ],
+    );
+  }
+}
+
+/// fast-tasks — 기간 모드의 시작/종료 날짜·시간 입력 + 하루종일 토글.
+class _RangeSection extends StatelessWidget {
+  const _RangeSection({
+    required this.startAt,
+    required this.endAt,
+    required this.allDay,
+    required this.invalid,
+    required this.onPickStartDate,
+    required this.onPickStartTime,
+    required this.onPickEndDate,
+    required this.onPickEndTime,
+    required this.onToggleAllDay,
+  });
+
+  final DateTime? startAt;
+  final DateTime? endAt;
+  final bool allDay;
+  final bool invalid;
+  final VoidCallback onPickStartDate;
+  final VoidCallback onPickStartTime;
+  final VoidCallback onPickEndDate;
+  final VoidCallback onPickEndTime;
+  final VoidCallback onToggleAllDay;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _RangeEndpointRow(
+          key: const ValueKey('range-start-row'),
+          icon: Icons.play_arrow_outlined,
+          prefix: '시작',
+          at: startAt,
+          allDay: allDay,
+          onPickDate: onPickStartDate,
+          onPickTime: onPickStartTime,
+        ),
+        const SizedBox(height: AppTokens.space8),
+        _RangeEndpointRow(
+          key: const ValueKey('range-end-row'),
+          icon: Icons.flag_outlined,
+          prefix: '종료',
+          at: endAt,
+          allDay: allDay,
+          onPickDate: onPickEndDate,
+          onPickTime: onPickEndTime,
+        ),
+        const SizedBox(height: AppTokens.space8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            key: const ValueKey('range-all-day-toggle'),
+            onPressed: onToggleAllDay,
+            icon: Icon(
+              allDay ? Icons.schedule_outlined : Icons.wb_sunny_outlined,
+              size: 16,
+            ),
+            label: Text(allDay ? '시간 추가' : '하루 종일로'),
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTokens.radiusM),
+              ),
+            ),
+          ),
+        ),
+        if (invalid)
+          Padding(
+            padding: const EdgeInsets.only(top: AppTokens.space8),
+            child: Text(
+              '종료가 시작보다 빠를 수 없어요.',
+              key: const ValueKey('range-invalid-msg'),
+              style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _RangeEndpointRow extends StatelessWidget {
+  const _RangeEndpointRow({
+    super.key,
+    required this.icon,
+    required this.prefix,
+    required this.at,
+    required this.allDay,
+    required this.onPickDate,
+    required this.onPickTime,
+  });
+
+  final IconData icon;
+  final String prefix;
+  final DateTime? at;
+  final bool allDay;
+  final VoidCallback onPickDate;
+  final VoidCallback onPickTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final label = at == null
+        ? '$prefix 날짜 선택'
+        : (allDay
+              ? '$prefix · ${KoDate.pretty(at!)}'
+              : '$prefix · ${KoDate.pretty(at!)} ${KoDate.time(at!)}');
+    return Row(
+      children: [
+        Expanded(
+          child: Material(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(AppTokens.radiusM),
+            child: InkWell(
+              onTap: onPickDate,
+              borderRadius: BorderRadius.circular(AppTokens.radiusM),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTokens.space16,
+                  vertical: AppTokens.space12,
+                ),
+                child: Row(
+                  children: [
+                    Icon(icon, size: 18, color: scheme.primary),
+                    const SizedBox(width: AppTokens.space12),
+                    Expanded(
+                      child: Text(label, style: theme.textTheme.bodyMedium),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (!allDay && at != null) ...[
+          const SizedBox(width: AppTokens.space8),
+          OutlinedButton(
+            onPressed: onPickTime,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTokens.space12,
+                vertical: AppTokens.space12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTokens.radiusM),
+              ),
+            ),
+            child: Text(KoDate.time(at!)),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// AddTodoSheet 가 사용자가 제출한 form 데이터를 한 묶음으로 전달.
 class AddTodoSubmission {
   const AddTodoSubmission({
@@ -1132,6 +1606,8 @@ class AddTodoSubmission {
     required this.addToCalendar,
     this.type = TodoType.task,
     this.description,
+    this.endAt,
+    this.timeAnchor = 'start',
   });
 
   final String title;
@@ -1149,4 +1625,10 @@ class AddTodoSubmission {
 
   /// v1.2 — 상세 메모 (long text). null / 빈 문자열 모두 "없음" 의미.
   final String? description;
+
+  /// fast-tasks — 기간 모드의 종료 시각. 단일 모드면 null.
+  final DateTime? endAt;
+
+  /// fast-tasks — 단일·시간 모드에서 dueAt 이 '시작'('start')/'마감'('end')인지.
+  final String timeAnchor;
 }
