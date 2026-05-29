@@ -91,7 +91,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   /// `storeDateTimeAsText: true` — DateTime 을 ISO 8601 text 로 저장.
   /// 기본 (unix int) 은 fetch 시 항상 local time 으로 변환되어 UTC↔local 구분을 잃는다.
@@ -103,9 +103,10 @@ class AppDatabase extends _$AppDatabase {
   /// schemaVersion 변경 history:
   /// - v1: 초기 (todos + outboxEntries)
   /// - v2: todos 에 parent_id / type / sort_order 컬럼 추가 (v1.1 — 트리 / 메모)
-  /// - v3: categories 테이블 신규 + 5 builtin seed (v1.2 — 카테고리 fully 동적).
-  ///   `todos.description` 컬럼 ALTER 는 v1.2 의 description task 가 이 case 에
-  ///   `m.addColumn(todos, todos.description)` 를 추가해 채운다.
+  /// - v3: categories 테이블 신규 + 5 builtin seed (v1.2 — 카테고리 fully 동적)
+  /// - v4: todos.description 컬럼 보강. (v3 마이그레이션 중에 description 을 추가했지만
+  ///   schemaVersion 을 올리지 않아, "v3 으로 이미 올라갔지만 description 컬럼이 없는"
+  ///   중간 상태 DB 가 존재했다. v4 의 idempotent 가드로 그 DB 를 복구한다.)
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
@@ -128,6 +129,20 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(categories);
         await m.addColumn(todos, todos.description);
         await _seedBuiltinCategories();
+      }
+      // 3 → 4: description 컬럼이 빠진 중간 상태 v3 DB 복구.
+      // 이미 description 이 있으면 (정상 v3) ALTER 가 중복되므로, 실제 컬럼 존재
+      // 여부를 PRAGMA 로 확인 후에만 추가한다 (idempotent).
+      if (from == 3) {
+        final info = await customSelect(
+          "PRAGMA table_info('todos')",
+        ).get();
+        final hasDescription = info.any(
+          (r) => r.data['name'] == 'description',
+        );
+        if (!hasDescription) {
+          await m.addColumn(todos, todos.description);
+        }
       }
     },
   );
