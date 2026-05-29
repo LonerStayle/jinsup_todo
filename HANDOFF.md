@@ -36,10 +36,9 @@
 - v1.1 → v1.2 backwards-compat (Drift onUpgrade 2→3 + Supabase ALTER IF NOT EXISTS + Category JsonKey converter + description nullable)
 - SETUP.html § 2 끝에 v1.1→v1.2 마이그레이션 안내 (categories CREATE + todos.description ALTER) 추가
 
-### ⚠️ 대표님 직접 작업 (유일한 미완료)
+### ✅ 대표님 직접 작업 — 완료
 
-**CLAUDE.md 비전 § 3 의 "카테고리 분류 — 5종 고정" 표현을 "기본 5종 + 사용자 추가/삭제 가능" 으로 갱신.**
-vision-intake skill 영역이라 ralph 가 수정 못 함. 현재 비전 문구와 v1.2 구현이 모순 — 다음 ralph iteration 이 § 5 (금지) 와 헷갈릴 위험. 대표님이 직접 손봐야 비전-구현 일관성 회복.
+**CLAUDE.md 비전 § 3** 의 "카테고리 분류 — 5종 고정" → "기본 5종 + 사용자 자유롭게 추가/삭제 가능 (v1.2~), 안 todos 남으면 삭제 차단" 으로 갱신 완료 (대표님 명시 지시). 비전-구현 일관성 회복 — § 12 v1.2 **완전 종료**.
 
 ### v1.2 완료 기능 (참고)
 

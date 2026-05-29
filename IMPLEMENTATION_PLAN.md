@@ -172,7 +172,7 @@
 v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자가 추가/삭제. 5 builtin (work/personal_dev/daily/longterm/idea) 도 hard delete 가능. todos 에 description (long text) 필드 추가 + AddTodoSheet 가 edit 모드 지원 (TodoTile.onTap 진입).
 
 **비전 영역 (대표님 직접)**
-- [ ] **[대표님 직접 영역 — ralph 건너뜀]** CLAUDE.md 비전 § 3 의 "카테고리 분류 — 5종 고정" 표현을 "기본 5종 + 사용자 추가/삭제 가능" 으로 갱신. vision-intake skill 영역이라 ralph 가 수정 X.
+- [x] **[대표님 직접 영역]** CLAUDE.md 비전 § 3 의 "카테고리 분류 — 5종 고정" 표현을 "기본 5종 + 사용자 추가/삭제 가능 (v1.2~)" 으로 갱신 완료 (대표님 명시 지시).
 
 **Category 도메인 모델 변환**
 - [x] Category enum → freezed data class 로 변환 — id/label/iconCodePoint/colorValue/sortOrder/isBuiltin 6 필드 + `static const` builtin 5종 (work/personal_dev/daily/longterm/idea) 호환 layer + `values` alias + `builtinSeeds` const list + `fromId/tryFromId/shortcutDigit/color/icon` getter. Todo.category 의 `@JsonKey(fromJson/toJson)` 으로 nested object 가 아닌 string id 직렬화 유지 (v1.0/v1.1 payload 그대로 복원). 회귀 없음 (280/280 PASS).
@@ -322,6 +322,8 @@ v1.1 § 11 종료 후 SETUP.html § 2 끝에 "v1.0 → v1.1 마이그레이션 (
 
 두 점수 모두 9 이상 유지 — v1.2 비전 충족.
 
-### 미완료 — 대표님 직접 영역 (ralph 가 할 수 없음)
+### 대표님 직접 영역 — 완료
 
-- [ ] **CLAUDE.md 비전 § 3 갱신** — "카테고리 분류 — 5종 고정" → "기본 5종 + 사용자 추가/삭제 가능". vision-intake skill 영역이라 ralph 가 수정 X. 이 표현이 v1.2 구현과 모순이므로 대표님이 직접 갱신해야 비전-구현 일관성 회복.
+- [x] **CLAUDE.md 비전 § 3 갱신** — "카테고리 분류 — 5종 고정" → "기본 5종 + 사용자 자유롭게 추가/삭제 가능 (v1.2~), 안 todos 남으면 삭제 차단". 대표님 명시 지시로 갱신 완료 — 비전-구현 일관성 회복.
+
+§ 12 v1.2 **전 task 완료** (ralph 25 + 대표님 직접 1).
