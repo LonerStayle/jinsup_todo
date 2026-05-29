@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:solo_todo/src/data/categories_repository.dart';
 import 'package:solo_todo/src/data/providers.dart';
 import 'package:solo_todo/src/domain/category.dart';
+import 'package:solo_todo/src/domain/group.dart';
 import 'package:solo_todo/src/features/category/add_category_dialog.dart';
+import 'package:solo_todo/src/features/category/groups_controller.dart';
 
 /// AddCategoryDialog widget 검증.
 ///
@@ -18,7 +20,11 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [categoriesRepositoryProvider.overrideWithValue(repo)],
+        overrides: [
+          categoriesRepositoryProvider.overrideWithValue(repo),
+          // v1.3 — 그룹 dropdown 이 groupsProvider 를 watch. Drift timer leak 방지.
+          groupsProvider.overrideWith((_) => Stream.value(<Group>[])),
+        ],
         child: MaterialApp(
           home: Builder(
             builder: (ctx) => Scaffold(

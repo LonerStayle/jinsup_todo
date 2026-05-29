@@ -6,9 +6,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:solo_todo/src/core/theme.dart';
 import 'package:solo_todo/src/data/providers.dart';
 import 'package:solo_todo/src/domain/category.dart';
+import 'package:solo_todo/src/domain/group.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/category/categories_controller.dart';
 import 'package:solo_todo/src/features/category/category_providers.dart';
+import 'package:solo_todo/src/features/category/groups_controller.dart';
 import 'package:solo_todo/src/features/home/today_providers.dart';
 import 'package:solo_todo/src/features/outline/tree_providers.dart';
 import 'package:solo_todo/src/ui/app_shell.dart';
@@ -35,6 +37,8 @@ void main() {
           categoriesProvider.overrideWith(
             (_) => Stream.value(Category.builtinSeeds),
           ),
+          // v1.3 — AppShell 이 groupsProvider 를 watch (사이드바 그룹 섹션).
+          groupsProvider.overrideWith((_) => Stream.value(<Group>[])),
         ],
         child: MaterialApp(
           theme: AppTheme.mobileLight(),

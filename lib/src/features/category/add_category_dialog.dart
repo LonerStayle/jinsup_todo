@@ -4,7 +4,9 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/theme.dart';
 import '../../domain/category.dart';
+import '../../domain/group.dart';
 import 'categories_controller.dart';
+import 'groups_controller.dart';
 
 const _uuid = Uuid();
 
@@ -70,6 +72,8 @@ class _AddCategoryDialogState extends ConsumerState<AddCategoryDialog> {
   final _labelCtrl = TextEditingController();
   int _selectedColor = AddCategoryDialog.colorPalette.first;
   int _selectedIcon = AddCategoryDialog.iconPalette.first;
+  // null = '미분류'. 사용자가 그룹 dropdown 에서 선택하면 해당 Group.id.
+  String? _selectedGroupId;
   bool _submitted = false;
 
   @override
@@ -93,6 +97,7 @@ class _AddCategoryDialogState extends ConsumerState<AddCategoryDialog> {
       colorValue: _selectedColor,
       sortOrder: 100,
       isBuiltin: false,
+      groupId: _selectedGroupId,
     );
     await controller.add(newCategory);
     if (!mounted) return;
@@ -137,6 +142,14 @@ class _AddCategoryDialogState extends ConsumerState<AddCategoryDialog> {
                 selected: _selectedIcon,
                 selectedColor: Color(_selectedColor),
                 onSelect: (cp) => setState(() => _selectedIcon = cp),
+              ),
+              const SizedBox(height: AppTokens.space16),
+              Text('그룹', style: theme.textTheme.titleSmall),
+              const SizedBox(height: AppTokens.space8),
+              _GroupDropdown(
+                selectedGroupId: _selectedGroupId,
+                groups: ref.watch(groupsProvider).asData?.value ?? const [],
+                onSelect: (id) => setState(() => _selectedGroupId = id),
               ),
             ],
           ),
@@ -192,6 +205,52 @@ class _ColorPalette extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// 그룹 선택 dropdown — '미분류'(null) + 사용자 그룹들. 그룹이 하나도 없으면
+/// '미분류' 만 있는 dropdown 이 노출된다 (선택지 1개).
+class _GroupDropdown extends StatelessWidget {
+  const _GroupDropdown({
+    required this.selectedGroupId,
+    required this.groups,
+    required this.onSelect,
+  });
+
+  final String? selectedGroupId;
+  final List<Group> groups;
+  final ValueChanged<String?> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String?>(
+      key: const ValueKey('category-group-dropdown'),
+      initialValue: selectedGroupId,
+      isExpanded: true,
+      decoration: const InputDecoration(border: OutlineInputBorder()),
+      items: [
+        const DropdownMenuItem<String?>(value: null, child: Text('미분류')),
+        for (final g in groups)
+          DropdownMenuItem<String?>(
+            value: g.id,
+            child: Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: g.color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: AppTokens.space8),
+                Flexible(child: Text(g.label, overflow: TextOverflow.ellipsis)),
+              ],
+            ),
+          ),
+      ],
+      onChanged: onSelect,
     );
   }
 }
