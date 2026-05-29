@@ -34,6 +34,9 @@ class AddTodoController {
       now: now,
       type: s.type,
       description: s.description,
+      endAt: s.endAt,
+      isAllDay: s.isAllDay,
+      timeAnchor: s.timeAnchor,
     );
     await repo.upsert(todo);
 

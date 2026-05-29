@@ -121,6 +121,11 @@ end $$;
 -- 11) todos.description 컬럼 (v1.2 신규)
 alter table solo_todo.todos add column if not exists description text;
 
+-- 12) todos 날짜·기간 모델 컬럼 (fast-tasks — Task 4/5/1)
+alter table solo_todo.todos add column if not exists end_at      timestamptz;
+alter table solo_todo.todos add column if not exists is_all_day  boolean not null default false;
+alter table solo_todo.todos add column if not exists time_anchor text not null default 'start';
+
 -- ─────────────────────────────────────────────────────────────────────
 -- v1.1 → v1.2 마이그레이션 (기존 환경 — schema.sql 이미 실행된 프로젝트)
 --

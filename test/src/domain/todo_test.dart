@@ -267,4 +267,74 @@ void main() {
       },
     );
   });
+
+  group('fast-tasks — endAt / isAllDay / timeAnchor', () {
+    Todo base({
+      DateTime? dueAt,
+      DateTime? endAt,
+      bool isAllDay = false,
+      String timeAnchor = 'start',
+    }) => Todo(
+      id: 'x',
+      title: 't',
+      category: Category.work,
+      dueAt: dueAt,
+      doneAt: null,
+      createdAt: DateTime.utc(2026, 5, 27, 9),
+      updatedAt: DateTime.utc(2026, 5, 27, 9),
+      calendarEventId: null,
+      endAt: endAt,
+      isAllDay: isAllDay,
+      timeAnchor: timeAnchor,
+    );
+
+    test('dateMode 도출 — none/allDay/startTime/endTime/range', () {
+      expect(base().dateMode, TodoDateMode.none);
+      expect(
+        base(dueAt: DateTime(2026, 5, 27), isAllDay: true).dateMode,
+        TodoDateMode.allDay,
+      );
+      expect(
+        base(dueAt: DateTime(2026, 5, 27, 9)).dateMode,
+        TodoDateMode.startTime,
+      );
+      expect(
+        base(dueAt: DateTime(2026, 5, 27, 9), timeAnchor: 'end').dateMode,
+        TodoDateMode.endTime,
+      );
+      expect(
+        base(
+          dueAt: DateTime(2026, 5, 27),
+          endAt: DateTime(2026, 5, 30),
+        ).dateMode,
+        TodoDateMode.range,
+      );
+    });
+
+    test('JSON round-trip — 기간 + 하루종일', () {
+      final original = base(
+        dueAt: DateTime.utc(2026, 5, 27),
+        endAt: DateTime.utc(2026, 5, 30),
+        isAllDay: true,
+      );
+      expect(Todo.fromJson(original.toJson()), original);
+    });
+
+    test('JSON 역호환 — 신규 필드 누락 → 기본값 (isAllDay false, timeAnchor start)', () {
+      final legacyJson = <String, dynamic>{
+        'id': 'legacy',
+        'title': '옛 todo',
+        'category': 'work',
+        'dueAt': null,
+        'doneAt': null,
+        'createdAt': '2026-05-01T09:00:00.000Z',
+        'updatedAt': '2026-05-01T09:00:00.000Z',
+        'calendarEventId': null,
+      };
+      final restored = Todo.fromJson(legacyJson);
+      expect(restored.endAt, isNull);
+      expect(restored.isAllDay, isFalse);
+      expect(restored.timeAnchor, 'start');
+    });
+  });
 }

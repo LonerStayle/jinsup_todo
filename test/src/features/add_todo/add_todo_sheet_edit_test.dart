@@ -132,6 +132,51 @@ void main() {
     expect(result.updates.single.description, '새 메모 내용\n여러 줄 가능');
   });
 
+  testWidgets('edit 모드 — 기간 todo prefill → 기간 row 노출 + 저장 시 endAt 보존', (
+    tester,
+  ) async {
+    final initial = makeInitial().copyWith(
+      dueAt: DateTime(2026, 5, 27),
+      endAt: DateTime(2026, 5, 30),
+      isAllDay: true,
+    );
+    final result = await mount(tester, initialTodo: initial);
+
+    expect(find.byKey(const ValueKey('range-start-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('range-end-row')), findsOneWidget);
+
+    final saveBtn = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '저장'),
+    );
+    saveBtn.onPressed?.call();
+    await tester.pumpAndSettle();
+
+    expect(result.updates, hasLength(1));
+    expect(result.updates.single.dueAt, DateTime(2026, 5, 27));
+    expect(result.updates.single.endAt, DateTime(2026, 5, 30));
+    expect(result.updates.single.isAllDay, isTrue);
+  });
+
+  testWidgets('edit 모드 — 마감시간 todo prefill → timeAnchor end 보존', (
+    tester,
+  ) async {
+    final initial = makeInitial().copyWith(
+      dueAt: DateTime(2026, 5, 27, 18, 0),
+      timeAnchor: 'end',
+    );
+    final result = await mount(tester, initialTodo: initial);
+
+    final saveBtn = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '저장'),
+    );
+    saveBtn.onPressed?.call();
+    await tester.pumpAndSettle();
+
+    expect(result.updates.single.timeAnchor, 'end');
+    expect(result.updates.single.dueAt, DateTime(2026, 5, 27, 18, 0));
+    expect(result.updates.single.endAt, isNull);
+  });
+
   testWidgets('edit 모드 — 제목 비우면 저장 비활성', (tester) async {
     final initial = makeInitial(title: '제목');
     await mount(tester, initialTodo: initial);

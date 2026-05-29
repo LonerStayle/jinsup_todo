@@ -16,7 +16,12 @@ T _$identity<T>(T value) => value;
 mixin _$Todo {
 
  String get id; String get title;@JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) Category get category; DateTime? get dueAt; DateTime? get doneAt; DateTime get createdAt; DateTime get updatedAt; String? get calendarEventId; String? get parentId; TodoType get type; int get sortOrder;// v1.2 — 상세 메모 (long text). nullable + 누락 시 null 로 안전 fallback.
- String? get description;
+ String? get description;// ── 날짜·기간 모델 (fast-tasks 4/5/1) — dueAt 은 앵커로 그대로 유지 ──────────
+// [endAt] — 기간 모드의 종료 시각. 단일 모드면 null.
+ DateTime? get endAt;// [isAllDay] — true 면 시간 미표시 (화면 어디에도 00:00 을 찍지 않음).
+ bool get isAllDay;// [timeAnchor] — 단일·시간 모드에서 dueAt 이 '시작'('start')인지 '마감'('end')인지.
+// 하루종일·기간 모드에서는 의미 없음 (기본 'start' 유지).
+ String get timeAnchor;
 /// Create a copy of Todo
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +34,16 @@ $TodoCopyWith<Todo> get copyWith => _$TodoCopyWithImpl<Todo>(this as Todo, _$ide
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Todo&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.category, category) || other.category == category)&&(identical(other.dueAt, dueAt) || other.dueAt == dueAt)&&(identical(other.doneAt, doneAt) || other.doneAt == doneAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.calendarEventId, calendarEventId) || other.calendarEventId == calendarEventId)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.type, type) || other.type == type)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.description, description) || other.description == description));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Todo&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.category, category) || other.category == category)&&(identical(other.dueAt, dueAt) || other.dueAt == dueAt)&&(identical(other.doneAt, doneAt) || other.doneAt == doneAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.calendarEventId, calendarEventId) || other.calendarEventId == calendarEventId)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.type, type) || other.type == type)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.description, description) || other.description == description)&&(identical(other.endAt, endAt) || other.endAt == endAt)&&(identical(other.isAllDay, isAllDay) || other.isAllDay == isAllDay)&&(identical(other.timeAnchor, timeAnchor) || other.timeAnchor == timeAnchor));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,category,dueAt,doneAt,createdAt,updatedAt,calendarEventId,parentId,type,sortOrder,description);
+int get hashCode => Object.hash(runtimeType,id,title,category,dueAt,doneAt,createdAt,updatedAt,calendarEventId,parentId,type,sortOrder,description,endAt,isAllDay,timeAnchor);
 
 @override
 String toString() {
-  return 'Todo(id: $id, title: $title, category: $category, dueAt: $dueAt, doneAt: $doneAt, createdAt: $createdAt, updatedAt: $updatedAt, calendarEventId: $calendarEventId, parentId: $parentId, type: $type, sortOrder: $sortOrder, description: $description)';
+  return 'Todo(id: $id, title: $title, category: $category, dueAt: $dueAt, doneAt: $doneAt, createdAt: $createdAt, updatedAt: $updatedAt, calendarEventId: $calendarEventId, parentId: $parentId, type: $type, sortOrder: $sortOrder, description: $description, endAt: $endAt, isAllDay: $isAllDay, timeAnchor: $timeAnchor)';
 }
 
 
@@ -49,7 +54,7 @@ abstract mixin class $TodoCopyWith<$Res>  {
   factory $TodoCopyWith(Todo value, $Res Function(Todo) _then) = _$TodoCopyWithImpl;
 @useResult
 $Res call({
- String id, String title,@JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId, String? parentId, TodoType type, int sortOrder, String? description
+ String id, String title,@JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId, String? parentId, TodoType type, int sortOrder, String? description, DateTime? endAt, bool isAllDay, String timeAnchor
 });
 
 
@@ -66,7 +71,7 @@ class _$TodoCopyWithImpl<$Res>
 
 /// Create a copy of Todo
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? category = null,Object? dueAt = freezed,Object? doneAt = freezed,Object? createdAt = null,Object? updatedAt = null,Object? calendarEventId = freezed,Object? parentId = freezed,Object? type = null,Object? sortOrder = null,Object? description = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? category = null,Object? dueAt = freezed,Object? doneAt = freezed,Object? createdAt = null,Object? updatedAt = null,Object? calendarEventId = freezed,Object? parentId = freezed,Object? type = null,Object? sortOrder = null,Object? description = freezed,Object? endAt = freezed,Object? isAllDay = null,Object? timeAnchor = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -80,7 +85,10 @@ as String?,parentId: freezed == parentId ? _self.parentId : parentId // ignore: 
 as String?,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
 as TodoType,sortOrder: null == sortOrder ? _self.sortOrder : sortOrder // ignore: cast_nullable_to_non_nullable
 as int,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,endAt: freezed == endAt ? _self.endAt : endAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,isAllDay: null == isAllDay ? _self.isAllDay : isAllDay // ignore: cast_nullable_to_non_nullable
+as bool,timeAnchor: null == timeAnchor ? _self.timeAnchor : timeAnchor // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 /// Create a copy of Todo
@@ -174,10 +182,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson)  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder,  String? description)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson)  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder,  String? description,  DateTime? endAt,  bool isAllDay,  String timeAnchor)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Todo() when $default != null:
-return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder,_that.description);case _:
+return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder,_that.description,_that.endAt,_that.isAllDay,_that.timeAnchor);case _:
   return orElse();
 
 }
@@ -195,10 +203,10 @@ return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson)  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder,  String? description)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson)  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder,  String? description,  DateTime? endAt,  bool isAllDay,  String timeAnchor)  $default,) {final _that = this;
 switch (_that) {
 case _Todo():
-return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder,_that.description);case _:
+return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder,_that.description,_that.endAt,_that.isAllDay,_that.timeAnchor);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -215,10 +223,10 @@ return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson)  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder,  String? description)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson)  Category category,  DateTime? dueAt,  DateTime? doneAt,  DateTime createdAt,  DateTime updatedAt,  String? calendarEventId,  String? parentId,  TodoType type,  int sortOrder,  String? description,  DateTime? endAt,  bool isAllDay,  String timeAnchor)?  $default,) {final _that = this;
 switch (_that) {
 case _Todo() when $default != null:
-return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder,_that.description);case _:
+return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_that.createdAt,_that.updatedAt,_that.calendarEventId,_that.parentId,_that.type,_that.sortOrder,_that.description,_that.endAt,_that.isAllDay,_that.timeAnchor);case _:
   return null;
 
 }
@@ -230,7 +238,7 @@ return $default(_that.id,_that.title,_that.category,_that.dueAt,_that.doneAt,_th
 @JsonSerializable()
 
 class _Todo extends Todo {
-  const _Todo({required this.id, required this.title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) required this.category, this.dueAt, this.doneAt, required this.createdAt, required this.updatedAt, this.calendarEventId, this.parentId, this.type = TodoType.task, this.sortOrder = 0, this.description}): super._();
+  const _Todo({required this.id, required this.title, @JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) required this.category, this.dueAt, this.doneAt, required this.createdAt, required this.updatedAt, this.calendarEventId, this.parentId, this.type = TodoType.task, this.sortOrder = 0, this.description, this.endAt, this.isAllDay = false, this.timeAnchor = 'start'}): super._();
   factory _Todo.fromJson(Map<String, dynamic> json) => _$TodoFromJson(json);
 
 @override final  String id;
@@ -246,6 +254,14 @@ class _Todo extends Todo {
 @override@JsonKey() final  int sortOrder;
 // v1.2 — 상세 메모 (long text). nullable + 누락 시 null 로 안전 fallback.
 @override final  String? description;
+// ── 날짜·기간 모델 (fast-tasks 4/5/1) — dueAt 은 앵커로 그대로 유지 ──────────
+// [endAt] — 기간 모드의 종료 시각. 단일 모드면 null.
+@override final  DateTime? endAt;
+// [isAllDay] — true 면 시간 미표시 (화면 어디에도 00:00 을 찍지 않음).
+@override@JsonKey() final  bool isAllDay;
+// [timeAnchor] — 단일·시간 모드에서 dueAt 이 '시작'('start')인지 '마감'('end')인지.
+// 하루종일·기간 모드에서는 의미 없음 (기본 'start' 유지).
+@override@JsonKey() final  String timeAnchor;
 
 /// Create a copy of Todo
 /// with the given fields replaced by the non-null parameter values.
@@ -260,16 +276,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Todo&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.category, category) || other.category == category)&&(identical(other.dueAt, dueAt) || other.dueAt == dueAt)&&(identical(other.doneAt, doneAt) || other.doneAt == doneAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.calendarEventId, calendarEventId) || other.calendarEventId == calendarEventId)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.type, type) || other.type == type)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.description, description) || other.description == description));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Todo&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.category, category) || other.category == category)&&(identical(other.dueAt, dueAt) || other.dueAt == dueAt)&&(identical(other.doneAt, doneAt) || other.doneAt == doneAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.calendarEventId, calendarEventId) || other.calendarEventId == calendarEventId)&&(identical(other.parentId, parentId) || other.parentId == parentId)&&(identical(other.type, type) || other.type == type)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.description, description) || other.description == description)&&(identical(other.endAt, endAt) || other.endAt == endAt)&&(identical(other.isAllDay, isAllDay) || other.isAllDay == isAllDay)&&(identical(other.timeAnchor, timeAnchor) || other.timeAnchor == timeAnchor));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,category,dueAt,doneAt,createdAt,updatedAt,calendarEventId,parentId,type,sortOrder,description);
+int get hashCode => Object.hash(runtimeType,id,title,category,dueAt,doneAt,createdAt,updatedAt,calendarEventId,parentId,type,sortOrder,description,endAt,isAllDay,timeAnchor);
 
 @override
 String toString() {
-  return 'Todo(id: $id, title: $title, category: $category, dueAt: $dueAt, doneAt: $doneAt, createdAt: $createdAt, updatedAt: $updatedAt, calendarEventId: $calendarEventId, parentId: $parentId, type: $type, sortOrder: $sortOrder, description: $description)';
+  return 'Todo(id: $id, title: $title, category: $category, dueAt: $dueAt, doneAt: $doneAt, createdAt: $createdAt, updatedAt: $updatedAt, calendarEventId: $calendarEventId, parentId: $parentId, type: $type, sortOrder: $sortOrder, description: $description, endAt: $endAt, isAllDay: $isAllDay, timeAnchor: $timeAnchor)';
 }
 
 
@@ -280,7 +296,7 @@ abstract mixin class _$TodoCopyWith<$Res> implements $TodoCopyWith<$Res> {
   factory _$TodoCopyWith(_Todo value, $Res Function(_Todo) _then) = __$TodoCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String title,@JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId, String? parentId, TodoType type, int sortOrder, String? description
+ String id, String title,@JsonKey(fromJson: _categoryFromJson, toJson: _categoryToJson) Category category, DateTime? dueAt, DateTime? doneAt, DateTime createdAt, DateTime updatedAt, String? calendarEventId, String? parentId, TodoType type, int sortOrder, String? description, DateTime? endAt, bool isAllDay, String timeAnchor
 });
 
 
@@ -297,7 +313,7 @@ class __$TodoCopyWithImpl<$Res>
 
 /// Create a copy of Todo
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? category = null,Object? dueAt = freezed,Object? doneAt = freezed,Object? createdAt = null,Object? updatedAt = null,Object? calendarEventId = freezed,Object? parentId = freezed,Object? type = null,Object? sortOrder = null,Object? description = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? category = null,Object? dueAt = freezed,Object? doneAt = freezed,Object? createdAt = null,Object? updatedAt = null,Object? calendarEventId = freezed,Object? parentId = freezed,Object? type = null,Object? sortOrder = null,Object? description = freezed,Object? endAt = freezed,Object? isAllDay = null,Object? timeAnchor = null,}) {
   return _then(_Todo(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -311,7 +327,10 @@ as String?,parentId: freezed == parentId ? _self.parentId : parentId // ignore: 
 as String?,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
 as TodoType,sortOrder: null == sortOrder ? _self.sortOrder : sortOrder // ignore: cast_nullable_to_non_nullable
 as int,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,endAt: freezed == endAt ? _self.endAt : endAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,isAllDay: null == isAllDay ? _self.isAllDay : isAllDay // ignore: cast_nullable_to_non_nullable
+as bool,timeAnchor: null == timeAnchor ? _self.timeAnchor : timeAnchor // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 

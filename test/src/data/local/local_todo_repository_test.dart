@@ -58,6 +58,49 @@ void main() {
       expect(await repo.getById('ghost'), isNull);
     });
 
+    test(
+      'fast-tasks — endAt/isAllDay/timeAnchor Drift round-trip (기간+하루종일)',
+      () async {
+        final t = Todo(
+          id: 'range',
+          title: '여행',
+          category: Category.daily,
+          dueAt: DateTime.utc(2026, 5, 27),
+          doneAt: null,
+          createdAt: DateTime.utc(2026, 5, 27, 9),
+          updatedAt: DateTime.utc(2026, 5, 27, 9),
+          calendarEventId: null,
+          endAt: DateTime.utc(2026, 5, 30),
+          isAllDay: true,
+        );
+        await repo.upsert(t);
+        final got = await repo.getById('range');
+        expect(got!.endAt, DateTime.utc(2026, 5, 30));
+        expect(got.isAllDay, isTrue);
+        expect(got.timeAnchor, 'start');
+        expect(got.dateMode, TodoDateMode.range);
+      },
+    );
+
+    test('fast-tasks — 마감시간 모드 round-trip (timeAnchor=end)', () async {
+      final t = Todo(
+        id: 'end',
+        title: '제출',
+        category: Category.work,
+        dueAt: DateTime.utc(2026, 5, 27, 18),
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+        timeAnchor: 'end',
+      );
+      await repo.upsert(t);
+      final got = await repo.getById('end');
+      expect(got!.timeAnchor, 'end');
+      expect(got.endAt, isNull);
+      expect(got.dateMode, TodoDateMode.endTime);
+    });
+
     test('upsert 두 번째 호출 = update', () async {
       await repo.upsert(make(id: 'a', title: 'orig'));
       final updatedAt = DateTime.utc(2026, 5, 27, 11);
