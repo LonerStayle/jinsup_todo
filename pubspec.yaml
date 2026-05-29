@@ -70,6 +70,21 @@ dev_dependencies:
   clock: ^1.1.2
   # sqlite3 — Drift transitive dep, migration test 가 raw schema 조작용으로 직접 import.
   sqlite3: ^3.3.1
+  # 앱 아이콘 자동 생성 (macOS + Android) — 1회성 도구.
+  flutter_launcher_icons: ^0.14.4
+
+# 앱 아이콘 설정 — `dart run flutter_launcher_icons` 로 macOS / Android 아이콘 생성.
+# 소스: assets/branding/app_icon_source.png (1024, squircle 베이크된 transparent PNG).
+flutter_launcher_icons:
+  image_path: "assets/branding/app_icon_source.png"
+  # Android — adaptive icon. 배경은 아이콘 그라데이션과 어울리는 단색, foreground 는 동일 이미지.
+  android: true
+  adaptive_icon_background: "#5B4BE8"
+  adaptive_icon_foreground: "assets/branding/app_icon_source.png"
+  # macOS — .icns appiconset 자동 생성.
+  macos:
+    generate: true
+    image_path: "assets/branding/app_icon_source.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
