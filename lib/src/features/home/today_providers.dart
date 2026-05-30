@@ -17,10 +17,13 @@ final watchTodayTodosProvider = StreamProvider<List<Todo>>((ref) {
 });
 
 /// 오늘 화면 visible todos 중 미체크 항목의 개수 (트레이 카운트 표시용).
+///
+/// note(메모) 는 체크 개념이 없어(isDone 항상 false) 카운트에서 제외 — task 만 센다.
 final undoneTodayCountProvider = Provider<int>((ref) {
   final asyncTodos = ref.watch(watchTodayTodosProvider);
   return asyncTodos.maybeWhen(
-    data: (todos) => todos.where((t) => !t.isDone).length,
+    data: (todos) =>
+        todos.where((t) => t.type == TodoType.task && !t.isDone).length,
     orElse: () => 0,
   );
 });

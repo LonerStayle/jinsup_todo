@@ -285,6 +285,18 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
+  /// 그룹 이름/색 수정 — 프리필된 다이얼로그(upsert). 같은 id 라 카테고리 소속 유지.
+  Future<void> _editGroup(Group group) =>
+      AddGroupDialog.showEdit(context, group);
+
+  /// 드래그→드롭으로 카테고리를 그룹(또는 미분류=null)으로 직접 이동. (사이드바 E)
+  Future<void> _dropCategoryToGroup(Category category, String? groupId) async {
+    if (category.groupId == groupId) return;
+    await ref
+        .read(categoriesControllerProvider)
+        .moveToGroup(category.id, groupId);
+  }
+
   /// 카테고리 '그룹 이동' — 그룹 선택 bottom sheet 후 controller.moveToGroup 호출.
   /// 선택지: 미분류(null) + 현재 그룹들. today / outline 은 무시.
   Future<void> _moveCategoryToGroup(AppDestination dest) async {
@@ -321,15 +333,16 @@ class _AppShellState extends ConsumerState<AppShell> {
         .moveToGroup(category.id, picked.groupId);
   }
 
-  /// 작업 2 (K) — 사이드바에서 같은 그룹/미분류 안 카테고리 순서 변경.
-  Future<void> _reorderCategoriesInGroup(
-    List<Category> siblings,
-    int oldIndex,
-    int newIndex,
+  /// 드래그→드롭(⠿/본문) 통합 — 카테고리를 대상 그룹의 특정 위치로 이동/순서변경.
+  Future<void> _moveCategoryInto(
+    Category dragged,
+    String? targetGroupId,
+    List<Category> orderedSiblings,
+    int insertIndex,
   ) async {
     await ref
         .read(categoriesControllerProvider)
-        .reorderInGroup(siblings, oldIndex, newIndex);
+        .moveCategoryInto(dragged, targetGroupId, orderedSiblings, insertIndex);
   }
 
   Future<void> _openAddTodo() async {
@@ -486,7 +499,9 @@ class _AppShellState extends ConsumerState<AppShell> {
             onDeleteCategory: _deleteCategory,
             onMoveCategory: _moveCategoryToGroup,
             onDeleteGroup: _deleteGroup,
-            onReorderInGroup: _reorderCategoriesInGroup,
+            onEditGroup: _editGroup,
+            onDropCategoryToGroup: _dropCategoryToGroup,
+            onMoveCategoryInto: _moveCategoryInto,
           ),
           const VerticalDivider(width: AppTokens.hairline),
           Expanded(child: _MainArea(destination: destination)),
@@ -642,7 +657,9 @@ class _Sidebar extends StatefulWidget {
     required this.onDeleteCategory,
     required this.onMoveCategory,
     required this.onDeleteGroup,
-    required this.onReorderInGroup,
+    required this.onEditGroup,
+    required this.onDropCategoryToGroup,
+    required this.onMoveCategoryInto,
   });
 
   final List<AppDestination> destinations;
@@ -655,10 +672,21 @@ class _Sidebar extends StatefulWidget {
   final ValueChanged<AppDestination> onMoveCategory;
   final ValueChanged<Group> onDeleteGroup;
 
-  /// 작업 2 (K) — 같은 그룹/미분류 안 카테고리 순서 변경. [siblings] 는 그 섹션의
-  /// 카테고리들(화면 순서), ReorderableListView 의 (oldIndex, newIndex).
-  final void Function(List<Category> siblings, int oldIndex, int newIndex)
-  onReorderInGroup;
+  /// 그룹 헤더 메뉴 '이름·색 수정'.
+  final ValueChanged<Group> onEditGroup;
+
+  /// 드래그→드롭으로 카테고리를 그룹(groupId)/미분류(null)로 이동 (그룹 헤더/미분류 드롭).
+  final void Function(Category category, String? groupId) onDropCategoryToGroup;
+
+  /// 드래그→드롭(⠿/본문)을 다른 카테고리 행 위로 — [dragged] 를 [targetGroupId] 그룹의
+  /// [orderedSiblings] 중 [insertIndex] 위치로 이동/순서변경.
+  final void Function(
+    Category dragged,
+    String? targetGroupId,
+    List<Category> orderedSiblings,
+    int insertIndex,
+  )
+  onMoveCategoryInto;
 
   @override
   State<_Sidebar> createState() => _SidebarState();
@@ -668,15 +696,21 @@ class _SidebarState extends State<_Sidebar> {
   /// 접힌 그룹 id 집합. 기본은 모두 펼침.
   final Set<String> _collapsed = <String>{};
 
+  /// 드래그 중인 카테고리가 hover 중인 drop target. group id(String) 또는
+  /// 미분류 센티넬 [_ungroupedTargetKey]. 시각 피드백용.
+  Object? _hoverTarget;
+
+  /// '미분류' drop target 의 hover 키 (groupId == null 과 구분).
+  static const Object _ungroupedTargetKey = Object();
+
   void _toggle(String groupId) {
     setState(() {
       if (!_collapsed.remove(groupId)) _collapsed.add(groupId);
     });
   }
 
-  /// destination index → SidebarItem 위젯. 카테고리만 삭제/이동 컨텍스트 메뉴.
-  /// [reorderIndex] 가 주어지면 우측에 드래그 핸들(K, 그룹 내 순서 변경)을 단다.
-  Widget _item(int index, {Key? key, int? reorderIndex}) {
+  /// destination index → SidebarItem 위젯. 카테고리만 삭제/이동 컨텍스트 메뉴 + 드래그.
+  Widget _item(int index, {Key? key}) {
     final dest = widget.destinations[index];
     final isCategory = dest.kind == DestinationKind.category;
     return SidebarItem(
@@ -684,32 +718,31 @@ class _SidebarState extends State<_Sidebar> {
       destination: dest,
       selected: index == widget.selectedIndex,
       onTap: () => widget.onSelect(index),
-      // 카테고리만 long-press / right-click 으로 컨텍스트 메뉴 (삭제 / 그룹 이동).
+      // 카테고리만 우클릭 / (드래그 불가 시) long-press 로 컨텍스트 메뉴 (삭제 / 그룹 이동).
       onLongPress: isCategory ? () => _showCategoryMenu(dest) : null,
-      reorderIndex: reorderIndex,
+      // 카테고리만 본문 길게누름 / ⠿ 로 드래그 이동·순서변경 가능 (E/K 통합).
+      dragData: isCategory ? dest.category : null,
     );
   }
 
-  /// 작업 2 (K) — 같은 그룹/미분류 섹션의 카테고리 destination 들을
-  /// ReorderableListView 로 묶어 드래그 핸들로 순서 변경. 바깥 ListView 안에 박히므로
-  /// shrinkWrap + NeverScrollable.
-  Widget _reorderableCategorySection(List<int> indices) {
+  /// 같은 그룹/미분류 섹션 — 각 행을 DragTarget 으로 감싸, 다른 카테고리를 그 행 위로
+  /// 드롭하면 그 위치(앞)로 이동/순서변경(K, E 통합). 드래그 소스는 행 본문 길게누름
+  /// 또는 ⠿ 핸들(SidebarItem 내부). 그룹 이동은 그룹 헤더/미분류 DragTarget 이 처리.
+  Widget _categorySection(List<int> indices) {
     final siblings = [
       for (final i in indices) widget.destinations[i].category!,
     ];
-    return ReorderableListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      buildDefaultDragHandles: false,
-      itemCount: indices.length,
-      onReorder: (oldI, newI) => widget.onReorderInGroup(siblings, oldI, newI),
-      proxyDecorator: (child, index, animation) =>
-          Material(color: Colors.transparent, child: child),
-      itemBuilder: (context, i) => _item(
-        indices[i],
-        key: ValueKey('sidebar-cat-${siblings[i].id}'),
-        reorderIndex: i,
-      ),
+    return Column(
+      children: [
+        for (var i = 0; i < indices.length; i++)
+          _CategoryDropRow(
+            key: ValueKey('sidebar-cat-${siblings[i].id}'),
+            target: siblings[i],
+            sectionSiblings: siblings,
+            onMoveInto: widget.onMoveCategoryInto,
+            child: _item(indices[i]),
+          ),
+      ],
     );
   }
 
@@ -746,8 +779,8 @@ class _SidebarState extends State<_Sidebar> {
     }
   }
 
-  /// 그룹 헤더 long-press / 우클릭 메뉴 — 삭제. (그룹 삭제 시 속한 카테고리는
-  /// '미분류'로 이동되며 차단되지 않는다 — repo deleteById 의 detach 로직.)
+  /// 그룹 헤더 long-press / 우클릭 메뉴 — 이름·색 수정 / 삭제. (그룹 삭제 시 속한
+  /// 카테고리는 '미분류'로 이동되며 차단되지 않는다 — repo deleteById 의 detach 로직.)
   Future<void> _showGroupMenu(Group group) async {
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -755,6 +788,11 @@ class _SidebarState extends State<_Sidebar> {
         child: ListView(
           shrinkWrap: true,
           children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('이름·색 수정'),
+              onTap: () => Navigator.of(ctx).pop('edit'),
+            ),
             ListTile(
               leading: Icon(
                 Icons.delete_outline,
@@ -768,9 +806,67 @@ class _SidebarState extends State<_Sidebar> {
       ),
     );
     if (!mounted) return;
-    if (action == 'delete') {
+    if (action == 'edit') {
+      widget.onEditGroup(group);
+    } else if (action == 'delete') {
       widget.onDeleteGroup(group);
     }
+  }
+
+  /// 미분류 섹션 — DragTarget(드롭하면 그룹에서 빼 미분류로) + 라벨 + 그 안의 카테고리.
+  /// 그룹이 하나라도 있을 때만 노출 (그룹이 없으면 분류 개념 자체가 없음).
+  Widget _ungroupedSection(List<int> ungrouped, TextTheme textTheme) {
+    final scheme = Theme.of(context).colorScheme;
+    final hovering = _hoverTarget == _ungroupedTargetKey;
+    return DragTarget<Category>(
+      onWillAcceptWithDetails: (details) {
+        setState(() => _hoverTarget = _ungroupedTargetKey);
+        return details.data.groupId != null;
+      },
+      onLeave: (_) => setState(() => _hoverTarget = null),
+      onAcceptWithDetails: (details) {
+        setState(() => _hoverTarget = null);
+        widget.onDropCategoryToGroup(details.data, null);
+      },
+      builder: (context, candidate, rejected) {
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: AppTokens.space4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTokens.radiusM),
+            color: hovering
+                ? scheme.primary.withValues(alpha: 0.08)
+                : Colors.transparent,
+            border: hovering
+                ? Border.all(color: scheme.primary, width: 1.4)
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _SectionLabel(label: '미분류', textTheme: textTheme),
+              if (ungrouped.isNotEmpty)
+                _categorySection(ungrouped)
+              else
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppTokens.space20,
+                    AppTokens.space2,
+                    AppTokens.space20,
+                    AppTokens.space8,
+                  ),
+                  child: Text(
+                    '여기로 드래그하면 그룹에서 빼요',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurface.withValues(alpha: 0.4),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -819,23 +915,29 @@ class _SidebarState extends State<_Sidebar> {
       if (todayIndex != null) _item(todayIndex),
       // v1.4 (Task G) — 전체보기를 '오늘' 바로 다음으로 (카테고리/그룹 섹션 앞).
       if (outlineIndex != null) _item(outlineIndex),
-      // 미분류 섹션 — groupId == null 카테고리. 그룹이 하나라도 있을 때만 헤더 라벨.
-      if (ungrouped.isNotEmpty) ...[
-        if (widget.groups.isNotEmpty)
-          _SectionLabel(label: '미분류', textTheme: textTheme),
-        _reorderableCategorySection(ungrouped),
-      ],
-      // 그룹별 섹션 — 헤더(접힘 토글) + 그 그룹의 카테고리.
+      // 미분류 섹션 — 그룹이 있으면 DragTarget(그룹 빼기)+라벨, 없으면 평면 리스트.
+      if (widget.groups.isEmpty) ...[
+        if (ungrouped.isNotEmpty) _categorySection(ungrouped),
+      ] else
+        _ungroupedSection(ungrouped, textTheme),
+      // 그룹별 섹션 — 헤더(접힘 토글 + 드롭 타겟) + 그 그룹의 카테고리.
       for (final g in widget.groups) ...[
         _GroupHeader(
           group: g,
           collapsed: _collapsed.contains(g.id),
+          hovering: _hoverTarget == g.id,
           onTap: () => _toggle(g.id),
           onLongPress: () => _showGroupMenu(g),
+          onWillAccept: () => setState(() => _hoverTarget = g.id),
+          onLeave: () => setState(() => _hoverTarget = null),
+          onAccept: (cat) {
+            setState(() => _hoverTarget = null);
+            widget.onDropCategoryToGroup(cat, g.id);
+          },
         ),
         if (!_collapsed.contains(g.id) &&
             (byGroup[g.id] ?? const <int>[]).isNotEmpty)
-          _reorderableCategorySection(byGroup[g.id]!),
+          _categorySection(byGroup[g.id]!),
       ],
       // v1.2 — 카테고리 추가 / v1.3 — 그룹 추가 버튼.
       Padding(
@@ -921,64 +1023,175 @@ class _SectionLabel extends StatelessWidget {
 }
 
 /// 그룹 헤더 — 색 dot + label + 접힘 chevron. tap 으로 접힘 토글.
+/// [onAccept] 가 주어지면 카테고리 드래그의 DragTarget 으로 동작(E) — 드롭하면 그 그룹으로.
 class _GroupHeader extends StatelessWidget {
   const _GroupHeader({
     required this.group,
     required this.collapsed,
     required this.onTap,
     this.onLongPress,
+    this.hovering = false,
+    this.onWillAccept,
+    this.onLeave,
+    this.onAccept,
   });
 
   final Group group;
   final bool collapsed;
   final VoidCallback onTap;
 
-  /// long-press / 우클릭 — 그룹 컨텍스트 메뉴 (삭제). 카테고리 아이템과 동일 패턴.
+  /// long-press / 우클릭 — 그룹 컨텍스트 메뉴 (수정 / 삭제). 카테고리 아이템과 동일 패턴.
   final VoidCallback? onLongPress;
+
+  /// 카테고리 드래그가 이 헤더 위에 hover 중인지 — 색/테두리 피드백.
+  final bool hovering;
+  final VoidCallback? onWillAccept;
+  final VoidCallback? onLeave;
+
+  /// non-null 이면 DragTarget 활성 — 드롭된 카테고리를 이 그룹으로 이동.
+  final ValueChanged<Category>? onAccept;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
+    final header = Padding(
       padding: const EdgeInsets.fromLTRB(
         AppTokens.space8,
         AppTokens.space8,
         AppTokens.space8,
         AppTokens.space2,
       ),
-      child: InkWell(
+      child: Material(
+        color: hovering
+            ? group.color.withValues(alpha: 0.18)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(AppTokens.radiusM),
-        onTap: onTap,
-        onLongPress: onLongPress,
-        onSecondaryTap: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space12,
-            vertical: AppTokens.space8,
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.circle, size: 12, color: group.color),
-              const SizedBox(width: AppTokens.space8),
-              Expanded(
-                child: Text(
-                  group.label,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          onTap: onTap,
+          onLongPress: onLongPress,
+          onSecondaryTap: onLongPress,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTokens.radiusM),
+              border: hovering
+                  ? Border.all(color: group.color, width: 1.6)
+                  : null,
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.space12,
+              vertical: AppTokens.space8,
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.circle, size: 12, color: group.color),
+                const SizedBox(width: AppTokens.space8),
+                Expanded(
+                  child: Text(
+                    group.label,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.85,
+                      ),
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Icon(
-                collapsed ? Icons.chevron_right : Icons.expand_more,
-                size: 18,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
-            ],
+                Icon(
+                  collapsed ? Icons.chevron_right : Icons.expand_more,
+                  size: 18,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+
+    if (onAccept == null) return header;
+    return DragTarget<Category>(
+      onWillAcceptWithDetails: (details) {
+        onWillAccept?.call();
+        // 이미 이 그룹이면 시각상 거절 (drop 은 어차피 no-op 가드).
+        return details.data.groupId != group.id;
+      },
+      onLeave: (_) => onLeave?.call(),
+      onAcceptWithDetails: (details) => onAccept!(details.data),
+      builder: (context, candidate, rejected) => header,
+    );
+  }
+}
+
+/// 사이드바 카테고리 행 — DragTarget. 다른 카테고리를 이 행 위로 드롭하면 이 행의
+/// 그룹·바로 앞 위치로 이동/순서변경(K, E 통합). 드래그 소스는 자식([SidebarItem])의
+/// 본문 길게누름 / ⠿ 핸들. hover 시 윗변에 삽입선 표시.
+class _CategoryDropRow extends StatefulWidget {
+  const _CategoryDropRow({
+    super.key,
+    required this.target,
+    required this.sectionSiblings,
+    required this.onMoveInto,
+    required this.child,
+  });
+
+  /// 이 행의 카테고리 (드롭 시 삽입 기준 위치).
+  final Category target;
+
+  /// 이 행이 속한 섹션(그룹/미분류)의 카테고리들 — 화면 순서.
+  final List<Category> sectionSiblings;
+
+  final void Function(
+    Category dragged,
+    String? targetGroupId,
+    List<Category> orderedSiblings,
+    int insertIndex,
+  )
+  onMoveInto;
+
+  final Widget child;
+
+  @override
+  State<_CategoryDropRow> createState() => _CategoryDropRowState();
+}
+
+class _CategoryDropRowState extends State<_CategoryDropRow> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DragTarget<Category>(
+      onWillAcceptWithDetails: (details) {
+        final ok = details.data.id != widget.target.id;
+        if (ok && !_hovering) setState(() => _hovering = true);
+        return ok;
+      },
+      onLeave: (_) => setState(() => _hovering = false),
+      onAcceptWithDetails: (details) {
+        setState(() => _hovering = false);
+        final dragged = details.data;
+        final siblings = widget.sectionSiblings
+            .where((c) => c.id != dragged.id)
+            .toList();
+        var insertAt = siblings.indexWhere((c) => c.id == widget.target.id);
+        if (insertAt < 0) insertAt = siblings.length;
+        widget.onMoveInto(dragged, widget.target.groupId, siblings, insertAt);
+      },
+      builder: (context, candidate, rejected) {
+        return Container(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: _hovering ? scheme.primary : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          child: widget.child,
+        );
+      },
     );
   }
 }
@@ -992,22 +1205,23 @@ class SidebarItem extends StatefulWidget {
     required this.onTap,
     this.onLongPress,
     this.autofocus = false,
-    this.reorderIndex,
+    this.dragData,
   });
 
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
 
-  /// long-press / right-click — 카테고리 destination 의 삭제 진입점. null 이면 비활성.
+  /// 우클릭 / (드래그 불가 시) long-press — 카테고리 컨텍스트 메뉴 진입점. null 이면 비활성.
   final VoidCallback? onLongPress;
 
   /// 테스트 결정성 — true 면 mount 직후 InkWell 이 focus 를 잡는다.
   final bool autofocus;
 
-  /// 작업 2 (K) — non-null 이면 우측에 ReorderableDragStartListener 핸들(⠿)을 단다.
-  /// 그룹 내 카테고리 순서 변경용. null 이면 핸들 없음 (today/outline 등).
-  final int? reorderIndex;
+  /// non-null(=카테고리) 이면 두 가지 드래그 소스를 단다: 본문 길게누름 + 우측 ⠿ 핸들.
+  /// 둘 다 [Category] 를 실어 그룹 헤더/미분류(이동)·다른 행(순서변경) DragTarget 으로 드롭.
+  /// long-press 가 드래그에 쓰이므로 set 되면 long-press 메뉴는 끄고 우클릭으로만 연다.
+  final Category? dragData;
 
   @override
   State<SidebarItem> createState() => SidebarItemState();
@@ -1036,7 +1250,9 @@ class SidebarItemState extends State<SidebarItem> {
           : BorderSide.none,
     );
 
-    return Padding(
+    final draggable = widget.dragData != null;
+
+    final tile = Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppTokens.space8,
         vertical: AppTokens.space2,
@@ -1050,8 +1266,9 @@ class SidebarItemState extends State<SidebarItem> {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: widget.onTap,
-            onLongPress: widget.onLongPress,
-            // 데스크탑의 우클릭도 long-press 와 같은 동작 (삭제 진입점).
+            // 드래그 가능하면 long-press 는 드래그 전용 → 메뉴는 우클릭으로만.
+            onLongPress: draggable ? null : widget.onLongPress,
+            // 데스크탑의 우클릭은 항상 컨텍스트 메뉴 (삭제 / 그룹 이동 진입점).
             onSecondaryTap: widget.onLongPress,
             autofocus: widget.autofocus,
             // 키보드 focus 가 들어왔다 나갔다 할 때 outline ring 토글.
@@ -1083,9 +1300,20 @@ class SidebarItemState extends State<SidebarItem> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (widget.reorderIndex != null)
-                    ReorderableDragStartListener(
-                      index: widget.reorderIndex!,
+                  if (draggable)
+                    Draggable<Category>(
+                      // ⠿ 를 잡고 → 그룹 헤더/미분류에 놓으면 그룹 이동, 다른 행에 놓으면
+                      // 순서변경(상위 DragTarget 들이 처리). 마우스로 바로 끌림(즉시 드래그).
+                      data: widget.dragData!,
+                      dragAnchorStrategy: pointerDragAnchorStrategy,
+                      feedback: _CategoryDragFeedback(
+                        destination: widget.destination,
+                      ),
+                      childWhenDragging: Icon(
+                        Icons.drag_indicator,
+                        size: 16,
+                        color: scheme.onSurface.withValues(alpha: 0.2),
+                      ),
                       child: Icon(
                         Icons.drag_indicator,
                         size: 16,
@@ -1096,6 +1324,62 @@ class SidebarItemState extends State<SidebarItem> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+
+    if (!draggable) return tile;
+    // 길게 눌러 그룹 헤더/미분류로 드롭 → 그룹 이동(E). ⠿ 순서변경과 별개 제스처.
+    return LongPressDraggable<Category>(
+      data: widget.dragData!,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: _CategoryDragFeedback(destination: widget.destination),
+      childWhenDragging: Opacity(opacity: 0.4, child: tile),
+      child: tile,
+    );
+  }
+}
+
+/// 사이드바 카테고리 드래그 중 손가락/커서 아래 떠다니는 피드백 칩.
+class _CategoryDragFeedback extends StatelessWidget {
+  const _CategoryDragFeedback({required this.destination});
+
+  final AppDestination destination;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTokens.space12,
+          vertical: AppTokens.space8,
+        ),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+          border: Border.all(color: destination.color, width: 1.6),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(destination.icon, size: 16, color: destination.color),
+            const SizedBox(width: AppTokens.space8),
+            Text(
+              destination.label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );
