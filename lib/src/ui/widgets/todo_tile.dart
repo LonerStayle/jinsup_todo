@@ -146,8 +146,9 @@ class TodoTile extends StatelessWidget {
                             ),
                           ),
                         ),
-                        // v1.2 — description 이 있으면 작은 메모 아이콘으로 힌트 표시.
-                        if ((todo.description ?? '').isNotEmpty) ...[
+                        // v1.2 — task 는 description 있으면 작은 힌트 아이콘. note 는
+                        // §13 에서 본문 프리뷰를 직접 노출하므로 힌트 아이콘 생략.
+                        if (!isNote && (todo.description ?? '').isNotEmpty) ...[
                           const SizedBox(width: AppTokens.space8),
                           Icon(
                             key: const ValueKey('todo-tile-description-hint'),
@@ -158,6 +159,19 @@ class TodoTile extends StatelessWidget {
                         ],
                       ],
                     ),
+                    // §13 — note 본문(description) 2줄 프리뷰. "정보=메모" 를 즉시 전달.
+                    // task 는 미노출(위 힌트 아이콘 유지), 빈 description note 는 생략.
+                    if (isNote && (todo.description ?? '').trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppTokens.space4),
+                        child: Text(
+                          todo.description!.trim(),
+                          key: const ValueKey('todo-tile-note-preview'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
                     if (dateLabel != null)
                       Padding(
                         padding: const EdgeInsets.only(top: AppTokens.space2),

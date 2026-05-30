@@ -11,6 +11,7 @@ void main() {
   Todo make({
     Category category = Category.work,
     TodoType type = TodoType.task,
+    String? description,
   }) => Todo(
     id: 'a',
     title: 't',
@@ -21,6 +22,7 @@ void main() {
     updatedAt: DateTime.utc(2026, 5, 27, 9),
     calendarEventId: null,
     type: type,
+    description: description,
   );
 
   Future<void> mount(
@@ -73,5 +75,37 @@ void main() {
     final bar = colorbar(tester);
     expect(bar.constraints?.maxWidth, 8);
     expect((bar.decoration as BoxDecoration).color, Category.daily.color);
+  });
+
+  testWidgets('note + description — 본문 2줄 프리뷰 노출(힌트 아이콘 대신)', (tester) async {
+    await mount(
+      tester,
+      make(type: TodoType.note, description: 'KV 캐싱 설계 메모 본문'),
+    );
+    final preview = tester.widget<Text>(
+      find.byKey(const ValueKey('todo-tile-note-preview')),
+    );
+    expect(preview.data, 'KV 캐싱 설계 메모 본문');
+    expect(preview.maxLines, 2);
+    expect(preview.overflow, TextOverflow.ellipsis);
+    // note 는 힌트 아이콘 대신 프리뷰 → 힌트 아이콘 미표시.
+    expect(
+      find.byKey(const ValueKey('todo-tile-description-hint')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('note + 빈/공백 description — 프리뷰 생략', (tester) async {
+    await mount(tester, make(type: TodoType.note, description: '   '));
+    expect(find.byKey(const ValueKey('todo-tile-note-preview')), findsNothing);
+  });
+
+  testWidgets('task + description — 힌트 아이콘 유지, 프리뷰 미노출', (tester) async {
+    await mount(tester, make(type: TodoType.task, description: '태스크 상세 메모'));
+    expect(
+      find.byKey(const ValueKey('todo-tile-description-hint')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('todo-tile-note-preview')), findsNothing);
   });
 }
