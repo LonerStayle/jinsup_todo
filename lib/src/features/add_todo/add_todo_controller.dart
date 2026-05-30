@@ -33,6 +33,31 @@ Future<void> showAddChildSheet(
   }
 }
 
+/// 항목 복사 — [original] 의 제목·내용·카테고리·날짜/시간·종류를 그대로 채운 "새 항목"
+/// 시트를 연다. 저장 시 새 id 의 별개 todo 생성 (체크 상태·캘린더 이벤트는 미복사).
+/// parentId 도 원본과 동일하게 유지 → 원본과 같은 위치(형제)로 복사된다.
+Future<void> showCopyTodoSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required Todo original,
+}) async {
+  final pending = <AddTodoSubmission>[];
+  await AddTodoSheet.show(
+    context,
+    initialCategory: original.category,
+    prefillFrom: original,
+    parentId: original.parentId,
+    onSubmit: pending.add,
+  );
+  if (pending.isEmpty) return;
+  final controller = ref.read(addTodoControllerProvider);
+  if (pending.length == 1) {
+    await controller.add(pending.first);
+  } else {
+    await controller.addAll(pending);
+  }
+}
+
 /// AddTodoSheet 가 만든 [AddTodoSubmission] 을 도메인 [Todo] 로 변환 + 저장 + (선택) Calendar 등록.
 class AddTodoController {
   AddTodoController({

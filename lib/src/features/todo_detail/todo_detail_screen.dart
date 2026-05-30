@@ -133,6 +133,7 @@ class TodoDetailScreen extends ConsumerWidget {
                   ),
                   onToggle: actions.toggle,
                   onAddChild: (p) => showAddChildSheet(context, ref, parent: p),
+                  onCopy: (t) => showCopyTodoSheet(context, ref, original: t),
                   onDelete: (t) async {
                     await actions.delete(t);
                     if (!context.mounted) return;

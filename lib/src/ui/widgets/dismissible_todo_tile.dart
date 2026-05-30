@@ -17,6 +17,8 @@ class DismissibleTodoTile extends StatelessWidget {
     this.onTap,
     this.confirmDismiss,
     this.onAddChild,
+    this.onCopy,
+    this.onEditItem,
     this.isExpanded,
     this.onToggleExpand,
     this.childCount = 0,
@@ -41,6 +43,11 @@ class DismissibleTodoTile extends StatelessWidget {
 
   /// Task C — 트리 노드용. TodoTile 로 그대로 전달.
   final VoidCallback? onAddChild;
+
+  /// 더보기(⋮) 메뉴 — 복사 / 이 항목 편집. TodoTile 로 그대로 전달.
+  final VoidCallback? onCopy;
+  final VoidCallback? onEditItem;
+
   final bool? isExpanded;
   final VoidCallback? onToggleExpand;
   final int childCount;
@@ -78,6 +85,9 @@ class DismissibleTodoTile extends StatelessWidget {
         onToggle: onToggle,
         onTap: onTap,
         onAddChild: onAddChild,
+        onCopy: onCopy,
+        onEditItem: onEditItem,
+        onDelete: onDelete,
         isExpanded: isExpanded,
         onToggleExpand: onToggleExpand,
         childCount: childCount,
