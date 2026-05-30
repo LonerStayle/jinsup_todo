@@ -70,20 +70,21 @@ void main() {
       );
     });
 
-    test('dueAt null + createdAt 어제 → true (effective = createdAt)', () {
+    test('dueAt null → false (v1.5 무날짜는 오늘 화면 제외, 전체보기에서 관리)', () {
       expect(
         VisibilityPolicy.isVisibleToday(
           todo(createdAt: DateTime(2026, 5, 26, 11)),
           now,
         ),
-        isTrue,
+        isFalse,
+        reason: 'createdAt 폴백 제거 — 날짜 미지정 항목은 오늘에 뜨지 않는다',
       );
     });
 
-    test('dueAt null + createdAt 내일 → false (미래에 생성된 todo)', () {
+    test('dueAt null + createdAt 오늘 이어도 false (createdAt 무관)', () {
       expect(
         VisibilityPolicy.isVisibleToday(
-          todo(createdAt: DateTime(2026, 5, 28, 11)),
+          todo(createdAt: DateTime(2026, 5, 27, 9)),
           now,
         ),
         isFalse,
@@ -92,10 +93,15 @@ void main() {
   });
 
   group('VisibilityPolicy.isVisibleToday — 체크됨', () {
+    // v1.5 — 체크 항목도 dueAt 가 있어야 오늘에 노출(무날짜 가드). 아래 fixture 는
+    // 모두 dueAt 오늘(05-27)을 줘서 doneAt 기준 자정 hide 로직만 분리 검증한다.
     test('doneAt 오늘 → true (체크한 당일은 visible)', () {
       expect(
         VisibilityPolicy.isVisibleToday(
-          todo(doneAt: DateTime(2026, 5, 27, 14)),
+          todo(
+            dueAt: DateTime(2026, 5, 27, 8),
+            doneAt: DateTime(2026, 5, 27, 14),
+          ),
           now,
         ),
         isTrue,
@@ -105,7 +111,10 @@ void main() {
     test('doneAt 오늘 23:59 → true', () {
       expect(
         VisibilityPolicy.isVisibleToday(
-          todo(doneAt: DateTime(2026, 5, 27, 23, 59)),
+          todo(
+            dueAt: DateTime(2026, 5, 27, 8),
+            doneAt: DateTime(2026, 5, 27, 23, 59),
+          ),
           now,
         ),
         isTrue,
@@ -115,7 +124,10 @@ void main() {
     test('doneAt 어제 → false (당일 자정 지나면 hide)', () {
       expect(
         VisibilityPolicy.isVisibleToday(
-          todo(doneAt: DateTime(2026, 5, 26, 22)),
+          todo(
+            dueAt: DateTime(2026, 5, 27, 8),
+            doneAt: DateTime(2026, 5, 26, 22),
+          ),
           now,
         ),
         isFalse,
@@ -126,7 +138,10 @@ void main() {
       final midnight = DateTime(2026, 5, 27, 0, 0);
       expect(
         VisibilityPolicy.isVisibleToday(
-          todo(doneAt: DateTime(2026, 5, 26, 23, 59)),
+          todo(
+            dueAt: DateTime(2026, 5, 27, 8),
+            doneAt: DateTime(2026, 5, 26, 23, 59),
+          ),
           midnight,
         ),
         isFalse,
@@ -137,8 +152,21 @@ void main() {
       final nextDay = DateTime(2026, 5, 28, 0, 1);
       expect(
         VisibilityPolicy.isVisibleToday(
-          todo(doneAt: DateTime(2026, 5, 27, 23, 59)),
+          todo(
+            dueAt: DateTime(2026, 5, 27, 8),
+            doneAt: DateTime(2026, 5, 27, 23, 59),
+          ),
           nextDay,
+        ),
+        isFalse,
+      );
+    });
+
+    test('체크됨 + dueAt null → false (무날짜 체크 항목도 오늘 제외)', () {
+      expect(
+        VisibilityPolicy.isVisibleToday(
+          todo(doneAt: DateTime(2026, 5, 27, 14)),
+          now,
         ),
         isFalse,
       );

@@ -60,13 +60,14 @@ void main() {
       expect(CarryoverPolicy.shouldCarryOverToday(t, now), isFalse);
     });
 
-    test(
-      'dueAt 이 null + createdAt 이 어제 + 미체크 → true (effective = createdAt)',
-      () {
-        final t = todo(createdAt: DateTime(2026, 5, 26, 11));
-        expect(CarryoverPolicy.shouldCarryOverToday(t, now), isTrue);
-      },
-    );
+    test('dueAt 이 null + createdAt 이 어제 + 미체크 → false (v1.5 무날짜는 이월 대상 X)', () {
+      final t = todo(createdAt: DateTime(2026, 5, 26, 11));
+      expect(
+        CarryoverPolicy.shouldCarryOverToday(t, now),
+        isFalse,
+        reason: 'createdAt 폴백 제거 — 날짜 미지정 항목은 오늘에 뜨지 않으니 이월도 없다',
+      );
+    });
 
     test('dueAt 이 null + createdAt 이 오늘 + 미체크 → false', () {
       final t = todo(createdAt: DateTime(2026, 5, 27, 8));
@@ -85,9 +86,14 @@ void main() {
       expect(CarryoverPolicy.shouldCarryOverToday(t, lateNight), isFalse);
     });
 
-    test('아주 오래된 미체크 (3일 전) + dueAt 없음 + createdAt 그날 → true', () {
-      final t = todo(createdAt: DateTime(2026, 5, 24, 8));
+    test('아주 오래된 미체크 (3일 전 dueAt) + 미체크 → true (날짜 있으면 이월)', () {
+      final t = todo(dueAt: DateTime(2026, 5, 24, 8));
       expect(CarryoverPolicy.shouldCarryOverToday(t, now), isTrue);
+    });
+
+    test('무날짜 오래된 항목 (3일 전 createdAt, dueAt 없음) → false (이월 X)', () {
+      final t = todo(createdAt: DateTime(2026, 5, 24, 8));
+      expect(CarryoverPolicy.shouldCarryOverToday(t, now), isFalse);
     });
   });
 

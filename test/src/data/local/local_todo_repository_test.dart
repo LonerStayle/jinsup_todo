@@ -122,6 +122,24 @@ void main() {
       await repo.deleteById('ghost'); // throws X
       expect(await repo.getById('ghost'), isNull);
     });
+
+    test('todo.category 복원 시 groupId 가 보존된다 (그룹 라벨 표시 의존)', () async {
+      // 그룹에 속한 카테고리를 seed 한 뒤, 그 카테고리의 todo 를 읽어 groupId 가
+      // 살아 있는지 확인. (join 복원에서 groupId 누락 시 '오늘'/타임라인 그룹 라벨이 사라짐)
+      const grouped = Category(
+        id: 'cat-x',
+        label: '코기토',
+        iconCodePoint: 0xe865,
+        colorValue: 0xFF2A66FF,
+        isBuiltin: false,
+        groupId: 'grp-1',
+      );
+      await db.categoriesDao.upsert(grouped);
+      await repo.upsert(make(id: 't1', category: grouped));
+
+      final got = await repo.getById('t1');
+      expect(got!.category.groupId, 'grp-1');
+    });
   });
 
   group('LocalTodoRepository — streams', () {
@@ -235,6 +253,7 @@ void main() {
       await repo.upsert(
         make(
           id: 'stale',
+          dueAt: DateTime(2026, 5, 27, 8),
           doneAt: DateTime(2026, 5, 26, 18),
           createdAt: DateTime.utc(2026, 5, 26, 9),
         ),
@@ -242,6 +261,7 @@ void main() {
       await repo.upsert(
         make(
           id: 'fresh',
+          dueAt: DateTime(2026, 5, 27, 8),
           doneAt: DateTime(2026, 5, 27, 9),
           createdAt: DateTime.utc(2026, 5, 27, 8),
         ),
@@ -251,46 +271,43 @@ void main() {
       expect(list.map((t) => t.id), ['fresh']);
     });
 
+    test('watchToday: v1.5 — dueAt null(무날짜) 항목은 모두 오늘에서 제외', () async {
+      DateTime now() => DateTime(2026, 5, 27, 10);
+
+      // 무날짜는 createdAt 이 어제든 오늘이든 내일이든 모두 오늘 화면 제외.
+      await repo.upsert(
+        make(id: 'carry', createdAt: DateTime.utc(2026, 5, 26, 9)),
+      );
+      await repo.upsert(
+        make(id: 'today', createdAt: DateTime.utc(2026, 5, 27, 8)),
+      );
+      await repo.upsert(
+        make(id: 'future', createdAt: DateTime.utc(2026, 5, 28, 8)),
+      );
+
+      final list = await repo.watchToday(now).first;
+      expect(list, isEmpty);
+    });
+
     test(
-      'watchToday: dueAt null 미체크 — createdAt 어제 → visible (이월), 오늘 → visible, 내일 → hide',
+      'watchToday: 날짜 지정 + 어제 체크 → hide (doneAt 우선), 오늘 체크 → visible',
       () async {
         DateTime now() => DateTime(2026, 5, 27, 10);
 
-        // dueAt null + createdAt 어제 = effective 어제 (이월 대상, 보여야 함)
-        await repo.upsert(
-          make(id: 'carry', createdAt: DateTime.utc(2026, 5, 26, 9)),
-        );
-        // dueAt null + createdAt 오늘 = effective 오늘
-        await repo.upsert(
-          make(id: 'today', createdAt: DateTime.utc(2026, 5, 27, 8)),
-        );
-        // dueAt null + createdAt 내일 = effective 내일 (아직 안 보여야)
-        await repo.upsert(
-          make(id: 'future', createdAt: DateTime.utc(2026, 5, 28, 8)),
-        );
-
-        final list = await repo.watchToday(now).first;
-        expect(list.map((t) => t.id).toSet(), {'carry', 'today'});
-      },
-    );
-
-    test(
-      'watchToday: dueAt null + 어제 체크 → hide (doneAt 우선), 오늘 체크 → visible',
-      () async {
-        DateTime now() => DateTime(2026, 5, 27, 10);
-
-        // dueAt null + 어제 만들고 어제 체크 → 체크는 doneAt 으로 판단되어 hide
+        // dueAt 오늘 + 어제 체크 → 체크는 doneAt 으로 판단되어 hide
         await repo.upsert(
           make(
             id: 'staleDone',
+            dueAt: DateTime(2026, 5, 27, 8),
             doneAt: DateTime(2026, 5, 26, 20),
             createdAt: DateTime.utc(2026, 5, 26, 9),
           ),
         );
-        // dueAt null + 어제 만들고 오늘 체크 → 오늘 체크니까 visible
+        // dueAt 오늘 + 오늘 체크 → 오늘 체크니까 visible
         await repo.upsert(
           make(
             id: 'todayDone',
+            dueAt: DateTime(2026, 5, 27, 8),
             doneAt: DateTime(2026, 5, 27, 9),
             createdAt: DateTime.utc(2026, 5, 26, 9),
           ),

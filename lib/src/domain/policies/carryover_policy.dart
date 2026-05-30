@@ -17,15 +17,18 @@ class CarryoverPolicy {
   /// 조건 (모두 만족 시 true):
   /// - task 타입 — note 는 항상 false
   /// - 미체크 (`!todo.isDone`) — 체크된 todo 는 [VisibilityPolicy] 가 별도 처리
-  /// - 효과적 날짜 (`dueAt ?? createdAt`) 가 [now] 의 로컬 자정 이전
+  /// - 날짜 지정됨 (`dueAt != null`) — v1.5: 무날짜 항목은 이월 대상이 아니다
+  ///   (오늘 화면에 애초에 뜨지 않으므로 이월 개념도 성립 X. 전체보기에서 관리)
+  /// - `dueAt` 가 [now] 의 로컬 자정 이전
   ///
   /// 비교는 [now] 의 로컬 timezone 기준 자정 (`DateTime(y, m, d, 0, 0, 0)`).
   /// Todo 의 UTC 시간은 [DateTime.toLocal] 로 변환 후 비교.
   static bool shouldCarryOverToday(Todo todo, DateTime now) {
     if (todo.type == TodoType.note) return false;
     if (todo.isDone) return false;
-    final effective = (todo.dueAt ?? todo.createdAt).toLocal();
+    if (todo.dueAt == null) return false;
+    final due = todo.dueAt!.toLocal();
     final today0 = DateTime(now.year, now.month, now.day);
-    return effective.isBefore(today0);
+    return due.isBefore(today0);
   }
 }
