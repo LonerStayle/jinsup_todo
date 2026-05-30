@@ -4,6 +4,7 @@ import 'package:solo_todo/src/data/local/app_database.dart';
 import 'package:solo_todo/src/data/local/local_todo_repository.dart';
 import 'package:solo_todo/src/domain/category.dart';
 import 'package:solo_todo/src/domain/todo.dart';
+import 'package:solo_todo/src/features/outline/tree_providers.dart';
 import 'package:solo_todo/src/features/todo_actions/todo_actions_controller.dart';
 
 void main() {
@@ -156,6 +157,59 @@ void main() {
 
       expect((await repo.getById('a'))!.sortOrder, 0);
       expect((await repo.getById('b'))!.sortOrder, 1);
+    });
+  });
+
+  group('§14-C — 타입 전환 시 자식 보존 (메모↔할일 왕복)', () {
+    Todo node(
+      String id, {
+      String? parentId,
+      TodoType type = TodoType.task,
+      DateTime? doneAt,
+    }) => Todo(
+      id: id,
+      title: id,
+      category: Category.work,
+      dueAt: null,
+      doneAt: doneAt,
+      createdAt: created,
+      updatedAt: created,
+      calendarEventId: null,
+      parentId: parentId,
+      type: type,
+    );
+
+    test('부모 task→note 전환 — 자식 parentId / 서브트리 진척 보존', () async {
+      await repo.upsert(node('p'));
+      await repo.upsert(node('c1', parentId: 'p', doneAt: created));
+      await repo.upsert(node('c2', parentId: 'p'));
+
+      // id 동일하게 type 만 note 로 전환.
+      final asNote = (await repo.getById(
+        'p',
+      ))!.copyWith(type: TodoType.note, doneAt: null);
+      await controller.update(asNote);
+
+      // 자식 parentId 는 부모 id 를 그대로 가리킨다(전환은 id 불변).
+      expect((await repo.getById('c1'))!.parentId, 'p');
+      expect((await repo.getById('c2'))!.parentId, 'p');
+      expect((await repo.getById('p'))!.type, TodoType.note);
+
+      // 헤딩이 된 부모의 서브트리 진척 — task 자식 2 중 1 done.
+      final all = await repo.watchByCategory(Category.work).first;
+      final progress = computeSubtreeProgress((await repo.getById('p'))!, all);
+      expect(progress, const SubtreeProgress(doneCount: 1, taskCount: 2));
+    });
+
+    test('부모 note→task 전환 — 자식 보존 (왕복 정합)', () async {
+      await repo.upsert(node('p', type: TodoType.note));
+      await repo.upsert(node('c1', parentId: 'p'));
+
+      final asTask = (await repo.getById('p'))!.copyWith(type: TodoType.task);
+      await controller.update(asTask);
+
+      expect((await repo.getById('c1'))!.parentId, 'p');
+      expect((await repo.getById('p'))!.type, TodoType.task);
     });
   });
 }

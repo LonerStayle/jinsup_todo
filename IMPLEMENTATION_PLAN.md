@@ -263,7 +263,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 
 **14-C. 타입 전환 엣지 가드**
 - [x] 타입 전환 정합 — AddTodoSheet edit `_submit` 의 copyWith 에 `doneAt: isNote ? null : initial.doneAt` + `calendarEventId: isNote ? null : initial.calendarEventId` 추가(dueAt/isAllDay 는 `_serializeDate` 가 note 일 때 이미 null/false). task→note 전환 시 doneAt 잔존으로 note→task 복귀 때 완료 오표시되던 사고 차단. widget test 2건(task→note 정합 정리 + note→task type). 473/473 PASS.
-- [ ] 전환 시 자식 보존 검증 — §14-A 로 note 도 parent 가능해졌으므로 자식 보유 항목의 task↔note 전환에서 자식 parentId·서브트리 정합이 유지되는지 통합 test(모든 조합). 깨지는 조합 발견 시 안내 dialog 가드.
+- [x] 전환 시 자식 보존 검증 — 타입 전환은 id 불변 update 라 자식 parentId 가 그대로 부모를 가리켜 **깨지는 조합 없음**(dialog 가드 불필요). DB 레벨 통합 test 2건(task→note: 자식 parentId + 서브트리 진척 [1/2] 보존 / note→task 왕복 정합). 475/475 PASS.
 - [ ] §14 종료 자가평가 — 비전(다층 메모) 정렬 확인 + 디자인·편의성 점수 재측정(9 이상 유지) + IMPLEMENTATION_PLAN.md 에 §14 자가평가 섹션 추가. 미달 시 보강 task 자동 추가.
 
 ---
