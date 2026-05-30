@@ -225,7 +225,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] `theme.dart` 에 note 전용 시각 헬퍼 `NoteVisual` 추가 — `accentWidth`(3px) / `label`("메모") / 틴트 alpha(light 0.08·dark 0.16) / 라벨 bg·outline alpha 상수 + 순수 헬퍼 `tint(category, brightness)` / `accent(category)` / `labelBackground·labelForeground·labelOutline(category)`. BuildContext 없이 [Category.color] 한 곳에서만 색 파생. 단위 test 8건 (라이트/다크 alpha 분기 + RGB 보존 + builtin 5색 반영). 440/440 PASS.
 
 **TodoTile note 재설계 (핵심)**
-- [ ] TodoTile note 분기에 좌측 카테고리색 accent 보더(3px) + 카테고리색 저알파 틴트 배경 적용 — Card color/shape override, task 는 기존 surface 유지, 라이트/다크 분기. 기존 8px 컬러바와 시각 충돌 정리(note 는 accent 보더로 대체). widget test (note 틴트/보더 존재 + task 미적용).
+- [x] TodoTile note 분기에 좌측 카테고리색 accent 보더(3px) + 카테고리색 저알파 틴트 배경 적용 — `Card.color = NoteVisual.tint(category, brightness)`(task 는 null=기본 surface), 좌측 컬러바를 note 면 8px→3px accent(`NoteVisual.accent`)로 대체(`ValueKey('todo-tile-colorbar')`). 라이트/다크 분기. widget test 4건 (note light/dark 틴트 + 3px accent + task 미적용·8px 유지). 444/444 PASS.
 - [ ] TodoTile note 제목 라인에 "메모" 마이크로 라벨 chip 추가(카테고리색 tint+outline, labelSmall) + **italic 의존 제거**(제목 normal weight 로 복귀, 구분은 라벨/틴트가 담당). widget test (라벨 존재 + 제목 non-italic).
 - [ ] TodoTile note leading 글리프 정리 — trailing 회색 `sticky_note_2` 아이콘 제거하고 좌측(컬러바 자리)에 카테고리색 `sticky_note_2` 글리프로 이동, 체크 affordance 완전 부재 명확화. task 의 trailing 체크 IconButton 은 유지. widget test (note=체크 부재·leading 글리프, task=trailing 체크 존재).
 - [ ] TodoTile note 본문 프리뷰 인라인 — description 있으면 제목 아래 2줄(maxLines:2, ellipsis, bodySmall muted) 노출(현재는 작은 힌트 아이콘만). description 빈 note 는 프리뷰 생략. task 는 현행(힌트 아이콘) 유지. widget test (프리뷰 2줄 + 빈 description 생략).

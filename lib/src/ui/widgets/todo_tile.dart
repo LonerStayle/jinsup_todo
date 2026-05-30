@@ -53,6 +53,9 @@ class TodoTile extends StatelessWidget {
     final dateLabel = isNote ? null : TodoDateLabel.format(todo);
 
     return Card(
+      // §13 — note 는 카테고리색 저알파 틴트 배경으로 task(기본 surface) 와 대비.
+      // null 이면 CardTheme 의 surface 색을 그대로 쓴다 (task).
+      color: isNote ? NoteVisual.tint(todo.category, theme.brightness) : null,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTokens.radiusM),
@@ -80,11 +83,16 @@ class TodoTile extends StatelessWidget {
                     ),
                   ),
                 ),
+              // §13 — task = 8px 카테고리 컬러바. note = 3px accent 보더(틴트 배경
+              // 위라 얇은 accent 로 충분). 8px 컬러바와의 시각 충돌을 피한다.
               Container(
-                width: 8,
+                key: const ValueKey('todo-tile-colorbar'),
+                width: isNote ? NoteVisual.accentWidth : 8,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: todo.category.color,
+                  color: isNote
+                      ? NoteVisual.accent(todo.category)
+                      : todo.category.color,
                   borderRadius: BorderRadius.circular(AppTokens.radiusS),
                 ),
               ),
