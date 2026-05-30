@@ -9,11 +9,33 @@ import '../../domain/todo.dart';
 /// 체크/편집/삭제 동작은 phase 5 의 "체크 흐름" task 에서 [onToggle] / [onTap] 등으로
 /// 연결한다. 지금은 표시만.
 class TodoTile extends StatelessWidget {
-  const TodoTile({super.key, required this.todo, this.onToggle, this.onTap});
+  const TodoTile({
+    super.key,
+    required this.todo,
+    this.onToggle,
+    this.onTap,
+    this.onAddChild,
+    this.isExpanded,
+    this.onToggleExpand,
+    this.childCount = 0,
+  });
 
   final Todo todo;
   final VoidCallback? onToggle;
   final VoidCallback? onTap;
+
+  /// Task C — "＋ 하위 추가" 콜백. null 이면 버튼 미표시 (note 타입 등). task 만 자식 가능.
+  final VoidCallback? onAddChild;
+
+  /// Task C — 접힘/펼침 상태. null 이면 자식이 없어 chevron 미표시.
+  final bool? isExpanded;
+
+  /// Task C — chevron tap 콜백 (펼침/접힘 토글). isExpanded != null 일 때만 의미.
+  final VoidCallback? onToggleExpand;
+
+  /// Task C — 직속 자식 수 (>0 이면 폴더로 간주, 체크 진척률 배지 표시 가능). 현재는
+  /// chevron 표시 판단에 isExpanded 와 함께 사용.
+  final int childCount;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +57,23 @@ class TodoTile extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Task C — 자식이 있으면 펼침/접힘 chevron. 없으면 컬러바만.
+              if (isExpanded != null)
+                InkWell(
+                  key: ValueKey('todo-tile-chevron-${todo.id}'),
+                  onTap: onToggleExpand,
+                  customBorder: const CircleBorder(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppTokens.space2),
+                    child: Icon(
+                      isExpanded!
+                          ? Icons.keyboard_arrow_down_rounded
+                          : Icons.keyboard_arrow_right_rounded,
+                      size: 20,
+                      color: scheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
               Container(
                 width: 8,
                 height: 36,
@@ -87,6 +126,17 @@ class TodoTile extends StatelessWidget {
                   ],
                 ),
               ),
+              // Task C — task 타입만 "＋ 하위 추가" 버튼. note 는 자식 불가 → 미표시.
+              if (onAddChild != null && !isNote)
+                IconButton(
+                  key: ValueKey('todo-tile-add-child-${todo.id}'),
+                  onPressed: onAddChild,
+                  icon: const Icon(Icons.subdirectory_arrow_right_rounded),
+                  iconSize: 18,
+                  color: scheme.onSurface.withValues(alpha: 0.45),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: '하위 추가',
+                ),
               if (isNote)
                 // note 는 체크 개념이 없어 trailing 을 점·노트 아이콘으로 대체. tap 무동작.
                 Padding(

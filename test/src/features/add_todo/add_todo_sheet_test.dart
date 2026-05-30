@@ -15,6 +15,7 @@ void main() {
     DateTime? initialDueAt,
     bool initialAllDay = true,
     DateTime? fixedNow,
+    String? parentId,
   }) async {
     // 종일/시간 토글 + Calendar 토글 + 빠른 dueAt 칩까지 추가되면서 sheet 가 길어졌다.
     // 800px 기본 viewport 로는 _Actions row 가 밖으로 밀려나 tap 이 무시된다.
@@ -39,6 +40,7 @@ void main() {
                 initialDueAt: initialDueAt,
                 initialAllDay: initialAllDay,
                 now: fixedNow == null ? null : () => fixedNow,
+                parentId: parentId,
                 onSubmit: submissions.add,
               ),
             ),
@@ -471,6 +473,58 @@ void main() {
       await tester.pump();
 
       expect(submissions.first.dueAt, DateTime(2026, 6, 1));
+    });
+  });
+
+  group('Task C — parentId (하위 추가 모드)', () {
+    testWidgets('parentId 지정 → 제목 "하위 항목 추가" + 카테고리 선택 숨김', (tester) async {
+      await mount(tester, initial: Category.work, parentId: 'parent-1');
+
+      expect(find.text('하위 항목 추가'), findsOneWidget);
+      // 카테고리 섹션 라벨이 사라진다 (부모 category 고정).
+      expect(find.text('카테고리'), findsNothing);
+    });
+
+    testWidgets('parentId 제출 → submission.parentId + 부모 category 상속', (
+      tester,
+    ) async {
+      final submissions = await mount(
+        tester,
+        initial: Category.work,
+        parentId: 'parent-1',
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('add-todo-title')),
+        '자식 항목',
+      );
+      await tester.pump();
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '추가'))
+          .onPressed!();
+      await tester.pump();
+
+      expect(submissions, hasLength(1));
+      expect(submissions.first.parentId, 'parent-1');
+      expect(
+        submissions.first.category,
+        Category.work,
+        reason: '부모 category (initialCategory) 상속',
+      );
+    });
+
+    testWidgets('parentId null (일반 add) → submission.parentId null', (
+      tester,
+    ) async {
+      final submissions = await mount(tester);
+      await tester.enterText(find.byKey(const ValueKey('add-todo-title')), 'x');
+      await tester.pump();
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '추가'))
+          .onPressed!();
+      await tester.pump();
+
+      expect(submissions.first.parentId, isNull);
     });
   });
 

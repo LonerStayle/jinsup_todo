@@ -199,10 +199,8 @@ void main() {
     );
   });
 
-  group('v1.1 — today breadcrumb (트리 path 표시)', () {
-    testWidgets('parentId null 인 root todo → 카테고리 라벨 breadcrumb', (
-      tester,
-    ) async {
+  group('Task C — today 중첩 트리', () {
+    testWidgets('root todo 1건 → 그대로 표시 (chevron 없음)', (tester) async {
       final t = todo(id: 'r', title: '회사 todo', category: Category.work);
       final controller = await mountWith(
         tester,
@@ -212,20 +210,48 @@ void main() {
       controller.add([t]);
       await tester.pump();
 
-      expect(
-        find.text('회사 할일'),
-        findsOneWidget,
-        reason: 'root todo 는 카테고리 라벨만',
-      );
+      expect(find.text('회사 todo'), findsOneWidget);
+      // 자식이 없으므로 chevron 미표시.
+      expect(find.byKey(const ValueKey('todo-tile-chevron-r')), findsNothing);
     });
 
-    testWidgets('parentId 가 있는 자식 → 부모 chain 의 title 만 breadcrumb', (
-      tester,
-    ) async {
+    testWidgets('부모(today) + 자식(today 아님) → 자식이 부모 아래 중첩 표시', (tester) async {
       final parent = todo(id: 'p', title: 'JS슈퍼', category: Category.work);
       final child = Todo(
         id: 'c',
         title: '워크트리 만들기',
+        category: Category.work,
+        dueAt: null,
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 27, 1),
+        updatedAt: DateTime.utc(2026, 5, 27, 1),
+        calendarEventId: null,
+        parentId: 'p',
+      );
+      // allTodos 에 자식 포함 → 부모 아래에 펼쳐져 보여야 함. controller 는 부모만 today.
+      final controller = await mountWith(
+        tester,
+        fixedNow: DateTime(2026, 5, 27, 10),
+        allTodos: [parent, child],
+      );
+      controller.add([parent]);
+      await tester.pump();
+
+      expect(find.text('JS슈퍼'), findsOneWidget);
+      expect(
+        find.text('워크트리 만들기'),
+        findsOneWidget,
+        reason: '자식이 today 가 아니어도 부모 아래 하위 체크리스트로 보여야 함',
+      );
+      // 부모는 자식이 있으므로 chevron 노출.
+      expect(find.byKey(const ValueKey('todo-tile-chevron-p')), findsOneWidget);
+    });
+
+    testWidgets('chevron tap → 자식 접힘/펼침 토글', (tester) async {
+      final parent = todo(id: 'p', title: '부모', category: Category.work);
+      final child = Todo(
+        id: 'c',
+        title: '자식',
         category: Category.work,
         dueAt: null,
         doneAt: null,
@@ -239,70 +265,54 @@ void main() {
         fixedNow: DateTime(2026, 5, 27, 10),
         allTodos: [parent, child],
       );
-      controller.add([child]);
+      controller.add([parent]);
       await tester.pump();
 
-      // breadcrumb 가 부모 title 만 (자식 자신 제외).
-      expect(find.text('JS슈퍼'), findsOneWidget);
-      expect(find.text('워크트리 만들기'), findsOneWidget);
-      // 카테고리 라벨 (회사 할일) 은 화면 헤더에는 없어도 brc 자리에는 안 나옴.
+      expect(find.text('자식'), findsOneWidget);
+
+      // 접기.
+      await tester.tap(find.byKey(const ValueKey('todo-tile-chevron-p')));
+      await tester.pump();
+      expect(find.text('자식'), findsNothing);
+
+      // 다시 펼치기.
+      await tester.tap(find.byKey(const ValueKey('todo-tile-chevron-p')));
+      await tester.pump();
+      expect(find.text('자식'), findsOneWidget);
     });
 
-    testWidgets('손자 todo → "root / 직속부모" join 으로 breadcrumb', (tester) async {
-      final root = todo(id: 'r', title: '개인 TODO', category: Category.idea);
-      final mid = Todo(
-        id: 'm',
-        title: 'JS슈퍼',
-        category: Category.idea,
+    testWidgets('task 타일에 ＋하위추가 버튼 노출, note 타일에는 없음', (tester) async {
+      final task = todo(id: 't', title: '할 일', category: Category.work);
+      final note = Todo(
+        id: 'n',
+        title: '메모',
+        category: Category.work,
         dueAt: null,
         doneAt: null,
         createdAt: DateTime.utc(2026, 5, 27, 1),
         updatedAt: DateTime.utc(2026, 5, 27, 1),
         calendarEventId: null,
-        parentId: 'r',
+        type: TodoType.note,
       );
-      final leaf = Todo(
-        id: 'l',
-        title: '서브에이전트 처리',
-        category: Category.idea,
-        dueAt: null,
-        doneAt: null,
-        createdAt: DateTime.utc(2026, 5, 27, 1),
-        updatedAt: DateTime.utc(2026, 5, 27, 1),
-        calendarEventId: null,
-        parentId: 'm',
-      );
+      // note 는 today 정책상 안 보이므로 root 자식으로 붙여 트리에 노출시킨다.
+      final noteChild = note.copyWith(parentId: 't');
       final controller = await mountWith(
         tester,
         fixedNow: DateTime(2026, 5, 27, 10),
-        allTodos: [root, mid, leaf],
+        allTodos: [task, noteChild],
       );
-      controller.add([leaf]);
+      controller.add([task]);
       await tester.pump();
 
       expect(
-        find.text('개인 TODO / JS슈퍼'),
+        find.byKey(const ValueKey('todo-tile-add-child-t')),
         findsOneWidget,
-        reason: 'root → 직속부모 순으로 " / " join',
       );
-    });
-
-    testWidgets('breadcrumb 위젯 — onSurfaceVariant 색 + labelSmall typography', (
-      tester,
-    ) async {
-      final t = todo(id: 'a', title: 'x');
-      final controller = await mountWith(
-        tester,
-        fixedNow: DateTime(2026, 5, 27, 10),
-        allTodos: [t],
+      expect(
+        find.byKey(const ValueKey('todo-tile-add-child-n')),
+        findsNothing,
+        reason: 'note 는 자식 추가 불가',
       );
-      controller.add([t]);
-      await tester.pump();
-
-      // breadcrumb Text 위젯의 스타일 검증 — 색은 onSurfaceVariant 와 일치.
-      final textWidget = tester.widget<Text>(find.text('일상'));
-      final scheme = AppTheme.mobileLight().colorScheme;
-      expect(textWidget.style?.color, scheme.onSurfaceVariant);
     });
   });
 }

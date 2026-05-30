@@ -5,10 +5,11 @@ import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../data/providers.dart';
 import '../../domain/todo.dart';
-import '../../ui/widgets/animated_todo_list.dart';
 import '../../ui/widgets/empty_state.dart';
+import '../../ui/widgets/nested_todo_tree.dart';
 import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/undo_snackbar.dart';
+import '../add_todo/add_todo_controller.dart';
 import '../add_todo/add_todo_sheet.dart';
 import '../outline/tree_providers.dart';
 import '../todo_actions/todo_actions_controller.dart';
@@ -56,12 +57,14 @@ class HomeScreen extends ConsumerWidget {
             },
           );
         },
+        // Task C — ＋ 하위 추가.
+        onAddChild: (parent) => showAddChildSheet(context, ref, parent: parent),
       ),
     );
   }
 }
 
-class _Loaded extends StatelessWidget {
+class _Loaded extends StatefulWidget {
   const _Loaded({
     required this.todos,
     required this.allTodos,
@@ -70,8 +73,11 @@ class _Loaded extends StatelessWidget {
     required this.onToggle,
     required this.onDelete,
     required this.onTap,
+    required this.onAddChild,
   });
 
+  /// 오늘 화면에서 root 로 보일 todo (visibility/carryover 정책 적용된 visible set).
+  /// 이 todo 들의 자손은 '오늘'이 아니어도 [allTodos] 인덱스로 하위 체크리스트가 펼쳐진다.
   final List<Todo> todos;
   final List<Todo> allTodos;
   final int carryoverCount;
@@ -79,18 +85,35 @@ class _Loaded extends StatelessWidget {
   final void Function(Todo) onToggle;
   final void Function(Todo) onDelete;
   final void Function(Todo) onTap;
+  final void Function(Todo) onAddChild;
 
-  /// today list 의 각 todo 옆에 표시할 breadcrumb. parentId 가 set 이면 부모 chain
-  /// 의 title 만 (root → 직속부모 순) " / " 로 join. parentId 가 null 이면 카테고리
-  /// 라벨 한 단어. 빈 문자열은 호출자가 null 처럼 다룬다.
-  String _breadcrumbFor(Todo todo) {
-    final path = computeTodoPath(todo, allTodos);
-    if (path.isEmpty) return todo.category.label;
-    return path.map((p) => p.title).join(' / ');
+  @override
+  State<_Loaded> createState() => _LoadedState();
+}
+
+class _LoadedState extends State<_Loaded> {
+  /// 접힌 노드 id set (default 펼침).
+  final Set<String> _collapsed = {};
+
+  void _toggleCollapse(String id) {
+    setState(() {
+      if (!_collapsed.remove(id)) _collapsed.add(id);
+    });
+  }
+
+  /// 오늘 화면 root 후보: visible todo 중 그 부모도 visible 인 항목은 자식으로만 보여야
+  /// 중복되지 않는다. 부모가 today set 에 있으면 그 부모 아래 자식으로 자연 렌더되므로
+  /// root 목록에서 제외. (부모가 today 가 아니면 이 visible 자식이 root 로 올라온다.)
+  List<Todo> get _roots {
+    final visibleIds = widget.todos.map((t) => t.id).toSet();
+    return widget.todos
+        .where((t) => t.parentId == null || !visibleIds.contains(t.parentId))
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    final roots = _roots;
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -100,16 +123,16 @@ class _Loaded extends StatelessWidget {
             AppTokens.space24,
             AppTokens.space16,
           ),
-          sliver: SliverToBoxAdapter(child: _Header(now: now)),
+          sliver: SliverToBoxAdapter(child: _Header(now: widget.now)),
         ),
-        if (carryoverCount > 0)
+        if (widget.carryoverCount > 0)
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
             sliver: SliverToBoxAdapter(
-              child: _CarryoverBanner(count: carryoverCount),
+              child: _CarryoverBanner(count: widget.carryoverCount),
             ),
           ),
-        if (todos.isEmpty)
+        if (widget.todos.isEmpty)
           const SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyState(
@@ -126,12 +149,15 @@ class _Loaded extends StatelessWidget {
               AppTokens.space24,
               AppTokens.space48,
             ),
-            sliver: AnimatedTodoSliver(
-              todos: todos,
-              onToggle: onToggle,
-              onDelete: onDelete,
-              onTap: onTap,
-              breadcrumbBuilder: _breadcrumbFor,
+            sliver: NestedTodoTreeSliver(
+              roots: roots,
+              allTodos: widget.allTodos,
+              collapsed: _collapsed,
+              onToggleCollapse: _toggleCollapse,
+              onToggle: widget.onToggle,
+              onDelete: widget.onDelete,
+              onTap: widget.onTap,
+              onAddChild: widget.onAddChild,
             ),
           ),
       ],

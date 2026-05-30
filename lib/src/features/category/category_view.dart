@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/todo.dart';
-import '../../ui/widgets/dismissible_todo_tile.dart';
 import '../../ui/widgets/empty_state.dart';
+import '../../ui/widgets/nested_todo_tree.dart';
 import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/undo_snackbar.dart';
+import '../add_todo/add_todo_controller.dart';
 import '../add_todo/add_todo_sheet.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import 'category_providers.dart';
@@ -49,28 +50,52 @@ class CategoryView extends ConsumerWidget {
                 ref.read(todoActionsProvider).update(updated),
           );
         },
+        onAddChild: (parent) => showAddChildSheet(context, ref, parent: parent),
       ),
     );
   }
 }
 
-class _Loaded extends StatelessWidget {
+class _Loaded extends StatefulWidget {
   const _Loaded({
     required this.category,
     required this.todos,
     required this.onToggle,
     required this.onDelete,
     required this.onTap,
+    required this.onAddChild,
   });
 
   final Category category;
+
+  /// 이 카테고리에 속한 모든 todo (root + 자손). root + child 인덱스 양쪽에 사용.
   final List<Todo> todos;
   final void Function(Todo) onToggle;
   final void Function(Todo) onDelete;
   final void Function(Todo) onTap;
+  final void Function(Todo) onAddChild;
+
+  @override
+  State<_Loaded> createState() => _LoadedState();
+}
+
+class _LoadedState extends State<_Loaded> {
+  final Set<String> _collapsed = {};
+
+  void _toggleCollapse(String id) {
+    setState(() {
+      if (!_collapsed.remove(id)) _collapsed.add(id);
+    });
+  }
+
+  /// 이 카테고리의 root (parentId null). 자식은 트리에서 들여쓰기로 표시.
+  List<Todo> get _roots =>
+      widget.todos.where((t) => t.parentId == null).toList();
 
   @override
   Widget build(BuildContext context) {
+    final todos = widget.todos;
+    final category = widget.category;
     final undone = todos.where((t) => !t.isDone).length;
     final done = todos.length - undone;
 
@@ -105,16 +130,15 @@ class _Loaded extends StatelessWidget {
               AppTokens.space24,
               AppTokens.space48,
             ),
-            sliver: SliverList.separated(
-              itemCount: todos.length,
-              itemBuilder: (_, i) => DismissibleTodoTile(
-                todo: todos[i],
-                onToggle: () => onToggle(todos[i]),
-                onDelete: () => onDelete(todos[i]),
-                onTap: () => onTap(todos[i]),
-              ),
-              separatorBuilder: (_, _) =>
-                  const SizedBox(height: AppTokens.space8),
+            sliver: NestedTodoTreeSliver(
+              roots: _roots,
+              allTodos: todos,
+              collapsed: _collapsed,
+              onToggleCollapse: _toggleCollapse,
+              onToggle: widget.onToggle,
+              onDelete: widget.onDelete,
+              onTap: widget.onTap,
+              onAddChild: widget.onAddChild,
             ),
           ),
       ],

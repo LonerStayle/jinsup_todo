@@ -24,9 +24,15 @@ class AddTodoSheet extends ConsumerStatefulWidget {
     this.now,
     this.initialDueAt,
     this.initialAllDay = true,
+    this.parentId,
   });
 
   final Category initialCategory;
+
+  /// Task C — non-null 이면 "하위 추가" 모드. 생성되는 todo 의 parentId 가 이 값으로
+  /// 고정되고, category 는 [initialCategory] (= 부모 category) 로 프리셋된다.
+  /// 카테고리 선택 UI 는 숨김 (부모와 같은 카테고리로 강제). edit 모드와는 무관.
+  final String? parentId;
 
   /// 테스트 결정성을 위해 주입 가능. 기본 [DateTime.now].
   final DateTime Function()? now;
@@ -66,6 +72,7 @@ class AddTodoSheet extends ConsumerStatefulWidget {
     required void Function(AddTodoSubmission) onSubmit,
     void Function(Todo updated)? onUpdate,
     Todo? initialTodo,
+    String? parentId,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -80,6 +87,7 @@ class AddTodoSheet extends ConsumerStatefulWidget {
           onSubmit: onSubmit,
           onUpdate: onUpdate,
           initialTodo: initialTodo,
+          parentId: parentId,
         ),
       ),
     );
@@ -117,6 +125,10 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
 
   /// edit 모드 (initialTodo != null) 여부 — 시그니처 / 버튼 라벨 / submit 분기 사용.
   bool get _isEditMode => widget.initialTodo != null;
+
+  /// Task C — "하위 추가" 모드 (parentId 지정 + edit 아님). 카테고리 선택 UI 를 숨기고
+  /// 부모 category 로 프리셋한다.
+  bool get _isChildMode => !_isEditMode && widget.parentId != null;
 
   /// 더블 submit race 가드. _submit 이 한 번이라도 호출되면 true 로 set 되어 후속
   /// tap / Enter 가 추가 onSubmit 콜백 호출을 못 하게 막는다.
@@ -262,6 +274,7 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
         addToCalendar: !isNote && date.dueAt != null && _addToCalendar,
         type: _type,
         description: descOrNull,
+        parentId: widget.parentId,
       ),
     );
     Navigator.of(context).maybePop();
@@ -288,6 +301,7 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
           addToCalendar: !isNote && date.dueAt != null && _addToCalendar,
           type: _type,
           description: descOrNull,
+          parentId: widget.parentId,
         ),
       );
     }
@@ -637,7 +651,9 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
                   _Grabber(color: scheme.outline),
                   const SizedBox(height: AppTokens.space16),
                   Text(
-                    _isEditMode ? '할 일 편집' : '새 할 일',
+                    _isEditMode
+                        ? '할 일 편집'
+                        : (_isChildMode ? '하위 항목 추가' : '새 할 일'),
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -690,14 +706,17 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: AppTokens.space16),
-                  _SectionLabel(text: '카테고리'),
-                  const SizedBox(height: AppTokens.space8),
-                  _CategoryChips(
-                    categories: categories,
-                    selected: _category,
-                    onSelect: (c) => setState(() => _category = c),
-                  ),
+                  // Task C — "하위 추가" 모드는 부모 category 로 고정 → 선택 UI 숨김.
+                  if (!_isChildMode) ...[
+                    const SizedBox(height: AppTokens.space16),
+                    _SectionLabel(text: '카테고리'),
+                    const SizedBox(height: AppTokens.space8),
+                    _CategoryChips(
+                      categories: categories,
+                      selected: _category,
+                      onSelect: (c) => setState(() => _category = c),
+                    ),
+                  ],
                   const SizedBox(height: AppTokens.space16),
                   _SectionLabel(text: '종류'),
                   const SizedBox(height: AppTokens.space8),
@@ -1608,11 +1627,15 @@ class AddTodoSubmission {
     this.description,
     this.endAt,
     this.timeAnchor = 'start',
+    this.parentId,
   });
 
   final String title;
   final Category category;
   final DateTime? dueAt;
+
+  /// Task C — "하위 추가" 모드면 부모 todo 의 id. null 이면 root 생성.
+  final String? parentId;
 
   /// dueAt 이 "하루 종일" 의미인지. dueAt 이 null 이면 의미 없음 (false).
   /// AddTodoController 가 CalendarService.createEventForTodo 에 전달.

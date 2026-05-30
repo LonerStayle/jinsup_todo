@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
@@ -6,6 +6,22 @@ import '../../data/todo_repository.dart';
 import '../../domain/todo.dart';
 import '../calendar/calendar_service.dart';
 import 'add_todo_sheet.dart';
+
+/// Task C — "＋ 하위 추가" 공통 flow. 부모 [parent] 를 받아 AddTodoSheet 를 child
+/// 모드로 열고, 제출 시 parentId + 부모 category 를 상속한 자식 todo 를 생성한다.
+/// 오늘/카테고리 화면이 공유.
+Future<void> showAddChildSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required Todo parent,
+}) {
+  return AddTodoSheet.show(
+    context,
+    initialCategory: parent.category,
+    parentId: parent.id,
+    onSubmit: (s) => ref.read(addTodoControllerProvider).add(s),
+  );
+}
 
 /// AddTodoSheet 가 만든 [AddTodoSubmission] 을 도메인 [Todo] 로 변환 + 저장 + (선택) Calendar 등록.
 class AddTodoController {
@@ -37,6 +53,7 @@ class AddTodoController {
       endAt: s.endAt,
       isAllDay: s.isAllDay,
       timeAnchor: s.timeAnchor,
+      parentId: s.parentId,
     );
     await repo.upsert(todo);
 

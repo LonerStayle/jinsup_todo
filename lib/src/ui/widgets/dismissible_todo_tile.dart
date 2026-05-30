@@ -16,6 +16,10 @@ class DismissibleTodoTile extends StatelessWidget {
     this.onDelete,
     this.onTap,
     this.confirmDismiss,
+    this.onAddChild,
+    this.isExpanded,
+    this.onToggleExpand,
+    this.childCount = 0,
   });
 
   /// 실수 swipe 방지를 위한 dismiss threshold. 0.4 (40%) 는 의도치 않은 살짝 swipe 으로도
@@ -33,6 +37,12 @@ class DismissibleTodoTile extends StatelessWidget {
   /// 선택적 확인 콜백 — true 반환 시에만 dismiss. 일반 todo 는 swipe + UndoSnackbar 로
   /// 충분하지만 중요한 case (예: calendarEventId 있는 todo) 에서 호출자가 dialog 띄울 수 있게.
   final Future<bool> Function()? confirmDismiss;
+
+  /// Task C — 트리 노드용. TodoTile 로 그대로 전달.
+  final VoidCallback? onAddChild;
+  final bool? isExpanded;
+  final VoidCallback? onToggleExpand;
+  final int childCount;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +69,15 @@ class DismissibleTodoTile extends StatelessWidget {
         ),
       ),
       onDismissed: (_) => onDelete?.call(),
-      child: TodoTile(todo: todo, onToggle: onToggle, onTap: onTap),
+      child: TodoTile(
+        todo: todo,
+        onToggle: onToggle,
+        onTap: onTap,
+        onAddChild: onAddChild,
+        isExpanded: isExpanded,
+        onToggleExpand: onToggleExpand,
+        childCount: childCount,
+      ),
     );
   }
 }
