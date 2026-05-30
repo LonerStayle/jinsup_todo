@@ -103,6 +103,36 @@ class TodoTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
+                        // §13 — note 는 "메모" 라벨 칩으로 명시 구분한다. 한글은 italic
+                        // 글리프가 거의 없어 기존 italic 대신 라벨+틴트로 구분 신호를 옮긴다.
+                        if (isNote) ...[
+                          Container(
+                            key: const ValueKey('todo-tile-note-label'),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppTokens.space8,
+                              vertical: AppTokens.space2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: NoteVisual.labelBackground(todo.category),
+                              borderRadius: BorderRadius.circular(
+                                AppTokens.radiusFull,
+                              ),
+                              border: Border.all(
+                                color: NoteVisual.labelOutline(todo.category),
+                              ),
+                            ),
+                            child: Text(
+                              NoteVisual.label,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: NoteVisual.labelForeground(
+                                  todo.category,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppTokens.space8),
+                        ],
                         Flexible(
                           child: Text(
                             todo.title,
@@ -113,7 +143,6 @@ class TodoTile extends StatelessWidget {
                               color: isDone
                                   ? scheme.onSurface.withValues(alpha: 0.45)
                                   : null,
-                              fontStyle: isNote ? FontStyle.italic : null,
                             ),
                           ),
                         ),

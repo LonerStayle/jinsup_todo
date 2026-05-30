@@ -92,11 +92,17 @@ void main() {
         doneAt: DateTime.utc(2026, 5, 27, 12),
       ),
       // note 는 체크 개념이 없어 카운트에서 빠져야 한다 (예전엔 미체크로 잘못 셈).
-      todo(id: '3', category: Category.idea, title: '메모', type: TodoType.note),
+      // 제목을 '참고 노트'로 — §13 "메모" 라벨 칩 텍스트와 충돌 회피.
+      todo(
+        id: '3',
+        category: Category.idea,
+        title: '참고 노트',
+        type: TodoType.note,
+      ),
     ]);
     await tester.pump();
 
-    expect(find.text('메모'), findsOneWidget);
+    expect(find.text('참고 노트'), findsOneWidget);
     expect(find.text('미체크 1'), findsOneWidget);
     expect(find.text('완료 1'), findsOneWidget);
   });

@@ -76,10 +76,18 @@ void main() {
     expect(find.byIcon(Icons.check_circle_rounded), findsNothing);
   });
 
-  testWidgets('note 타입 — 제목이 italic 으로 표시 (메모 시각 구분)', (tester) async {
+  testWidgets('note 타입 — 제목 italic 제거 + "메모" 라벨로 구분 (§13)', (tester) async {
     await mount(tester, make(type: TodoType.note, title: 'memo'));
+    // §13 — 한글 italic 무효 → 제목은 normal, 구분은 "메모" 라벨 칩이 담당.
     final text = tester.widget<Text>(find.text('memo'));
-    expect(text.style?.fontStyle, FontStyle.italic);
+    expect(text.style?.fontStyle, isNot(FontStyle.italic));
+    expect(find.byKey(const ValueKey('todo-tile-note-label')), findsOneWidget);
+    expect(find.text('메모'), findsOneWidget);
+  });
+
+  testWidgets('task 타입 — "메모" 라벨 미표시', (tester) async {
+    await mount(tester, make(type: TodoType.task));
+    expect(find.byKey(const ValueKey('todo-tile-note-label')), findsNothing);
   });
 
   testWidgets('note 타입 + dueAt 있어도 시간 노출 X (note 는 일정 무관)', (tester) async {
