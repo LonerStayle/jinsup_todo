@@ -322,7 +322,15 @@ class _AppShellState extends ConsumerState<AppShell> {
     final dest = (_index < _destinations.length)
         ? _destinations[_index]
         : _destinations.first;
-    final initialCategory = dest.category ?? Category.daily;
+    // 카테고리 화면이면 그 카테고리. 오늘/전체보기/FAB/Cmd+N 전역 추가는 컨텍스트가
+    // 없으므로 **현재 카테고리 목록의 첫 항목**(정렬 기준)을 기본값으로. 무조건 '일상'
+    // 으로 떨어지던 버그 (J) 수정 — 목록이 비면 builtinSeeds.first 로 fallback.
+    final categories =
+        ref.read(categoriesProvider).asData?.value ?? Category.builtinSeeds;
+    final fallback = categories.isNotEmpty
+        ? categories.first
+        : Category.builtinSeeds.first;
+    final initialCategory = dest.category ?? fallback;
 
     // sheet 가 닫힌 후 controller 를 호출해 결과(Calendar 경고 등)를 처리한다.
     AddTodoSubmission? submitted;

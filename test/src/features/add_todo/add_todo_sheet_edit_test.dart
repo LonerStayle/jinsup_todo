@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:solo_todo/src/domain/category.dart';
+import 'package:solo_todo/src/domain/group.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/add_todo/add_todo_sheet.dart';
 import 'package:solo_todo/src/features/category/categories_controller.dart';
+import 'package:solo_todo/src/features/category/groups_controller.dart';
 
 /// v1.2 — AddTodoSheet 의 edit 모드 검증.
 ///
@@ -27,6 +29,8 @@ void main() {
           categoriesProvider.overrideWith(
             (_) => Stream.value(Category.builtinSeeds),
           ),
+          // J — 카테고리 칩 그룹핑용 groupsProvider watch. Drift timer leak 방지.
+          groupsProvider.overrideWith((_) => Stream.value(<Group>[])),
         ],
         child: MaterialApp(
           home: Scaffold(

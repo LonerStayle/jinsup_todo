@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
+import '../../domain/group.dart';
 import '../../domain/todo.dart' show Todo, TodoDateMode, TodoType;
 import '../category/categories_controller.dart';
+import '../category/groups_controller.dart';
 
 /// "빠른 추가" 입력 패널.
 ///
@@ -603,6 +605,8 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
     // loading / error 시 builtin 5종 fallback.
     final categories =
         ref.watch(categoriesProvider).asData?.value ?? Category.builtinSeeds;
+    // J — 카테고리 칩을 소속 그룹별로 묶어 보여 주기 위해 그룹 목록도 watch.
+    final groups = ref.watch(groupsProvider).asData?.value ?? const <Group>[];
     // 선택된 카테고리가 목록에 없으면 (삭제됨 / 초기값 불일치) 첫 항목으로 자동 보정.
     // build 중 setState 금지 → post-frame 으로 안전하게 갱신.
     if (categories.isNotEmpty && !categories.any((c) => c.id == _category.id)) {
@@ -713,6 +717,7 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
                     const SizedBox(height: AppTokens.space8),
                     _CategoryChips(
                       categories: categories,
+                      groups: groups,
                       selected: _category,
                       onSelect: (c) => setState(() => _category = c),
                     ),
@@ -859,28 +864,110 @@ class _SectionLabel extends StatelessWidget {
 class _CategoryChips extends StatelessWidget {
   const _CategoryChips({
     required this.categories,
+    required this.groups,
     required this.selected,
     required this.onSelect,
   });
 
   /// v1.2 — 동적 카테고리 목록 (categoriesProvider). builtin + 사용자 추가 모두 포함.
   final List<Category> categories;
+
+  /// J — 카테고리를 소속 그룹별로 묶기 위한 그룹 목록. 비면 평면 나열.
+  final List<Group> groups;
   final Category selected;
   final ValueChanged<Category> onSelect;
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _wrap(List<Category> items) {
     return Wrap(
       spacing: AppTokens.space8,
       runSpacing: AppTokens.space8,
       children: [
-        for (final c in categories)
+        for (final c in items)
           _CategoryChip(
             category: c,
             // 전체 동등 비교는 DB 인스턴스 ↔ const 차이로 어긋날 수 있어 id 로 비교.
             selected: c.id == selected.id,
             onTap: () => onSelect(c),
           ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 그룹이 하나도 없으면 기존처럼 평면 한 줄 Wrap (불필요한 헤더 미노출).
+    if (groups.isEmpty) return _wrap(categories);
+
+    final ungrouped = <Category>[];
+    final byGroup = <String, List<Category>>{};
+    for (final c in categories) {
+      final gid = c.groupId;
+      if (gid == null) {
+        ungrouped.add(c);
+      } else {
+        byGroup.putIfAbsent(gid, () => <Category>[]).add(c);
+      }
+    }
+    // 존재하지 않는 그룹에 매인 카테고리는 미분류로 흡수.
+    final groupIds = groups.map((g) => g.id).toSet();
+    for (final entry in byGroup.entries.toList()) {
+      if (!groupIds.contains(entry.key)) {
+        ungrouped.addAll(entry.value);
+        byGroup.remove(entry.key);
+      }
+    }
+
+    final sections = <Widget>[];
+    if (ungrouped.isNotEmpty) {
+      sections.add(const _GroupSectionLabel(label: '미분류'));
+      sections.add(const SizedBox(height: AppTokens.space8));
+      sections.add(_wrap(ungrouped));
+    }
+    for (final g in groups) {
+      final items = byGroup[g.id] ?? const <Category>[];
+      if (items.isEmpty) continue;
+      if (sections.isNotEmpty) {
+        sections.add(const SizedBox(height: AppTokens.space12));
+      }
+      sections.add(_GroupSectionLabel(label: g.label, color: g.color));
+      sections.add(const SizedBox(height: AppTokens.space8));
+      sections.add(_wrap(items));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sections,
+    );
+  }
+}
+
+/// J — 카테고리 칩 섹션 헤더 (그룹명/'미분류' + 색 dot).
+class _GroupSectionLabel extends StatelessWidget {
+  const _GroupSectionLabel({required this.label, this.color});
+
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dot = color ?? scheme.onSurface.withValues(alpha: 0.4);
+    return Row(
+      children: [
+        Icon(Icons.circle, size: 9, color: dot),
+        const SizedBox(width: AppTokens.space8),
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: scheme.onSurface.withValues(alpha: 0.6),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ),
       ],
     );
   }
