@@ -222,7 +222,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 > **[v1.5 머지 반영]** '오늘'·'타임라인' 은 `VisibilityPolicy.isVisibleToday` 로 **note 를 항상 제외**(note·무날짜 → 오늘 비노출, 의도된 v1.5 동작 — 되돌리지 말 것)하므로 **task 전용**이다. 메모와 할 일이 실제로 **섞이는 면은 `CategoryView` + 인라인 트리(자식) + 드릴다운 상세(`todo_detail_screen`) + Outline 메모탭** 뿐. §13 의 note 시각 재설계는 이 면들에 적용된다(TodoTile 이 공통 atom 이라 `todo_category_sections` 등 재사용처에도 자동 전파). 신규 위젯 `today_progress_summary`·`timeline_screen` 은 task 전용이라 note 시각 대상 아님.
 
 **시각 토큰 기반 (단일 출처)**
-- [ ] `theme.dart` 에 note 전용 시각 헬퍼 추가 — `NoteVisual` (또는 AppTokens 확장) 에 note 틴트 fill alpha(light/dark 분기), 좌측 accent 보더 두께(3px), "메모" 라벨 스타일·색 규칙을 단일 상수로 정의 + 카테고리색 기반 `noteTint(category, brightness)` / `noteAccent(category)` 순수 헬퍼. 단위 test (라이트/다크 alpha 분기 + 카테고리 5색 반영).
+- [x] `theme.dart` 에 note 전용 시각 헬퍼 `NoteVisual` 추가 — `accentWidth`(3px) / `label`("메모") / 틴트 alpha(light 0.08·dark 0.16) / 라벨 bg·outline alpha 상수 + 순수 헬퍼 `tint(category, brightness)` / `accent(category)` / `labelBackground·labelForeground·labelOutline(category)`. BuildContext 없이 [Category.color] 한 곳에서만 색 파생. 단위 test 8건 (라이트/다크 alpha 분기 + RGB 보존 + builtin 5색 반영). 440/440 PASS.
 
 **TodoTile note 재설계 (핵심)**
 - [ ] TodoTile note 분기에 좌측 카테고리색 accent 보더(3px) + 카테고리색 저알파 틴트 배경 적용 — Card color/shape override, task 는 기존 surface 유지, 라이트/다크 분기. 기존 8px 컬러바와 시각 충돌 정리(note 는 accent 보더로 대체). widget test (note 틴트/보더 존재 + task 미적용).
