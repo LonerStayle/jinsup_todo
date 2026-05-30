@@ -39,10 +39,12 @@ void main() {
     required Category category,
     String title = 'x',
     DateTime? doneAt,
+    TodoType type = TodoType.task,
   }) => Todo(
     id: id,
     title: title,
     category: category,
+    type: type,
     dueAt: null,
     doneAt: doneAt,
     createdAt: DateTime.utc(2026, 5, 27),
@@ -76,6 +78,26 @@ void main() {
     expect(find.text('아이디어 B'), findsOneWidget);
     expect(find.text('아이디어 C 완료'), findsOneWidget);
     expect(find.text('미체크 2'), findsOneWidget);
+    expect(find.text('완료 1'), findsOneWidget);
+  });
+
+  testWidgets('메모(note)는 미체크/완료 카운트에서 제외된다', (tester) async {
+    final controller = await mount(tester, category: Category.idea);
+    controller.add([
+      todo(id: '1', category: Category.idea, title: '태스크 미체크'),
+      todo(
+        id: '2',
+        category: Category.idea,
+        title: '태스크 완료',
+        doneAt: DateTime.utc(2026, 5, 27, 12),
+      ),
+      // note 는 체크 개념이 없어 카운트에서 빠져야 한다 (예전엔 미체크로 잘못 셈).
+      todo(id: '3', category: Category.idea, title: '메모', type: TodoType.note),
+    ]);
+    await tester.pump();
+
+    expect(find.text('메모'), findsOneWidget);
+    expect(find.text('미체크 1'), findsOneWidget);
     expect(find.text('완료 1'), findsOneWidget);
   });
 

@@ -102,8 +102,11 @@ class _LoadedState extends State<_Loaded> {
   Widget build(BuildContext context) {
     final todos = widget.todos;
     final category = widget.category;
-    final undone = todos.where((t) => !t.isDone).length;
-    final done = todos.length - undone;
+    // 미체크/완료 카운트는 **task 만** 센다. note(메모) 는 체크 개념이 없어
+    // isDone 이 항상 false → 예전엔 모두 '미체크'로 잘못 잡혔다 (이슈 수정).
+    final tasks = todos.where((t) => t.type == TodoType.task);
+    final undone = tasks.where((t) => !t.isDone).length;
+    final done = tasks.where((t) => t.isDone).length;
 
     return CustomScrollView(
       slivers: [

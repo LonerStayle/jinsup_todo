@@ -69,6 +69,44 @@ class CategoriesController {
     }
   }
 
+  /// 드래그→드롭 통합 — [dragged] 를 [targetGroupId] 그룹의 [insertIndex] 위치로 옮긴다.
+  /// 그룹 이동(⠿ 를 그룹 헤더/미분류로)과 순서변경(다른 행 위로)을 한 메서드로 처리한다.
+  ///
+  /// [orderedSiblings] 는 **대상 그룹의 현재 화면 순서**(작은 sortOrder = 위)에서 [dragged]
+  /// 자신을 제외한 카테고리들. [insertIndex] 는 그 리스트 기준 삽입 위치(0 = 맨 위,
+  /// length = 맨 아래). 대상 그룹 전체에 연속 sortOrder 를 재부여하고, groupId/sortOrder 가
+  /// 실제 바뀐 카테고리만 upsert (동기화 포함).
+  Future<void> moveCategoryInto(
+    Category dragged,
+    String? targetGroupId,
+    List<Category> orderedSiblings,
+    int insertIndex,
+  ) async {
+    final list = List<Category>.of(orderedSiblings);
+    var idx = insertIndex;
+    if (idx < 0) idx = 0;
+    if (idx > list.length) idx = list.length;
+    list.insert(idx, dragged);
+
+    // base = 대상 그룹 기존 최소 sortOrder (그룹의 상대 위치 유지). 비어있으면 0.
+    var base = 0;
+    if (orderedSiblings.isNotEmpty) {
+      base = orderedSiblings.first.sortOrder;
+      for (final s in orderedSiblings) {
+        if (s.sortOrder < base) base = s.sortOrder;
+      }
+    }
+    for (var i = 0; i < list.length; i++) {
+      final c = list[i];
+      final desiredSort = base + i;
+      if (c.groupId != targetGroupId || c.sortOrder != desiredSort) {
+        await _repo.upsert(
+          c.copyWith(groupId: targetGroupId, sortOrder: desiredSort),
+        );
+      }
+    }
+  }
+
   /// id 기준 삭제 시도.
   ///
   /// 반환값:

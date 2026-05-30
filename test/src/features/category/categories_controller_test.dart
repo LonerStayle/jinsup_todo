@@ -155,5 +155,68 @@ void main() {
         expect((await db.categoriesDao.getById('b'))!.sortOrder, 11);
       });
     });
+
+    group('⠿/드래그 통합 — moveCategoryInto', () {
+      Category cat(String id, int sortOrder, String? groupId) => Category(
+        id: id,
+        label: id,
+        iconCodePoint: 0xe865,
+        colorValue: 0xFF888888,
+        sortOrder: sortOrder,
+        groupId: groupId,
+      );
+
+      Future<Category> get_(AppDatabase db, String id) async =>
+          (await db.categoriesDao.getById(id))!;
+
+      test('같은 그룹 안 순서변경 — c 를 a 앞으로 (orderedSiblings 는 dragged 제외)', () async {
+        final a = cat('a', 10, 'g1');
+        final b = cat('b', 11, 'g1');
+        final c = cat('c', 12, 'g1');
+        for (final x in [a, b, c]) {
+          await controller.add(x);
+        }
+
+        // c 를 a(index 0) 앞으로 — orderedSiblings 는 c 제외 [a,b], insertIndex 0.
+        await controller.moveCategoryInto(c, 'g1', [a, b], 0);
+
+        // base = min(10,11)=10 → c=10, a=11, b=12, 모두 g1 유지.
+        expect((await get_(db, 'c')).sortOrder, 10);
+        expect((await get_(db, 'a')).sortOrder, 11);
+        expect((await get_(db, 'b')).sortOrder, 12);
+        expect((await get_(db, 'c')).groupId, 'g1');
+      });
+
+      test('다른 그룹으로 이동 + 위치 지정 — a 를 g2 의 y 앞으로', () async {
+        final a = cat('a', 10, 'g1');
+        final b = cat('b', 11, 'g1');
+        final x = cat('x', 20, 'g2');
+        final y = cat('y', 21, 'g2');
+        for (final c in [a, b, x, y]) {
+          await controller.add(c);
+        }
+
+        // a 를 g2 의 y(index 1) 앞으로 — orderedSiblings = g2 의 [x,y], insertIndex 1.
+        await controller.moveCategoryInto(a, 'g2', [x, y], 1);
+
+        // a 는 이제 g2, base = min(20,21)=20 → x=20, a=21, y=22.
+        final movedA = await get_(db, 'a');
+        expect(movedA.groupId, 'g2');
+        expect(movedA.sortOrder, 21);
+        expect((await get_(db, 'x')).sortOrder, 20);
+        expect((await get_(db, 'y')).sortOrder, 22);
+        // b 는 g1 에 그대로.
+        expect((await get_(db, 'b')).groupId, 'g1');
+      });
+
+      test('미분류(null)로 이동 — groupId null 로 갱신', () async {
+        final a = cat('a', 10, 'g1');
+        await controller.add(a);
+
+        await controller.moveCategoryInto(a, null, const [], 0);
+
+        expect((await get_(db, 'a')).groupId, isNull);
+      });
+    });
   });
 }
