@@ -173,6 +173,9 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
         colorValue: catRow.colorValue,
         sortOrder: catRow.sortOrder,
         isBuiltin: catRow.isBuiltin,
+        // groupId 를 빠뜨리면 todo.category.groupId 가 항상 null 이 되어 '오늘' 섹션 /
+        // 타임라인의 그룹 라벨이 표시되지 않는다. join 된 row 의 소속 그룹을 그대로 보존.
+        groupId: catRow.groupId,
       );
     }
     return Category.tryFromId(id) ?? _placeholderCategory(id);

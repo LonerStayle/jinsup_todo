@@ -9,25 +9,26 @@ import 'package:solo_todo/src/domain/category.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/home/today_providers.dart';
 
-/// today_providers (watchTodayTodos + carryoverCount) 가 dueAt null (시간 미지정,
-/// "하루 종일") todo 를 비전 그대로 처리하는지 검증.
+/// today_providers (watchTodayTodos + carryoverCount) 의 v1.5 날짜 기반 동작 검증.
 ///
-/// 핵심:
-///   - dueAt 가 null 이면 effective date 는 createdAt 으로 본다 (CarryoverPolicy
-///     + VisibilityPolicy 의 공통 규칙).
-///   - 즉, dueAt null + createdAt 어제 + 미체크 = 오늘로 자동 이월 (visible + carry count).
-///   - dueAt null + createdAt 오늘 + 미체크 = 오늘 신규 (visible, carry count X).
+/// 핵심 (v1.5 변경):
+///   - **날짜(dueAt) 가 없는 항목은 오늘 화면에서 제외**된다 (이전엔 createdAt 폴백으로
+///     무조건 오늘에 떠서 영구 이월되던 문제를 제거). 무날짜 항목은 전체보기에서 관리.
+///   - dueAt 어제 + 미체크 = 오늘로 이월 (visible + carry count).
+///   - dueAt 오늘 + 미체크 = 오늘 (visible, carry count X).
 void main() {
-  group('today_providers — dueAt null (하루 종일) todo', () {
-    test('dueAt null + createdAt 어제 + 미체크 → 오늘 visible + carryover 1', () {
+  ProviderContainer makeContainer(AppDatabase db) => ProviderContainer(
+    overrides: [
+      appDatabaseProvider.overrideWithValue(db),
+      nowProvider.overrideWithValue(() => clock.now()),
+    ],
+  );
+
+  group('today_providers — 무날짜(dueAt null) 항목 제외', () {
+    test('dueAt null + createdAt 어제 + 미체크 → 오늘에서 제외 (visible 0, carry 0)', () {
       fakeAsync((async) {
         final db = AppDatabase.memory();
-        final container = ProviderContainer(
-          overrides: [
-            appDatabaseProvider.overrideWithValue(db),
-            nowProvider.overrideWithValue(() => clock.now()),
-          ],
-        );
+        final container = makeContainer(db);
         addTearDown(() async {
           container.dispose();
           await db.close();
@@ -40,32 +41,91 @@ void main() {
         container.listen(watchTodayTodosProvider, (_, _) {});
         async.flushMicrotasks();
 
-        final visible = container.read(watchTodayTodosProvider).requireValue;
-        expect(visible.map((t) => t.id), ['carry']);
         expect(
-          container.read(carryoverCountProvider),
-          1,
-          reason: 'dueAt null + createdAt 어제 = effective 어제 → 이월 카운트에 포함',
+          container.read(watchTodayTodosProvider).requireValue,
+          isEmpty,
+          reason: 'v1.5 — 무날짜 항목은 오늘에 뜨지 않는다',
         );
+        expect(container.read(carryoverCountProvider), 0);
       }, initialTime: DateTime(2026, 5, 27, 10));
     });
 
-    test('dueAt null + createdAt 오늘 + 미체크 → visible + carryover 0', () {
+    test('dueAt null 여러 건 (어제/오늘 생성) → 전부 제외, carry 0', () {
       fakeAsync((async) {
         final db = AppDatabase.memory();
-        final container = ProviderContainer(
-          overrides: [
-            appDatabaseProvider.overrideWithValue(db),
-            nowProvider.overrideWithValue(() => clock.now()),
-          ],
-        );
+        final container = makeContainer(db);
         addTearDown(() async {
           container.dispose();
           await db.close();
         });
 
         db.todosDao.upsert(
-          _todo(id: 'fresh', createdAt: DateTime.utc(2026, 5, 27, 1)),
+          _todo(id: 'a', createdAt: DateTime.utc(2026, 5, 26, 9)),
+        );
+        db.todosDao.upsert(
+          _todo(id: 'b', createdAt: DateTime.utc(2026, 5, 25, 9)),
+        );
+        db.todosDao.upsert(
+          _todo(id: 'today', createdAt: DateTime.utc(2026, 5, 27, 2)),
+        );
+
+        container.listen(watchTodayTodosProvider, (_, _) {});
+        async.flushMicrotasks();
+
+        expect(container.read(watchTodayTodosProvider).requireValue, isEmpty);
+        expect(container.read(carryoverCountProvider), 0);
+      }, initialTime: DateTime(2026, 5, 27, 10));
+    });
+  });
+
+  group('today_providers — 날짜 지정 항목 이월', () {
+    test('dueAt 어제 + 미체크 → 오늘 visible + carryover 1', () {
+      fakeAsync((async) {
+        final db = AppDatabase.memory();
+        final container = makeContainer(db);
+        addTearDown(() async {
+          container.dispose();
+          await db.close();
+        });
+
+        db.todosDao.upsert(
+          _todo(
+            id: 'carry',
+            createdAt: DateTime.utc(2026, 5, 26, 9),
+            dueAt: DateTime(2026, 5, 26, 9),
+          ),
+        );
+
+        container.listen(watchTodayTodosProvider, (_, _) {});
+        async.flushMicrotasks();
+
+        expect(
+          container.read(watchTodayTodosProvider).requireValue.map((t) => t.id),
+          ['carry'],
+        );
+        expect(
+          container.read(carryoverCountProvider),
+          1,
+          reason: 'dueAt 어제 = 이월 카운트에 포함',
+        );
+      }, initialTime: DateTime(2026, 5, 27, 10));
+    });
+
+    test('dueAt 오늘 + 미체크 → visible + carryover 0', () {
+      fakeAsync((async) {
+        final db = AppDatabase.memory();
+        final container = makeContainer(db);
+        addTearDown(() async {
+          container.dispose();
+          await db.close();
+        });
+
+        db.todosDao.upsert(
+          _todo(
+            id: 'fresh',
+            createdAt: DateTime.utc(2026, 5, 27, 1),
+            dueAt: DateTime(2026, 5, 27, 14),
+          ),
         );
 
         container.listen(watchTodayTodosProvider, (_, _) {});
@@ -75,23 +135,14 @@ void main() {
           container.read(watchTodayTodosProvider).requireValue.map((t) => t.id),
           ['fresh'],
         );
-        expect(
-          container.read(carryoverCountProvider),
-          0,
-          reason: '오늘 생성된 dueAt null todo 는 이월이 아님',
-        );
+        expect(container.read(carryoverCountProvider), 0);
       }, initialTime: DateTime(2026, 5, 27, 10));
     });
 
-    test('dueAt null + 어제 만들고 어제 체크됨 → hide (carry 카운트 X)', () {
+    test('dueAt 어제 + 어제 체크됨 → hide (carry X)', () {
       fakeAsync((async) {
         final db = AppDatabase.memory();
-        final container = ProviderContainer(
-          overrides: [
-            appDatabaseProvider.overrideWithValue(db),
-            nowProvider.overrideWithValue(() => clock.now()),
-          ],
-        );
+        final container = makeContainer(db);
         addTearDown(() async {
           container.dispose();
           await db.close();
@@ -101,6 +152,7 @@ void main() {
           _todo(
             id: 'staleDone',
             createdAt: DateTime.utc(2026, 5, 26, 9),
+            dueAt: DateTime(2026, 5, 26, 9),
             doneAt: DateTime(2026, 5, 26, 20),
           ),
         );
@@ -116,58 +168,19 @@ void main() {
         expect(container.read(carryoverCountProvider), 0);
       }, initialTime: DateTime(2026, 5, 27, 10));
     });
-
-    test('dueAt null 어제 미체크 여러 건 → carryoverCount 가 개수만큼 누적', () {
-      fakeAsync((async) {
-        final db = AppDatabase.memory();
-        final container = ProviderContainer(
-          overrides: [
-            appDatabaseProvider.overrideWithValue(db),
-            nowProvider.overrideWithValue(() => clock.now()),
-          ],
-        );
-        addTearDown(() async {
-          container.dispose();
-          await db.close();
-        });
-
-        db.todosDao.upsert(
-          _todo(id: 'a', createdAt: DateTime.utc(2026, 5, 26, 9)),
-        );
-        db.todosDao.upsert(
-          _todo(id: 'b', createdAt: DateTime.utc(2026, 5, 25, 9)),
-        );
-        db.todosDao.upsert(
-          // dueAt null + 오늘 createdAt — 이월 카운트에 포함되면 안 됨
-          _todo(id: 'today', createdAt: DateTime.utc(2026, 5, 27, 2)),
-        );
-
-        container.listen(watchTodayTodosProvider, (_, _) {});
-        async.flushMicrotasks();
-
-        expect(
-          container
-              .read(watchTodayTodosProvider)
-              .requireValue
-              .map((t) => t.id)
-              .toSet(),
-          {'a', 'b', 'today'},
-        );
-        expect(container.read(carryoverCountProvider), 2);
-      }, initialTime: DateTime(2026, 5, 27, 10));
-    });
   });
 }
 
 Todo _todo({
   required String id,
   required DateTime createdAt,
+  DateTime? dueAt,
   DateTime? doneAt,
 }) => Todo(
   id: id,
-  title: '하루 종일 $id',
+  title: '항목 $id',
   category: Category.daily,
-  dueAt: null,
+  dueAt: dueAt,
   doneAt: doneAt,
   createdAt: createdAt,
   updatedAt: createdAt,

@@ -10,11 +10,13 @@ import '../../domain/policies/carryover_policy.dart';
 import '../../domain/todo.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../../ui/widgets/skeleton.dart';
-import '../../ui/widgets/todo_drill_list.dart';
+import '../../ui/widgets/today_progress_summary.dart';
+import '../../ui/widgets/todo_category_sections.dart';
 import '../../ui/widgets/undo_snackbar.dart';
 import '../add_todo/add_todo_controller.dart';
 import '../add_todo/add_todo_sheet.dart';
 import '../category/categories_controller.dart';
+import '../category/groups_controller.dart';
 import '../outline/tree_providers.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import '../todo_detail/todo_detail_screen.dart';
@@ -39,6 +41,7 @@ class HomeScreen extends ConsumerWidget {
     final asyncTodos = ref.watch(watchTodayTodosProvider);
     final globalCarryover = ref.watch(carryoverCountProvider);
     final allTodos = ref.watch(allTodosProvider).asData?.value ?? const [];
+    final groups = ref.watch(groupsProvider).asData?.value ?? const <Group>[];
     final now = ref.watch(nowProvider)();
 
     // 그룹 필터 — 이 그룹에 속한 카테고리 id 집합 (null = 전역, 필터 없음).
@@ -67,9 +70,18 @@ class HomeScreen extends ConsumerWidget {
             : todos
                   .where((t) => CarryoverPolicy.shouldCarryOverToday(t, now))
                   .length;
+        // 상단 진척 요약 — 오늘 task(메모 제외) 완료/전체.
+        final tasks = todos.where((t) => t.type == TodoType.task);
+        final doneCount = tasks.where((t) => t.isDone).length;
+        final totalCount = tasks.length;
         return _Loaded(
           todos: todos,
           allTodos: allTodos,
+          groups: groups,
+          // 그룹 탭(group != null) 안에서는 그룹 라벨이 중복이라 숨긴다.
+          showGroupLabel: group == null,
+          doneCount: doneCount,
+          totalCount: totalCount,
           carryoverCount: carryoverCount,
           showHeader: showHeader,
           now: now,
@@ -119,6 +131,10 @@ class _Loaded extends StatefulWidget {
   const _Loaded({
     required this.todos,
     required this.allTodos,
+    required this.groups,
+    required this.showGroupLabel,
+    required this.doneCount,
+    required this.totalCount,
     required this.carryoverCount,
     required this.showHeader,
     required this.now,
@@ -134,6 +150,16 @@ class _Loaded extends StatefulWidget {
   /// 자식은 인라인으로 펼치지 않고 드릴다운 상세 화면에서 본다.
   final List<Todo> todos;
   final List<Todo> allTodos;
+
+  /// 카테고리 섹션 헤더의 그룹 라벨 출력용.
+  final List<Group> groups;
+
+  /// 그룹 탭 안에서는 그룹 라벨이 중복이라 false.
+  final bool showGroupLabel;
+
+  /// 상단 진척 요약 — 오늘 task 완료/전체.
+  final int doneCount;
+  final int totalCount;
   final int carryoverCount;
 
   /// 큰 '오늘' 헤더 표시 여부 (그룹 탭 임베드 시 false).
@@ -173,15 +199,36 @@ class _LoadedState extends State<_Loaded> {
               AppTokens.space24,
               AppTokens.space32,
               AppTokens.space24,
-              AppTokens.space16,
+              AppTokens.space12,
             ),
             sliver: SliverToBoxAdapter(child: _Header(now: widget.now)),
           )
         else
           const SliverToBoxAdapter(child: SizedBox(height: AppTokens.space16)),
+        // 상단 진척 요약 — 오늘 task 가 1개 이상일 때만.
+        if (widget.totalCount > 0)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTokens.space24,
+              0,
+              AppTokens.space24,
+              AppTokens.space8,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: TodayProgressSummary(
+                done: widget.doneCount,
+                total: widget.totalCount,
+              ),
+            ),
+          ),
         if (widget.carryoverCount > 0)
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+            padding: const EdgeInsets.fromLTRB(
+              AppTokens.space24,
+              AppTokens.space8,
+              AppTokens.space24,
+              0,
+            ),
             sliver: SliverToBoxAdapter(
               child: _CarryoverBanner(count: widget.carryoverCount),
             ),
@@ -195,25 +242,21 @@ class _LoadedState extends State<_Loaded> {
               subtitle: 'Cmd+N 으로 빠르게 추가해보세요.',
             ),
           )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
-              AppTokens.space24,
-              AppTokens.space16,
-              AppTokens.space24,
-              AppTokens.space48,
-            ),
-            sliver: TodoDrillListSliver(
-              items: roots,
-              allTodos: widget.allTodos,
-              onToggle: widget.onToggle,
-              onDelete: widget.onDelete,
-              onEdit: widget.onEdit,
-              onDrillDown: widget.onDrillDown,
-              onAddChild: widget.onAddChild,
-              onReorderSiblings: widget.onReorderSiblings,
-            ),
+        else ...[
+          ...todayCategorySectionSlivers(
+            roots: roots,
+            allTodos: widget.allTodos,
+            groups: widget.groups,
+            showGroupLabel: widget.showGroupLabel,
+            onToggle: widget.onToggle,
+            onDelete: widget.onDelete,
+            onEdit: widget.onEdit,
+            onDrillDown: widget.onDrillDown,
+            onAddChild: widget.onAddChild,
+            onReorderSiblings: widget.onReorderSiblings,
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: AppTokens.space48)),
+        ],
       ],
     );
   }

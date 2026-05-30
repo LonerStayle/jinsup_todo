@@ -28,11 +28,12 @@ void main() {
         await db.close();
       });
 
-      // seed: 오늘 (5/27) 에 체크된 todo + 미체크 todo.
+      // seed: 오늘 (5/27) 날짜 지정 — 체크된 todo + 미체크 todo. (v1.5: 무날짜는 오늘 제외)
       db.todosDao.upsert(
         _buildTodo(
           id: 'done-today',
           title: '오늘 체크됨',
+          dueAt: DateTime(2026, 5, 27, 8),
           doneAt: DateTime(2026, 5, 27, 15),
           createdAt: DateTime.utc(2026, 5, 27, 1),
         ),
@@ -41,6 +42,7 @@ void main() {
         _buildTodo(
           id: 'undone',
           title: '미체크 (계속 보임)',
+          dueAt: DateTime(2026, 5, 27, 8),
           createdAt: DateTime.utc(2026, 5, 27, 2),
         ),
       );
@@ -72,6 +74,7 @@ void main() {
 Todo _buildTodo({
   required String id,
   required String title,
+  DateTime? dueAt,
   DateTime? doneAt,
   DateTime? createdAt,
 }) {
@@ -80,7 +83,7 @@ Todo _buildTodo({
     id: id,
     title: title,
     category: Category.daily,
-    dueAt: null,
+    dueAt: dueAt,
     doneAt: doneAt,
     createdAt: c,
     updatedAt: c,
