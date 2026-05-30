@@ -54,24 +54,25 @@ void main() {
     expect(find.text('오늘'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('숫자 1 키 → work 카테고리 헤더 노출', (tester) async {
+  // v1.4 (Task G) — 단축키 재배치: today=0, outline=1, 카테고리 2~6.
+  testWidgets('숫자 2 키 → work 카테고리 헤더 노출', (tester) async {
     await pump(tester);
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
     await tester.pump();
     expect(find.text('회사 할일'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('숫자 3 키 → daily 카테고리 헤더 노출', (tester) async {
+  testWidgets('숫자 4 키 → daily 카테고리 헤더 노출', (tester) async {
     await pump(tester);
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit4);
     await tester.pump();
     expect(find.text('일상'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('숫자 5 → idea 로 이동 후 0 → Today 복귀', (tester) async {
+  testWidgets('숫자 6 → idea 로 이동 후 0 → Today 복귀', (tester) async {
     await pump(tester);
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit5);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit6);
     await tester.pump();
     expect(find.text('아이디어'), findsAtLeastNWidgets(1));
 
@@ -80,10 +81,10 @@ void main() {
     expect(find.text('오늘'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('v1.1 — 숫자 6 → Outline (전체보기) 화면 노출', (tester) async {
+  testWidgets('v1.4 — 숫자 1 → Outline (전체보기) 화면 노출', (tester) async {
     await pump(tester);
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit6);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
     await tester.pump();
-    expect(find.text('카테고리 / 폴더 / 메모를 한 화면에'), findsOneWidget);
+    expect(find.text('체크리스트는 트리로, 메모는 메모별로'), findsOneWidget);
   });
 }

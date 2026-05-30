@@ -8,70 +8,55 @@ import '../category/categories_controller.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import 'tree_providers.dart';
 
-/// 전체 트리 view — 5 카테고리 root + 자식 트리를 한 화면에 펼침/접힘으로 표시.
+/// 전체 트리 view — 카테고리 root + 자식 트리를 한 화면에 펼침/접힘으로 표시.
 ///
-/// 메모장 가독성에 가까운 outline UI. 각 폴더 헤더는 `[done/task]` + progress bar 로
-/// 서브트리 진척률 표시 (note 는 분모 제외). 깊이별 16px 들여쓰기.
-class OutlineScreen extends ConsumerStatefulWidget {
+/// v1.4 (Task D) — 상단 탭 2개로 분리:
+///   - **체크리스트**: task 트리만 (note 제외). 카테고리 root + task 자식, 진척률·체크 토글.
+///   - **메모**: note 만 카테고리별 섹션으로 평탄 나열 (체크 개념 없음, 정적 표시).
+///
+/// "메모는 메모별로, 체크리스트는 체크리스트로" — 한 화면에 섞지 않는다.
+class OutlineScreen extends ConsumerWidget {
   const OutlineScreen({super.key});
 
   @override
-  ConsumerState<OutlineScreen> createState() => _OutlineScreenState();
-}
-
-class _OutlineScreenState extends ConsumerState<OutlineScreen> {
-  /// "접힌" 노드 id 모음 — default 가 펼침 상태. id 가 set 에 있으면 접힌 상태.
-  /// 카테고리 헤더는 'cat:work' 같은 접두 형식으로 구분, todo 는 그대로 todo.id.
-  final Set<String> _collapsed = {};
-
-  bool _expanded(String id) => !_collapsed.contains(id);
-  void _toggle(String id) {
-    setState(() {
-      if (_collapsed.contains(id)) {
-        _collapsed.remove(id);
-      } else {
-        _collapsed.add(id);
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // v1.2 — 동적 카테고리. loading / error 시 builtin 5종 fallback.
     final categories =
         ref.watch(categoriesProvider).asData?.value ?? Category.builtinSeeds;
 
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            AppTokens.space24,
-            AppTokens.space32,
-            AppTokens.space24,
-            AppTokens.space16,
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTokens.space24,
+              AppTokens.space32,
+              AppTokens.space24,
+              AppTokens.space12,
+            ),
+            child: _Header(),
           ),
-          sliver: SliverToBoxAdapter(child: _Header()),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            AppTokens.space16,
-            0,
-            AppTokens.space16,
-            AppTokens.space48,
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppTokens.space16),
+            child: TabBar(
+              key: ValueKey('outline-tabs'),
+              tabs: [
+                Tab(text: '체크리스트'),
+                Tab(text: '메모'),
+              ],
+            ),
           ),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              for (final c in categories)
-                _OutlineCategory(
-                  category: c,
-                  collapsed: _collapsed,
-                  expanded: _expanded,
-                  onToggle: _toggle,
-                ),
-            ]),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _ChecklistTab(categories: categories),
+                _NotesTab(categories: categories),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -90,7 +75,70 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppTokens.space4),
-        Text('카테고리 / 폴더 / 메모를 한 화면에', style: theme.textTheme.bodyMedium),
+        Text('체크리스트는 트리로, 메모는 메모별로', style: theme.textTheme.bodyMedium),
+      ],
+    );
+  }
+}
+
+// ───────────────────────── 체크리스트 탭 (task 트리) ─────────────────────────
+
+/// 체크리스트 탭 — 카테고리별 task root + task 자식 트리. note 는 모두 제외.
+/// 펼침/접힘 상태는 이 탭이 자체 보유 (탭 전환해도 유지).
+class _ChecklistTab extends StatefulWidget {
+  const _ChecklistTab({required this.categories});
+
+  final List<Category> categories;
+
+  @override
+  State<_ChecklistTab> createState() => _ChecklistTabState();
+}
+
+class _ChecklistTabState extends State<_ChecklistTab>
+    with AutomaticKeepAliveClientMixin {
+  /// "접힌" 노드 id 모음 — default 가 펼침 상태. id 가 set 에 있으면 접힌 상태.
+  /// 카테고리 헤더는 'cat:work' 접두 형식, todo 는 그대로 todo.id.
+  final Set<String> _collapsed = {};
+
+  bool _expanded(String id) => !_collapsed.contains(id);
+  void _toggle(String id) {
+    setState(() {
+      if (_collapsed.contains(id)) {
+        _collapsed.remove(id);
+      } else {
+        _collapsed.add(id);
+      }
+    });
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return CustomScrollView(
+      key: const PageStorageKey('outline-checklist'),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTokens.space16,
+            AppTokens.space12,
+            AppTokens.space16,
+            AppTokens.space48,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              for (final c in widget.categories)
+                _OutlineCategory(
+                  category: c,
+                  collapsed: _collapsed,
+                  expanded: _expanded,
+                  onToggle: _toggle,
+                ),
+            ]),
+          ),
+        ),
       ],
     );
   }
@@ -111,7 +159,11 @@ class _OutlineCategory extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final roots = ref.watch(rootsOfCategoryProvider(category)).asData?.value;
+    // 체크리스트 탭 — task root 만 (note root 제외).
+    final roots = ref
+        .watch(taskRootsOfCategoryProvider(category))
+        .asData
+        ?.value;
     final allTodos = ref.watch(allTodosProvider).asData?.value;
     final isExpanded = expanded('cat:${category.id}');
 
@@ -231,7 +283,8 @@ class _OutlineNode extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final children = ref.watch(childrenOfProvider(node.id)).asData?.value;
+    // 체크리스트 탭 — task 자식만 (note 자식 제외).
+    final children = ref.watch(childTasksOfProvider(node.id)).asData?.value;
     final allTodos = ref.watch(allTodosProvider).asData?.value;
     final isFolder = children != null && children.isNotEmpty;
     final isExpanded = isFolder && expanded(node.id);
@@ -241,7 +294,6 @@ class _OutlineNode extends ConsumerWidget {
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isNote = node.type == TodoType.note;
     final isDone = node.isDone;
 
     return Column(
@@ -274,32 +326,24 @@ class _OutlineNode extends ConsumerWidget {
                       : null,
                 ),
                 const SizedBox(width: AppTokens.space4),
-                // note 는 체크 개념이 없어 정적 아이콘. task 는 탭하면 체크 토글 —
-                // 하위 트리(자식) 노드까지 모두 동작 (각 todo 가 독립적으로 체크).
-                if (isNote)
-                  Icon(
-                    Icons.sticky_note_2_outlined,
-                    size: 16,
-                    color: scheme.onSurface.withValues(alpha: 0.45),
-                  )
-                else
-                  InkWell(
-                    key: ValueKey('outline-check-${node.id}'),
-                    onTap: () => ref.read(todoActionsProvider).toggle(node),
-                    customBorder: const CircleBorder(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppTokens.space4),
-                      child: Icon(
-                        isDone
-                            ? Icons.check_circle_rounded
-                            : Icons.radio_button_unchecked,
-                        size: 16,
-                        color: isDone
-                            ? node.category.color
-                            : scheme.onSurface.withValues(alpha: 0.45),
-                      ),
+                // 체크리스트 탭은 task 만 — 탭하면 체크 토글 (자식 트리 포함).
+                InkWell(
+                  key: ValueKey('outline-check-${node.id}'),
+                  onTap: () => ref.read(todoActionsProvider).toggle(node),
+                  customBorder: const CircleBorder(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppTokens.space4),
+                    child: Icon(
+                      isDone
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked,
+                      size: 16,
+                      color: isDone
+                          ? node.category.color
+                          : scheme.onSurface.withValues(alpha: 0.45),
                     ),
                   ),
+                ),
                 const SizedBox(width: AppTokens.space4),
                 Expanded(
                   child: Text(
@@ -309,7 +353,6 @@ class _OutlineNode extends ConsumerWidget {
                       color: isDone
                           ? scheme.onSurface.withValues(alpha: 0.45)
                           : null,
-                      fontStyle: isNote ? FontStyle.italic : null,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -335,6 +378,152 @@ class _OutlineNode extends ConsumerWidget {
               onToggle: onToggle,
             ),
       ],
+    );
+  }
+}
+
+// ───────────────────────── 메모 탭 (note 평탄 목록) ─────────────────────────
+
+/// 메모 탭 — 카테고리별 섹션으로 note 를 평탄 나열. 체크 개념 없이 정적 표시.
+class _NotesTab extends StatelessWidget {
+  const _NotesTab({required this.categories});
+
+  final List<Category> categories;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      key: const PageStorageKey('outline-notes'),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTokens.space16,
+            AppTokens.space12,
+            AppTokens.space16,
+            AppTokens.space48,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              for (final c in categories) _NoteCategorySection(category: c),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 한 카테고리의 note 섹션. note 가 0건이면 통째로 hide (빈 헤더 노이즈 방지).
+class _NoteCategorySection extends ConsumerWidget {
+  const _NoteCategorySection({required this.category});
+
+  final Category category;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notes = ref.watch(notesOfCategoryProvider(category)).asData?.value;
+    if (notes == null || notes.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    return Padding(
+      key: ValueKey('outline-note-section-${category.id}'),
+      padding: const EdgeInsets.only(bottom: AppTokens.space16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.space8,
+              vertical: AppTokens.space8,
+            ),
+            child: Row(
+              children: [
+                Icon(category.icon, size: 18, color: category.color),
+                const SizedBox(width: AppTokens.space8),
+                Expanded(
+                  child: Text(
+                    category.label,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${notes.length}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: category.color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final n in notes) _NoteCard(note: n),
+        ],
+      ),
+    );
+  }
+}
+
+/// 단일 메모 카드 — 제목 + (있으면) 본문 미리보기. 체크 토글 없음.
+class _NoteCard extends StatelessWidget {
+  const _NoteCard({required this.note});
+
+  final Todo note;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final desc = note.description;
+    return Container(
+      key: ValueKey('outline-note-${note.id}'),
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space4,
+        vertical: AppTokens.space4,
+      ),
+      padding: const EdgeInsets.all(AppTokens.space12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(AppTokens.radiusM),
+        border: Border(left: BorderSide(color: note.category.color, width: 3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.sticky_note_2_outlined,
+            size: 16,
+            color: scheme.onSurface.withValues(alpha: 0.5),
+          ),
+          const SizedBox(width: AppTokens.space8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  note.title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                if (desc != null && desc.trim().isNotEmpty) ...[
+                  const SizedBox(height: AppTokens.space4),
+                  Text(
+                    desc,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

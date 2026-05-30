@@ -3,12 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:solo_todo/src/domain/category.dart';
 import 'package:solo_todo/src/ui/destination.dart';
 
-/// v1.2 — AppDestination.buildAll 동적 단축키 매핑 검증.
+/// v1.4 (Task G) — AppDestination.buildAll 동적 단축키 매핑 검증.
 ///
-/// today=0 / categories 1~min(9,N) / outline N+1 (N<9) 또는 단축키 없음.
+/// 순서·단축키: today=0 / outline=1 / categories 2~9 (앞 8개) / 9번째부터 단축키 없음.
 void main() {
   group('AppDestination.buildAll', () {
-    test('빈 categories — today + outline 만 (outline digit 1)', () {
+    test('빈 categories — today + outline 만 (today=0, outline=1)', () {
       final dests = AppDestination.buildAll(const []);
       expect(dests.length, 2);
       expect(dests[0].isToday, isTrue);
@@ -17,19 +17,21 @@ void main() {
       expect(dests[1].shortcutDigit, 1);
     });
 
-    test('builtin 5종 — today=0 / 1~5 카테고리 / outline=6', () {
+    test('builtin 5종 — today=0 / outline=1 / 카테고리 2~6', () {
       final dests = AppDestination.buildAll(Category.builtinSeeds);
       expect(dests.length, 7);
-      expect(dests[0].shortcutDigit, 0); // today
+      // 순서: today, outline, 그 다음 카테고리.
+      expect(dests[0].isToday, isTrue);
+      expect(dests[0].shortcutDigit, 0);
+      expect(dests[1].isOutline, isTrue);
+      expect(dests[1].shortcutDigit, 1);
       for (var i = 0; i < 5; i++) {
-        expect(dests[i + 1].shortcutDigit, i + 1);
-        expect(dests[i + 1].category, Category.builtinSeeds[i]);
+        expect(dests[i + 2].shortcutDigit, i + 2);
+        expect(dests[i + 2].category, Category.builtinSeeds[i]);
       }
-      expect(dests.last.shortcutDigit, 6);
-      expect(dests.last.isOutline, isTrue);
     });
 
-    test('8 카테고리 — 1~8 + outline=9', () {
+    test('8 카테고리 — 카테고리 2~9 (앞 8개 모두 단축키)', () {
       final eight = [
         for (var i = 0; i < 8; i++)
           Category(
@@ -43,13 +45,14 @@ void main() {
       ];
       final dests = AppDestination.buildAll(eight);
       expect(dests.length, 10);
+      expect(dests[0].shortcutDigit, 0); // today
+      expect(dests[1].shortcutDigit, 1); // outline
       for (var i = 0; i < 8; i++) {
-        expect(dests[i + 1].shortcutDigit, i + 1);
+        expect(dests[i + 2].shortcutDigit, i + 2); // 2~9
       }
-      expect(dests.last.shortcutDigit, 9); // outline
     });
 
-    test('9 카테고리 — 1~9 + outline 단축키 없음 (-1)', () {
+    test('9 카테고리 — 앞 8개만 2~9, 9번째는 단축키 없음 (-1)', () {
       final nine = [
         for (var i = 0; i < 9; i++)
           Category(
@@ -63,15 +66,16 @@ void main() {
       ];
       final dests = AppDestination.buildAll(nine);
       expect(dests.length, 11);
-      // 9 categories: 1~9
-      for (var i = 0; i < 9; i++) {
-        expect(dests[i + 1].shortcutDigit, i + 1);
+      expect(dests[1].shortcutDigit, 1); // outline
+      // 앞 8개 카테고리 — 2~9
+      for (var i = 0; i < 8; i++) {
+        expect(dests[i + 2].shortcutDigit, i + 2);
       }
-      // outline 은 단축키 없음.
+      // 9번째 카테고리 — 단축키 없음.
       expect(dests.last.shortcutDigit, -1);
     });
 
-    test('12 카테고리 — 처음 9개만 단축키 / 10~12 + outline 단축키 없음', () {
+    test('12 카테고리 — 앞 8개만 단축키 2~9 / 나머지 -1', () {
       final twelve = [
         for (var i = 0; i < 12; i++)
           Category(
@@ -84,20 +88,19 @@ void main() {
           ),
       ];
       final dests = AppDestination.buildAll(twelve);
-      expect(dests.length, 14); // today + 12 cat + outline
-      // 1~9 카테고리 — 단축키 1~9
-      for (var i = 0; i < 9; i++) {
-        expect(dests[i + 1].shortcutDigit, i + 1);
+      expect(dests.length, 14); // today + outline + 12 cat
+      expect(dests[1].shortcutDigit, 1); // outline
+      // 앞 8개 카테고리 — 단축키 2~9
+      for (var i = 0; i < 8; i++) {
+        expect(dests[i + 2].shortcutDigit, i + 2);
       }
-      // 10~12 카테고리 — 단축키 없음
-      for (var i = 9; i < 12; i++) {
-        expect(dests[i + 1].shortcutDigit, -1);
+      // 9~12번째 카테고리 — 단축키 없음
+      for (var i = 8; i < 12; i++) {
+        expect(dests[i + 2].shortcutDigit, -1);
       }
-      // outline 단축키도 없음.
-      expect(dests.last.shortcutDigit, -1);
     });
 
-    test('tooltipWithShortcut — 단축키 -1 이면 라벨만', () {
+    test('tooltipWithShortcut — 단축키 있으면 (n), 없으면 라벨만', () {
       final dests = AppDestination.buildAll([
         Category(
           id: 'c',
@@ -108,9 +111,11 @@ void main() {
           isBuiltin: false,
         ),
       ]);
-      expect(dests[1].tooltipWithShortcut, '커스텀 (1)');
+      // today, outline, 커스텀(digit 2).
+      expect(dests[1].tooltipWithShortcut, '전체보기 (1)');
+      expect(dests[2].tooltipWithShortcut, '커스텀 (2)');
 
-      // 10+ 카테고리에선 후순위 destination 의 tooltip 은 라벨만.
+      // 9개 이상 카테고리에선 후순위 destination 의 tooltip 은 라벨만.
       final many = [
         for (var i = 0; i < 11; i++)
           Category(
@@ -123,8 +128,9 @@ void main() {
           ),
       ];
       final manyDests = AppDestination.buildAll(many);
-      expect(manyDests[10].tooltipWithShortcut, 'C9'); // 10번째 카테고리 — 단축키 없음
-      expect(manyDests.last.tooltipWithShortcut, '전체보기'); // outline 도 단축키 없음
+      // index 2..9 (앞 8개) 단축키 있음, index 10 (9번째 카테고리) 부터 없음.
+      expect(manyDests[10].tooltipWithShortcut, 'C8'); // 9번째 카테고리 — 단축키 없음
+      expect(manyDests.last.tooltipWithShortcut, 'C10'); // 마지막 카테고리 — 단축키 없음
     });
   });
 }

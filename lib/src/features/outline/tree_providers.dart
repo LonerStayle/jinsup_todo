@@ -36,6 +36,56 @@ final rootsOfCategoryProvider = StreamProvider.family<List<Todo>, Category>((
   return db.todosDao.watchRootsOfCategory(category);
 });
 
+// ── Task D: 전체보기 [체크리스트] / [메모] 탭 분리용 필터 provider ──
+//
+// 체크리스트 탭 = task 트리만 (note 제외). 메모 탭 = note 만 (트리 무관 평탄 목록).
+// DB 쿼리를 새로 추가하지 않고 기존 stream 을 in-memory 필터링한다 (스키마 무변경,
+// 1인 사용자 규모에서 비용 무시 가능). 이렇게 하면 BC 에이전트가 만든 DAO 를 건드리지
+// 않고 D 단독으로 완결된다.
+
+/// 카테고리 root 중 **task 타입만** — 체크리스트 탭의 카테고리 헤더 아래 첫 단계.
+///
+/// note root 는 제외되지만, task root 의 자식 note 는 트리 walk 시 [childTasksOfProvider]
+/// 가 다시 걸러낸다. base [rootsOfCategoryProvider] 의 AsyncValue 를 그대로 따라가며
+/// (loading / error 전파) data 일 때만 task 필터를 건다 (Riverpod 3 — `.stream` 없음).
+final taskRootsOfCategoryProvider =
+    Provider.family<AsyncValue<List<Todo>>, Category>((ref, category) {
+      return ref
+          .watch(rootsOfCategoryProvider(category))
+          .whenData(
+            (roots) => roots.where((t) => t.type == TodoType.task).toList(),
+          );
+    });
+
+/// 특정 parent 의 직속 자식 중 **task 타입만** — 체크리스트 탭 트리 walk 용.
+final childTasksOfProvider = Provider.family<AsyncValue<List<Todo>>, String>((
+  ref,
+  parentId,
+) {
+  return ref
+      .watch(childrenOfProvider(parentId))
+      .whenData(
+        (children) => children.where((t) => t.type == TodoType.task).toList(),
+      );
+});
+
+/// 카테고리별 **note 평탄 목록** — 메모 탭. 트리 깊이와 무관하게 그 카테고리에 속한
+/// 모든 note 를 한 목록으로 본다 ("메모는 메모별로"). 정렬은 [allTodosProvider] 의
+/// 순서를 그대로 따른다 (DAO 의 sortOrder/updatedAt 기준).
+final notesOfCategoryProvider =
+    Provider.family<AsyncValue<List<Todo>>, Category>((ref, category) {
+      return ref
+          .watch(allTodosProvider)
+          .whenData(
+            (all) => all
+                .where(
+                  (t) =>
+                      t.type == TodoType.note && t.category.id == category.id,
+                )
+                .toList(),
+          );
+    });
+
 /// 서브트리의 진척률 — `(doneCount, taskCount)`. note 는 분모/분자 모두 제외.
 ///
 /// outline view 의 폴더 헤더 `[N/M]` 라벨에 사용. 자식이 없으면 (0, 0).

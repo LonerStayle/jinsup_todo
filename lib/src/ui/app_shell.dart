@@ -714,6 +714,8 @@ class _SidebarState extends State<_Sidebar> {
         ),
       ),
       if (todayIndex != null) _item(todayIndex),
+      // v1.4 (Task G) — 전체보기를 '오늘' 바로 다음으로 (카테고리/그룹 섹션 앞).
+      if (outlineIndex != null) _item(outlineIndex),
       // 미분류 섹션 — groupId == null 카테고리. 그룹이 하나라도 있을 때만 헤더 라벨.
       if (ungrouped.isNotEmpty) ...[
         if (widget.groups.isNotEmpty)
@@ -731,7 +733,6 @@ class _SidebarState extends State<_Sidebar> {
         if (!_collapsed.contains(g.id))
           for (final i in (byGroup[g.id] ?? const <int>[])) _item(i),
       ],
-      if (outlineIndex != null) _item(outlineIndex),
       // v1.2 — 카테고리 추가 / v1.3 — 그룹 추가 버튼.
       Padding(
         padding: const EdgeInsets.fromLTRB(
