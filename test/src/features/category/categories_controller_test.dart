@@ -109,5 +109,51 @@ void main() {
       expect(list.length, 4);
       expect(list.any((c) => c.id == 'work'), isFalse);
     });
+
+    group('작업 2 (K) — reorderInGroup', () {
+      // 같은 그룹의 카테고리 3종 (sortOrder 10/11/12).
+      Category cat(String id, int sortOrder) => Category(
+        id: id,
+        label: id,
+        iconCodePoint: 0xe865,
+        colorValue: 0xFF888888,
+        sortOrder: sortOrder,
+        groupId: 'g1',
+      );
+
+      test('맨 아래 항목을 맨 위로 → 연속 sortOrder 재부여 (min 기준)', () async {
+        final a = cat('a', 10);
+        final b = cat('b', 11);
+        final c = cat('c', 12);
+        for (final x in [a, b, c]) {
+          await controller.add(x);
+        }
+
+        // 시각 순서 [a,b,c] 에서 c(index 2) → index 0 으로.
+        await controller.reorderInGroup([a, b, c], 2, 0);
+
+        Future<int> orderOf(String id) async =>
+            (await db.categoriesDao.getById(id))!.sortOrder;
+        // base = min(10) → c=10, a=11, b=12.
+        expect(await orderOf('c'), 10);
+        expect(await orderOf('a'), 11);
+        expect(await orderOf('b'), 12);
+
+        // groupId 는 보존.
+        expect((await db.categoriesDao.getById('c'))!.groupId, 'g1');
+      });
+
+      test('변화 없는 이동(target==old)은 no-op', () async {
+        final a = cat('a', 10);
+        final b = cat('b', 11);
+        await controller.add(a);
+        await controller.add(b);
+
+        await controller.reorderInGroup([a, b], 0, 0);
+
+        expect((await db.categoriesDao.getById('a'))!.sortOrder, 10);
+        expect((await db.categoriesDao.getById('b'))!.sortOrder, 11);
+      });
+    });
   });
 }

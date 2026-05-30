@@ -185,6 +185,17 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
         .moveToGroup(category.id, groupId);
   }
 
+  /// 작업 2 (K) — 같은 그룹/미분류 안에서 카테고리 순서 변경 (드래그 핸들).
+  Future<void> _reorderInGroup(
+    List<Category> siblings,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    await ref
+        .read(categoriesControllerProvider)
+        .reorderInGroup(siblings, oldIndex, newIndex);
+  }
+
   /// 카테고리 long-press 메뉴 — 그룹 이동 / 삭제.
   Future<void> _showCategoryMenu(Category category, List<Group> groups) async {
     final action = await showModalBottomSheet<String>(
@@ -259,12 +270,13 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
           _applyMove(cat, null);
         },
         children: [
-          for (final c in ungrouped)
-            _CategoryRow(
-              category: c,
+          if (ungrouped.isNotEmpty)
+            _ReorderableCategoryList(
+              siblings: ungrouped,
               group: null,
-              onTap: () => widget.onSelectCategory?.call(c),
-              onLongPress: () => _showCategoryMenu(c, groups),
+              onTapCategory: (c) => widget.onSelectCategory?.call(c),
+              onLongPressCategory: (c) => _showCategoryMenu(c, groups),
+              onReorder: (oldI, newI) => _reorderInGroup(ungrouped, oldI, newI),
             ),
           if (ungrouped.isEmpty && groups.isNotEmpty)
             _EmptyHint(text: '여기로 드래그하면 그룹에서 빼요'),
@@ -285,13 +297,17 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
           },
         ),
         if (!_collapsed.contains(g.id))
-          for (final c in (byGroup[g.id] ?? const <Category>[]))
-            _CategoryRow(
-              category: c,
-              group: g,
-              onTap: () => widget.onSelectCategory?.call(c),
-              onLongPress: () => _showCategoryMenu(c, groups),
+          _ReorderableCategoryList(
+            siblings: byGroup[g.id] ?? const <Category>[],
+            group: g,
+            onTapCategory: (c) => widget.onSelectCategory?.call(c),
+            onLongPressCategory: (c) => _showCategoryMenu(c, groups),
+            onReorder: (oldI, newI) => _reorderInGroup(
+              byGroup[g.id] ?? const <Category>[],
+              oldI,
+              newI,
             ),
+          ),
       ],
       const Divider(height: AppTokens.space24),
       Padding(
@@ -378,13 +394,62 @@ class _GroupChoice {
   final String? groupId;
 }
 
-/// 카테고리 한 행 — LongPressDraggable. 소속 그룹 chip(F) 노출. 미분류면 '미분류'.
+/// 작업 2 (K) — 같은 그룹/미분류 안의 카테고리들을 ReorderableListView 로 묶어
+/// 드래그 핸들(우측 ⠿)로 순서 변경. 행 본문 long-press 는 기존대로 그룹간 이동
+/// (LongPressDraggable) 을 유지해 두 제스처가 충돌하지 않는다.
+///
+/// 바깥이 스크롤(ListView) 이므로 shrinkWrap + NeverScrollable 로 본 리스트는 자체
+/// 스크롤하지 않는다 (1인 사용자 카테고리 수 ~수십 규모로 충분).
+class _ReorderableCategoryList extends StatelessWidget {
+  const _ReorderableCategoryList({
+    required this.siblings,
+    required this.group,
+    required this.onTapCategory,
+    required this.onLongPressCategory,
+    required this.onReorder,
+  });
+
+  final List<Category> siblings;
+  final Group? group;
+  final ValueChanged<Category> onTapCategory;
+  final ValueChanged<Category> onLongPressCategory;
+  final void Function(int oldIndex, int newIndex) onReorder;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: siblings.length,
+      onReorder: onReorder,
+      proxyDecorator: (child, index, animation) =>
+          Material(color: Colors.transparent, child: child),
+      itemBuilder: (context, index) {
+        final c = siblings[index];
+        return _CategoryRow(
+          key: ValueKey('manage-cat-${c.id}'),
+          category: c,
+          group: group,
+          reorderIndex: index,
+          onTap: () => onTapCategory(c),
+          onLongPress: () => onLongPressCategory(c),
+        );
+      },
+    );
+  }
+}
+
+/// 카테고리 한 행 — LongPressDraggable(그룹간 이동). 소속 그룹 chip(F) 노출.
+/// 우측 ⠿ 는 [ReorderableDragStartListener] — 같은 그룹 안 순서 변경(K).
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
+    super.key,
     required this.category,
     required this.group,
     required this.onTap,
     required this.onLongPress,
+    required this.reorderIndex,
   });
 
   final Category category;
@@ -397,6 +462,9 @@ class _CategoryRow extends StatelessWidget {
 
   /// long-press — 그룹 이동 / 삭제 메뉴.
   final VoidCallback onLongPress;
+
+  /// ReorderableListView 안에서의 인덱스 — 드래그 핸들이 사용.
+  final int reorderIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -437,10 +505,15 @@ class _CategoryRow extends StatelessWidget {
                 const SizedBox(width: AppTokens.space8),
                 _GroupChip(group: group),
                 const SizedBox(width: AppTokens.space4),
-                Icon(
-                  Icons.drag_indicator,
-                  size: 18,
-                  color: scheme.onSurface.withValues(alpha: 0.4),
+                // 드래그 핸들 — 같은 그룹 안 순서 변경(K). 행 본문 long-press 의
+                // 그룹간 이동과 별개 제스처라 충돌하지 않는다.
+                ReorderableDragStartListener(
+                  index: reorderIndex,
+                  child: Icon(
+                    Icons.drag_indicator,
+                    size: 18,
+                    color: scheme.onSurface.withValues(alpha: 0.5),
+                  ),
                 ),
               ],
             ),

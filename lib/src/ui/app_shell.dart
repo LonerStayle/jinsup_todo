@@ -321,6 +321,17 @@ class _AppShellState extends ConsumerState<AppShell> {
         .moveToGroup(category.id, picked.groupId);
   }
 
+  /// 작업 2 (K) — 사이드바에서 같은 그룹/미분류 안 카테고리 순서 변경.
+  Future<void> _reorderCategoriesInGroup(
+    List<Category> siblings,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    await ref
+        .read(categoriesControllerProvider)
+        .reorderInGroup(siblings, oldIndex, newIndex);
+  }
+
   Future<void> _openAddTodo() async {
     // _index 가 destinations 범위를 벗어났을 수 있으므로 safe lookup.
     final dest = (_index < _destinations.length)
@@ -475,6 +486,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             onDeleteCategory: _deleteCategory,
             onMoveCategory: _moveCategoryToGroup,
             onDeleteGroup: _deleteGroup,
+            onReorderInGroup: _reorderCategoriesInGroup,
           ),
           const VerticalDivider(width: AppTokens.hairline),
           Expanded(child: _MainArea(destination: destination)),
@@ -630,6 +642,7 @@ class _Sidebar extends StatefulWidget {
     required this.onDeleteCategory,
     required this.onMoveCategory,
     required this.onDeleteGroup,
+    required this.onReorderInGroup,
   });
 
   final List<AppDestination> destinations;
@@ -641,6 +654,11 @@ class _Sidebar extends StatefulWidget {
   final ValueChanged<AppDestination> onDeleteCategory;
   final ValueChanged<AppDestination> onMoveCategory;
   final ValueChanged<Group> onDeleteGroup;
+
+  /// 작업 2 (K) — 같은 그룹/미분류 안 카테고리 순서 변경. [siblings] 는 그 섹션의
+  /// 카테고리들(화면 순서), ReorderableListView 의 (oldIndex, newIndex).
+  final void Function(List<Category> siblings, int oldIndex, int newIndex)
+  onReorderInGroup;
 
   @override
   State<_Sidebar> createState() => _SidebarState();
@@ -657,15 +675,41 @@ class _SidebarState extends State<_Sidebar> {
   }
 
   /// destination index → SidebarItem 위젯. 카테고리만 삭제/이동 컨텍스트 메뉴.
-  Widget _item(int index) {
+  /// [reorderIndex] 가 주어지면 우측에 드래그 핸들(K, 그룹 내 순서 변경)을 단다.
+  Widget _item(int index, {Key? key, int? reorderIndex}) {
     final dest = widget.destinations[index];
     final isCategory = dest.kind == DestinationKind.category;
     return SidebarItem(
+      key: key,
       destination: dest,
       selected: index == widget.selectedIndex,
       onTap: () => widget.onSelect(index),
       // 카테고리만 long-press / right-click 으로 컨텍스트 메뉴 (삭제 / 그룹 이동).
       onLongPress: isCategory ? () => _showCategoryMenu(dest) : null,
+      reorderIndex: reorderIndex,
+    );
+  }
+
+  /// 작업 2 (K) — 같은 그룹/미분류 섹션의 카테고리 destination 들을
+  /// ReorderableListView 로 묶어 드래그 핸들로 순서 변경. 바깥 ListView 안에 박히므로
+  /// shrinkWrap + NeverScrollable.
+  Widget _reorderableCategorySection(List<int> indices) {
+    final siblings = [
+      for (final i in indices) widget.destinations[i].category!,
+    ];
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: indices.length,
+      onReorder: (oldI, newI) => widget.onReorderInGroup(siblings, oldI, newI),
+      proxyDecorator: (child, index, animation) =>
+          Material(color: Colors.transparent, child: child),
+      itemBuilder: (context, i) => _item(
+        indices[i],
+        key: ValueKey('sidebar-cat-${siblings[i].id}'),
+        reorderIndex: i,
+      ),
     );
   }
 
@@ -779,7 +823,7 @@ class _SidebarState extends State<_Sidebar> {
       if (ungrouped.isNotEmpty) ...[
         if (widget.groups.isNotEmpty)
           _SectionLabel(label: '미분류', textTheme: textTheme),
-        for (final i in ungrouped) _item(i),
+        _reorderableCategorySection(ungrouped),
       ],
       // 그룹별 섹션 — 헤더(접힘 토글) + 그 그룹의 카테고리.
       for (final g in widget.groups) ...[
@@ -789,8 +833,9 @@ class _SidebarState extends State<_Sidebar> {
           onTap: () => _toggle(g.id),
           onLongPress: () => _showGroupMenu(g),
         ),
-        if (!_collapsed.contains(g.id))
-          for (final i in (byGroup[g.id] ?? const <int>[])) _item(i),
+        if (!_collapsed.contains(g.id) &&
+            (byGroup[g.id] ?? const <int>[]).isNotEmpty)
+          _reorderableCategorySection(byGroup[g.id]!),
       ],
       // v1.2 — 카테고리 추가 / v1.3 — 그룹 추가 버튼.
       Padding(
@@ -947,6 +992,7 @@ class SidebarItem extends StatefulWidget {
     required this.onTap,
     this.onLongPress,
     this.autofocus = false,
+    this.reorderIndex,
   });
 
   final AppDestination destination;
@@ -958,6 +1004,10 @@ class SidebarItem extends StatefulWidget {
 
   /// 테스트 결정성 — true 면 mount 직후 InkWell 이 focus 를 잡는다.
   final bool autofocus;
+
+  /// 작업 2 (K) — non-null 이면 우측에 ReorderableDragStartListener 핸들(⠿)을 단다.
+  /// 그룹 내 카테고리 순서 변경용. null 이면 핸들 없음 (today/outline 등).
+  final int? reorderIndex;
 
   @override
   State<SidebarItem> createState() => SidebarItemState();
@@ -1033,6 +1083,15 @@ class SidebarItemState extends State<SidebarItem> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (widget.reorderIndex != null)
+                    ReorderableDragStartListener(
+                      index: widget.reorderIndex!,
+                      child: Icon(
+                        Icons.drag_indicator,
+                        size: 16,
+                        color: scheme.onSurface.withValues(alpha: 0.4),
+                      ),
+                    ),
                 ],
               ),
             ),

@@ -29,6 +29,46 @@ class CategoriesController {
     await _repo.upsert(category.copyWith(groupId: groupId));
   }
 
+  /// 작업 2 (K) — 같은 그룹(또는 미분류) 안에서 카테고리 순서를 드래그로 변경.
+  ///
+  /// [siblings] 는 현재 화면 표시 순서(작은 sortOrder = 위)의 같은 그룹 카테고리들.
+  /// ReorderableList 의 ([oldIndex], [newIndex]) 시맨틱을 받아 그 집합에 **연속
+  /// 오름차순** sortOrder 를 재부여하고, 값이 바뀐 카테고리만 [repo.upsert]
+  /// (동기화 포함). 그룹 소속(groupId)은 바꾸지 않는다 — 순서만.
+  ///
+  /// 기준값은 집합의 기존 min sortOrder (없으면 0) — 그룹의 화면 위치가 유지된다.
+  Future<void> reorderInGroup(
+    List<Category> siblings,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    if (siblings.isEmpty) return;
+    if (oldIndex < 0 || oldIndex >= siblings.length) return;
+    // ReorderableList 의 newIndex 는 제거 전 인덱스 기준 → oldIndex 보다 크면 -1 보정.
+    var target = newIndex;
+    if (target > oldIndex) target -= 1;
+    if (target < 0) target = 0;
+    if (target >= siblings.length) target = siblings.length - 1;
+    if (target == oldIndex) return; // 변화 없음.
+
+    final reordered = List<Category>.of(siblings);
+    final moved = reordered.removeAt(oldIndex);
+    reordered.insert(target, moved);
+
+    // base = 기존 집합의 최소 sortOrder (그룹 화면 위치 유지). 비어있을 수 없음.
+    var base = siblings.first.sortOrder;
+    for (final s in siblings) {
+      if (s.sortOrder < base) base = s.sortOrder;
+    }
+    for (var i = 0; i < reordered.length; i++) {
+      final desired = base + i;
+      final c = reordered[i];
+      if (c.sortOrder != desired) {
+        await _repo.upsert(c.copyWith(sortOrder: desired));
+      }
+    }
+  }
+
   /// id 기준 삭제 시도.
   ///
   /// 반환값:
