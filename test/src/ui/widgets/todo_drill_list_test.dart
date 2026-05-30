@@ -45,6 +45,7 @@ void main() {
                 onEdit: onEdit ?? (_) {},
                 onToggle: (_) {},
                 onAddChild: (_) {},
+                onCopy: (_) {},
                 onDelete: (_) {},
                 onReorderSiblings: (_, _, _) {},
               ),

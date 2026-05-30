@@ -117,6 +117,7 @@ class HomeScreen extends ConsumerWidget {
           // Task C — ＋ 하위 추가.
           onAddChild: (parent) =>
               showAddChildSheet(context, ref, parent: parent),
+          onCopy: (t) => showCopyTodoSheet(context, ref, original: t),
           // Task B — 형제 드래그 재정렬.
           onReorderSiblings: (siblings, oldIndex, newIndex) => ref
               .read(todoActionsProvider)
@@ -143,6 +144,7 @@ class _Loaded extends StatefulWidget {
     required this.onEdit,
     required this.onDrillDown,
     required this.onAddChild,
+    required this.onCopy,
     required this.onReorderSiblings,
   });
 
@@ -170,6 +172,7 @@ class _Loaded extends StatefulWidget {
   final void Function(Todo) onEdit;
   final void Function(Todo) onDrillDown;
   final void Function(Todo) onAddChild;
+  final void Function(Todo) onCopy;
   final void Function(List<Todo> siblings, int oldIndex, int newIndex)
   onReorderSiblings;
 
@@ -253,6 +256,7 @@ class _LoadedState extends State<_Loaded> {
             onEdit: widget.onEdit,
             onDrillDown: widget.onDrillDown,
             onAddChild: widget.onAddChild,
+            onCopy: widget.onCopy,
             onReorderSiblings: widget.onReorderSiblings,
           ),
           const SliverToBoxAdapter(child: SizedBox(height: AppTokens.space48)),

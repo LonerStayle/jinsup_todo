@@ -15,6 +15,9 @@ class TodoTile extends StatelessWidget {
     this.onToggle,
     this.onTap,
     this.onAddChild,
+    this.onCopy,
+    this.onEditItem,
+    this.onDelete,
     this.isExpanded,
     this.onToggleExpand,
     this.childCount = 0,
@@ -24,6 +27,17 @@ class TodoTile extends StatelessWidget {
   final Todo todo;
   final VoidCallback? onToggle;
   final VoidCallback? onTap;
+
+  /// 더보기(⋮) 메뉴 — 이 항목을 복사 (제목·내용·카테고리·날짜/종류를 채운 새 항목 시트).
+  /// null 이면 메뉴에서 '복사' 항목 미표시.
+  final VoidCallback? onCopy;
+
+  /// 더보기(⋮) 메뉴 — 이 항목 자체를 편집. (폴더든 leaf 든 그 항목 편집 시트.)
+  /// null 이면 메뉴에서 '편집' 항목 미표시.
+  final VoidCallback? onEditItem;
+
+  /// 더보기(⋮) 메뉴 — 이 항목 삭제. null 이면 메뉴에서 '삭제' 항목 미표시.
+  final VoidCallback? onDelete;
 
   /// Task C — "＋ 하위 추가" 콜백. null 이면 버튼 미표시 (note 타입 등). task 만 자식 가능.
   final VoidCallback? onAddChild;
@@ -205,6 +219,67 @@ class TodoTile extends StatelessWidget {
                   ),
                   tooltip: isDone ? '완료 취소' : '완료',
                 ),
+              // 더보기(⋮) 메뉴 — 복사 / 편집 / 삭제. 셋 중 하나라도 있으면 노출.
+              if (onCopy != null || onEditItem != null || onDelete != null)
+                PopupMenuButton<_TileMenuAction>(
+                  key: ValueKey('todo-tile-menu-${todo.id}'),
+                  icon: Icon(
+                    Icons.more_vert,
+                    size: 18,
+                    color: scheme.onSurface.withValues(alpha: 0.55),
+                  ),
+                  tooltip: '더보기',
+                  padding: EdgeInsets.zero,
+                  onSelected: (action) {
+                    switch (action) {
+                      case _TileMenuAction.copy:
+                        onCopy?.call();
+                      case _TileMenuAction.edit:
+                        onEditItem?.call();
+                      case _TileMenuAction.delete:
+                        onDelete?.call();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    if (onCopy != null)
+                      const PopupMenuItem(
+                        value: _TileMenuAction.copy,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.copy_outlined, size: 18),
+                          title: Text('복사'),
+                        ),
+                      ),
+                    if (onEditItem != null)
+                      const PopupMenuItem(
+                        value: _TileMenuAction.edit,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.edit_outlined, size: 18),
+                          title: Text('편집'),
+                        ),
+                      ),
+                    if (onDelete != null)
+                      PopupMenuItem(
+                        value: _TileMenuAction.delete,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                            color: scheme.error,
+                          ),
+                          title: Text(
+                            '삭제',
+                            style: TextStyle(color: scheme.error),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -212,3 +287,6 @@ class TodoTile extends StatelessWidget {
     );
   }
 }
+
+/// [TodoTile] 의 더보기(⋮) 메뉴 액션.
+enum _TileMenuAction { copy, edit, delete }

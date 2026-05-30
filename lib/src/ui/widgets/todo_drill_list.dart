@@ -24,6 +24,7 @@ class TodoDrillListSliver extends StatelessWidget {
     required this.onEdit,
     required this.onToggle,
     required this.onAddChild,
+    required this.onCopy,
     required this.onDelete,
     required this.onReorderSiblings,
   });
@@ -44,6 +45,9 @@ class TodoDrillListSliver extends StatelessWidget {
 
   /// "＋ 하위 추가" — 그 항목을 부모로 자식 생성 sheet 를 연다.
   final void Function(Todo parent) onAddChild;
+
+  /// 더보기(⋮) 메뉴 '복사' — 그 항목을 prefill 한 새 항목 시트를 연다.
+  final void Function(Todo) onCopy;
 
   final void Function(Todo) onDelete;
 
@@ -86,6 +90,9 @@ class TodoDrillListSliver extends StatelessWidget {
               // 자식 있으면 드릴, 없으면 편집.
               onTap: () => hasChildren ? onDrillDown(todo) : onEdit(todo),
               onAddChild: canAddChild ? () => onAddChild(todo) : null,
+              // 더보기(⋮) 메뉴 — 복사 / 편집(이 항목 자체) / 삭제.
+              onCopy: () => onCopy(todo),
+              onEditItem: () => onEdit(todo),
               // 드릴 가능 표시 — chevron_right + 자식 개수 배지.
               drillChildCount: hasChildren ? childCount : null,
               childCount: childCount,

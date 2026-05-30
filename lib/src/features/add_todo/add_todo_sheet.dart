@@ -23,6 +23,7 @@ class AddTodoSheet extends ConsumerStatefulWidget {
     required this.onSubmit,
     this.onUpdate,
     this.initialTodo,
+    this.prefillFrom,
     this.now,
     this.initialDueAt,
     this.initialAllDay = true,
@@ -58,6 +59,12 @@ class AddTodoSheet extends ConsumerStatefulWidget {
   /// _descriptionCtrl / _category / _dueAt / _type 가 모두 prefill 된다.
   final Todo? initialTodo;
 
+  /// 복사(duplicate) 용 prefill 출처. [initialTodo] 와 달리 edit 모드로 전환하지
+  /// 않고 add 모드 (onSubmit) 그대로 동작하되, 제목·상세·카테고리·날짜/시간·종류 등
+  /// 모든 입력값만 이 todo 로 미리 채운다. 저장 시 새 id 의 별개 todo 가 생성된다.
+  /// (체크 상태 doneAt·캘린더 이벤트 calendarEventId 는 복사 대상이 아니다.)
+  final Todo? prefillFrom;
+
   /// 멀티라인 paste 시 줄바꿈으로 split + 빈 줄 제거 → 의미 있는 줄.
   /// 단위 테스트가 직접 호출하기 위해 public static 으로 노출.
   @visibleForTesting
@@ -74,6 +81,7 @@ class AddTodoSheet extends ConsumerStatefulWidget {
     required void Function(AddTodoSubmission) onSubmit,
     void Function(Todo updated)? onUpdate,
     Todo? initialTodo,
+    Todo? prefillFrom,
     String? parentId,
   }) {
     return showModalBottomSheet<void>(
@@ -89,6 +97,7 @@ class AddTodoSheet extends ConsumerStatefulWidget {
           onSubmit: onSubmit,
           onUpdate: onUpdate,
           initialTodo: initialTodo,
+          prefillFrom: prefillFrom,
           parentId: parentId,
         ),
       ),
@@ -151,18 +160,20 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
   @override
   void initState() {
     super.initState();
-    final initial = widget.initialTodo;
-    _titleCtrl = TextEditingController(text: initial?.title ?? '');
-    _descriptionCtrl = TextEditingController(text: initial?.description ?? '');
-    _category = initial?.category ?? widget.initialCategory;
-    // edit 모드의 카테고리는 이미 영속된 값 → 신뢰. add 모드 기본값은 미신뢰.
-    _categoryTrusted = initial != null;
-    _dueAt = initial?.dueAt ?? widget.initialDueAt;
+    // prefill 출처 — edit 모드의 initialTodo, 또는 복사 모드의 prefillFrom.
+    // 어느 쪽이든 입력값을 그대로 채운다. (단 _isEditMode 는 initialTodo 만으로 결정.)
+    final source = widget.initialTodo ?? widget.prefillFrom;
+    _titleCtrl = TextEditingController(text: source?.title ?? '');
+    _descriptionCtrl = TextEditingController(text: source?.description ?? '');
+    _category = source?.category ?? widget.initialCategory;
+    // prefill 카테고리(edit/복사 공통)는 이미 영속된 실제 값 → 신뢰. add 기본값은 미신뢰.
+    _categoryTrusted = source != null;
+    _dueAt = source?.dueAt ?? widget.initialDueAt;
     _allDay = widget.initialAllDay;
-    _type = initial?.type ?? TodoType.task;
-    // edit 모드에서 description 이 비어있지 않으면 펼친 상태로 시작.
-    _showDescription = (initial?.description ?? '').isNotEmpty;
-    _restoreDateMode(initial);
+    _type = source?.type ?? TodoType.task;
+    // prefill 시 description 이 비어있지 않으면 펼친 상태로 시작.
+    _showDescription = (source?.description ?? '').isNotEmpty;
+    _restoreDateMode(source);
   }
 
   /// edit 모드 — initialTodo 의 날짜·기간 필드로 모드/상태 복원.
