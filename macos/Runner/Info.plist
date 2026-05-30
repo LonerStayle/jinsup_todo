@@ -40,6 +40,16 @@
 				<string>io.supabase.solo_todo</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.goldenplanet.solo_todo.google</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.431288523948-9jssfcg394fvk3sscfm5phm3qpuqhg6g</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>
