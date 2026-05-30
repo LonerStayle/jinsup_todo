@@ -229,8 +229,8 @@ class TodoTile extends StatelessWidget {
                     ],
                   ),
                 ),
-              // Task C — task 타입만 "＋ 하위 추가" 버튼. note 는 자식 불가 → 미표시.
-              if (onAddChild != null && !isNote)
+              // §14 — note 도 "섹션 헤딩" 으로 자식 보유 가능 → 타입 무관 ＋하위 추가.
+              if (onAddChild != null)
                 IconButton(
                   key: ValueKey('todo-tile-add-child-${todo.id}'),
                   onPressed: onAddChild,

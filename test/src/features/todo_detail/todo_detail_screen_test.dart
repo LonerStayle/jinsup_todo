@@ -145,12 +145,16 @@ void main() {
     expect(find.byKey(const ValueKey('detail-add-child')), findsOneWidget);
   });
 
-  testWidgets('note parent 면 체크 토글/추가 FAB 없음', (tester) async {
+  testWidgets('note parent — 체크 토글 없음, 단 ＋하위 추가 FAB 노출 (§14 헤딩)', (
+    tester,
+  ) async {
     final parent = make(id: 'p', title: '메모', type: TodoType.note);
 
     await mount(tester, parent);
 
+    // note 는 체크 개념 없음 → 토글 미표시.
     expect(find.byKey(const ValueKey('detail-toggle')), findsNothing);
-    expect(find.byKey(const ValueKey('detail-add-child')), findsNothing);
+    // §14 — note 도 섹션 헤딩으로 자식 보유 가능 → 하위 추가 FAB 노출.
+    expect(find.byKey(const ValueKey('detail-add-child')), findsOneWidget);
   });
 }
