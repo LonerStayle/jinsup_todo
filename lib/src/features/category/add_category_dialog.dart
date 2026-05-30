@@ -145,8 +145,15 @@ class _AddCategoryDialogState extends ConsumerState<AddCategoryDialog> {
               ),
               const SizedBox(height: AppTokens.space16),
               Text('그룹', style: theme.textTheme.titleSmall),
+              const SizedBox(height: AppTokens.space4),
+              Text(
+                '이 카테고리가 들어갈 그룹을 골라요.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
               const SizedBox(height: AppTokens.space8),
-              _GroupDropdown(
+              _GroupPicker(
                 selectedGroupId: _selectedGroupId,
                 groups: ref.watch(groupsProvider).asData?.value ?? const [],
                 onSelect: (id) => setState(() => _selectedGroupId = id),
@@ -209,10 +216,12 @@ class _ColorPalette extends StatelessWidget {
   }
 }
 
-/// 그룹 선택 dropdown — '미분류'(null) + 사용자 그룹들. 그룹이 하나도 없으면
-/// '미분류' 만 있는 dropdown 이 노출된다 (선택지 1개).
-class _GroupDropdown extends StatelessWidget {
-  const _GroupDropdown({
+/// 그룹 선택 picker — '미분류'(null) + 사용자 그룹들을 chip 으로 나열해 택1.
+///
+/// (이전엔 dropdown 이었으나 선택지가 collapsed 라 '어느 그룹인지' 한눈에 안 들어와
+/// chip 그리드로 교체.) 그룹이 하나도 없으면 '미분류' chip 하나만 노출된다.
+class _GroupPicker extends StatelessWidget {
+  const _GroupPicker({
     required this.selectedGroupId,
     required this.groups,
     required this.onSelect,
@@ -224,33 +233,90 @@ class _GroupDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<String?>(
-      key: const ValueKey('category-group-dropdown'),
-      initialValue: selectedGroupId,
-      isExpanded: true,
-      decoration: const InputDecoration(border: OutlineInputBorder()),
-      items: [
-        const DropdownMenuItem<String?>(value: null, child: Text('미분류')),
+    return Wrap(
+      spacing: AppTokens.space8,
+      runSpacing: AppTokens.space8,
+      children: [
+        _GroupChoiceChip(
+          key: const ValueKey('group-choice-none'),
+          label: '미분류',
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+          selected: selectedGroupId == null,
+          onTap: () => onSelect(null),
+        ),
         for (final g in groups)
-          DropdownMenuItem<String?>(
-            value: g.id,
-            child: Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: g.color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: AppTokens.space8),
-                Flexible(child: Text(g.label, overflow: TextOverflow.ellipsis)),
-              ],
-            ),
+          _GroupChoiceChip(
+            key: ValueKey('group-choice-${g.id}'),
+            label: g.label,
+            color: g.color,
+            selected: selectedGroupId == g.id,
+            onTap: () => onSelect(g.id),
           ),
       ],
-      onChanged: onSelect,
+    );
+  }
+}
+
+/// 그룹 선택 chip 한 개 — 색 dot + 라벨. 선택 시 outline + 채워진 배경.
+class _GroupChoiceChip extends StatelessWidget {
+  const _GroupChoiceChip({
+    super.key,
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final bg = selected
+        ? color.withValues(alpha: 0.20)
+        : scheme.surfaceContainerHighest;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+      side: selected ? BorderSide(color: color, width: 1.6) : BorderSide.none,
+    );
+    return Material(
+      color: bg,
+      shape: shape,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space12,
+            vertical: AppTokens.space8,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // BoxShape.circle Container 대신 Icon — 색상환 테스트(16색)와 충돌 회피.
+              Icon(Icons.circle, size: 12, color: color),
+              const SizedBox(width: AppTokens.space8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected
+                        ? scheme.onSurface
+                        : scheme.onSurface.withValues(alpha: 0.78),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
