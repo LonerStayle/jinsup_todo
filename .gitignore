@@ -63,3 +63,5 @@ macos/.symlinks/
 # /audit-risk 1회성 산출물 (보고서)
 docs/audit/
 .claude/worktrees/
+.worktrees/
+devtools_options.yaml
