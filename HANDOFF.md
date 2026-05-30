@@ -30,6 +30,7 @@
 | **§ 12 — v1.2 카테고리 fully 동적 + Todo description (25 ralph task)** | ✅ 종료 (`6e88d80`) | 디자인 9.4 / 편의성 9.6. CLAUDE.md § 3 갱신까지 완료 (`9694a81`) |
 | **v1.2 후속 — 실사용 버그수정 라운드** | ✅ 종료 (`6ffe62f`) | 아래 "후속 수정 내역" 참조. 대표님 실기기(맥+갤S24) 검증 중 발견된 8건 |
 | **fast-tasks — 날짜·기간 모델 + 그룹 계층 + Android 캘린더 권한 (5 task)** | ✅ 종료 (`167415d`) | 아래 "fast-tasks 내역" 참조. **DB 스키마 변경됨 → Supabase schema.sql 재실행 필요 + Google Console 설정 필요** |
+| **배치2 — 중첩 체크리스트 + 모바일 관리 + 정렬 + 전체보기 탭 + 카테고리 동기화 (`ca27c79`)** | ✅ 종료 | 402/402 PASS. **스키마 변경 없음**. 아래 "배치2 내역" 참조. 카테고리/그룹 cross-device 동기화 버그 수정 포함 |
 
 ### 현 상태 (2026-05-29)
 
@@ -37,6 +38,16 @@
 - analyze clean / format clean / **flutter test 327/327 PASS**
 - **데스크탑 ↔ 폰 Supabase 동기화 정상 작동 확인됨** (대표님 실기기에서 검증 완료)
 - 갤럭시 S24 (SM S921N) 에 release APK 설치 완료
+
+### 배치2 내역 (중첩/모바일/정렬/탭/동기화) — `docs/features/2026-05-30-nested-mobile-sort-outline/`
+
+- **하위 체크리스트(C)**: 각 task 에 `＋ 하위 추가`(parentId 자식 생성), 오늘/카테고리 목록을 **들여쓰기 중첩 트리(접힘)** 로. 신규 `nested_todo_tree.dart`.
+- **정렬(B)**: 기본 **최신순**(`sortOrder asc, updatedAt desc`). 불변식 **작은 sortOrder = 위**. 생성·시트편집 → `min-1`(맨 위), **toggle 은 sortOrder 불변**. 길게 눌러 **형제 드래그** 재정렬(`reorderSiblings`).
+- **모바일 관리(A·E·F)**: 상단 ☰ → **ManageDrawer**(그룹/카테고리 추가·삭제·이동). 카테고리 **드래그로 그룹 이동**, 소속 그룹 chip 표시.
+- **추가 UX(I·J)**: 카테고리 추가 시 그룹 chip 선택. **`Category.daily` 하드코딩 기본값 제거** → 오늘/전역 추가는 categoriesProvider 첫 항목. AddTodoSheet 카테고리 칩 그룹별 묶음.
+- **전체보기(D·G)**: **[체크리스트]/[메모] 탭** 분리. 네비 순서 **오늘 → 전체보기 → 카테고리**(데스크탑·모바일). 단축키 today=0/outline=1/카테고리 2~9.
+- **모바일 하단 바**: `[오늘, 전체보기, 카테고리]` 3슬롯 고정. '카테고리' 슬롯 = Drawer open(가상 인덱스 2). Drawer 카테고리 **탭=이동 / long-press=메뉴**.
+- **카테고리·그룹 cross-device 동기화(`37febeb`)**: 기존엔 realtime sync 가 todos 만 구독해 카테고리/그룹이 **push-only(다른 기기로 안 내려옴)** 였음 → "카테고리 변경 안 먹힘"의 원인. `SupabaseRealtimeSync` 에 categories/groups 채널 + fetchAll 추가.
 
 ### fast-tasks 내역 (날짜·기간 + 그룹 + 캘린더 권한)
 
@@ -181,6 +192,14 @@ Socratic 확정 1A/2A/3A/4B. 명세: `docs/features/2026-05-29-fast-tasks-date-a
 - **TestWidgets timer 누수**: AnimationController 가 vsync, 화면 unmount 시 정상 dispose.
 - **Riverpod 3**: `valueOrNull` → `.asData?.value`.
 - **Widget mount viewport**: AddTodoSheet 가 길어져 `setSurfaceSize(400, 1400)` 필요. `_Actions row` 가 viewport 밖이면 tap 무시 — `onPressed` 직접 호출 패턴이 안전.
+
+### ⭐ 배치2 함정
+
+- **카테고리·그룹은 todos 와 별도로 동기화해야 함** — realtime sync 는 원래 todos 채널만 구독했다. categories/groups 도 `SupabaseRealtimeSync` 가 채널 구독 + fetchAll 해야 cross-device 반영. **Supabase Realtime publication 에 `solo_todo.categories`/`groups` 가 켜져 있어야** 실제 동작(schema.sql 의 publication do-block 포함, 단 대시보드 Replication 확인 권장).
+- **realtime self-loop 방지** — local-apply 는 반드시 **outbox 우회**(`LocalCategoriesRepository`/`LocalGroupsRepository`). Syncing\* 주입 시 self-broadcast → 무한 루프.
+- **sortOrder 의미 = 작은 값이 위** — 정렬 키 `sortOrder asc, updatedAt desc`. 생성·시트편집은 `min-1` bump, **toggle 은 sortOrder 변경 금지**(체크 시 자리 이동 버그 방지).
+- **AddTodoSheet 기본 카테고리 하드코딩 금지** — `Category.daily` 기본값이 "추가하면 다 일상으로" 버그를 냈다. 컨텍스트 카테고리 or categoriesProvider 첫 항목 사용.
+- **모바일 NavigationBar 는 스크롤 불가** — destination 무제한 나열 금지. 오늘/전체보기/카테고리(슬롯) 3개 고정 + 카테고리는 Drawer.
 
 ### ⭐ 이번 라운드에서 추가된 핵심 함정 (v1.2 후속)
 
