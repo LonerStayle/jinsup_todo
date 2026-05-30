@@ -55,21 +55,25 @@ void main() {
     final labelFg = NoteVisual.labelForeground(b);
 
     for (final cat in Category.builtinSeeds) {
-      // 틴트 배경 = tint 를 scaffold base 위에 합성.
+      // 틴트 배경 = tint 를 scaffold base 위에 합성. 헤딩은 더 진한 틴트.
       final tintBg = over(NoteVisual.tint(cat, b), base);
+      final headingBg = over(NoteVisual.headingTint(cat, b), base);
       // 라벨 배경 = labelBackground 를 틴트 배경 위에 합성.
       final labelBg = over(NoteVisual.labelBackground(cat), tintBg);
 
-      expect(
-        ratio(onSurface, tintBg),
-        greaterThanOrEqualTo(4.5),
-        reason: '제목 대비 부족: ${cat.id} / $b',
-      );
-      expect(
-        ratio(muted, tintBg),
-        greaterThanOrEqualTo(4.5),
-        reason: '프리뷰 대비 부족: ${cat.id} / $b',
-      );
+      // leaf 틴트 + 헤딩 틴트 양쪽에서 제목/프리뷰 텍스트 대비 검증.
+      for (final bg in [tintBg, headingBg]) {
+        expect(
+          ratio(onSurface, bg),
+          greaterThanOrEqualTo(4.5),
+          reason: '제목 대비 부족: ${cat.id} / $b',
+        );
+        expect(
+          ratio(muted, bg),
+          greaterThanOrEqualTo(4.5),
+          reason: '프리뷰 대비 부족: ${cat.id} / $b',
+        );
+      }
       expect(
         ratio(labelFg, labelBg),
         greaterThanOrEqualTo(4.5),

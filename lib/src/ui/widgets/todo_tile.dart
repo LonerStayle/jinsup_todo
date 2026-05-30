@@ -49,13 +49,20 @@ class TodoTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     final isDone = todo.isDone;
     final isNote = todo.type == TodoType.note;
+    // §14 — 자식 보유 note 는 "섹션 헤딩" 으로 강조(진한 틴트 + 굵은 제목).
+    // 자식 0 인 note 는 §13 의 leaf 메모(연한 틴트 카드).
+    final isNoteHeading = isNote && childCount > 0;
     // fast-tasks — 모드별 날짜 라벨. isAllDay 면 시간 미출력 (00:00 금지).
     final dateLabel = isNote ? null : TodoDateLabel.format(todo);
 
     return Card(
-      // §13 — note 는 카테고리색 저알파 틴트 배경으로 task(기본 surface) 와 대비.
-      // null 이면 CardTheme 의 surface 색을 그대로 쓴다 (task).
-      color: isNote ? NoteVisual.tint(todo.category, theme.brightness) : null,
+      // §13/§14 — note 는 카테고리색 틴트 배경(헤딩=진한 틴트 / leaf=연한 틴트),
+      // task 는 null=기본 surface.
+      color: isNoteHeading
+          ? NoteVisual.headingTint(todo.category, theme.brightness)
+          : isNote
+          ? NoteVisual.tint(todo.category, theme.brightness)
+          : null,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTokens.radiusM),
@@ -148,6 +155,10 @@ class TodoTile extends StatelessWidget {
                           child: Text(
                             todo.title,
                             style: theme.textTheme.titleMedium?.copyWith(
+                              // §14 — 헤딩 note 는 굵게(섹션 제목 강조).
+                              fontWeight: isNoteHeading
+                                  ? FontWeight.w700
+                                  : null,
                               decoration: isDone
                                   ? TextDecoration.lineThrough
                                   : null,

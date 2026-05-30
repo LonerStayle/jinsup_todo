@@ -29,13 +29,16 @@ void main() {
     WidgetTester tester,
     Todo todo, {
     Brightness brightness = Brightness.light,
+    int childCount = 0,
   }) {
     return tester.pumpWidget(
       MaterialApp(
         theme: brightness == Brightness.dark
             ? AppTheme.mobileDark()
             : AppTheme.mobileLight(),
-        home: Scaffold(body: TodoTile(todo: todo)),
+        home: Scaffold(
+          body: TodoTile(todo: todo, childCount: childCount),
+        ),
       ),
     );
   }
@@ -136,6 +139,34 @@ void main() {
     final icon = btn.icon as Icon;
     expect(icon.icon, Icons.radio_button_unchecked);
     expect(icon.color, Category.work.color.withValues(alpha: 0.55));
+  });
+
+  testWidgets('note 헤딩(자식≥1) — 진한 headingTint 배경 + 굵은 제목', (tester) async {
+    await mount(
+      tester,
+      make(type: TodoType.note, category: Category.work),
+      childCount: 2,
+    );
+    expect(
+      card(tester).color,
+      NoteVisual.headingTint(Category.work, Brightness.light),
+    );
+    final title = tester.widget<Text>(find.text('t'));
+    expect(title.style?.fontWeight, FontWeight.w700);
+  });
+
+  testWidgets('note leaf(자식 0) — 연한 tint 배경 + 굵지 않은 제목', (tester) async {
+    await mount(
+      tester,
+      make(type: TodoType.note, category: Category.work),
+      childCount: 0,
+    );
+    expect(
+      card(tester).color,
+      NoteVisual.tint(Category.work, Brightness.light),
+    );
+    final title = tester.widget<Text>(find.text('t'));
+    expect(title.style?.fontWeight, isNot(FontWeight.w700));
   });
 
   testWidgets('task 완료 체크 — 카테고리색 원색', (tester) async {

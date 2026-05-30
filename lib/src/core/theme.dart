@@ -89,6 +89,10 @@ class NoteVisual {
   static const double tintAlphaLight = 0.08;
   static const double tintAlphaDark = 0.16;
 
+  /// 헤딩(자식 보유 note=섹션) 틴트 alpha — leaf 보다 진해 "섹션 헤더" 로 강조(§14).
+  static const double headingTintAlphaLight = 0.14;
+  static const double headingTintAlphaDark = 0.24;
+
   /// "메모" 라벨 배경 / 외곽선 alpha (전경은 카테고리색 원색).
   static const double labelBgAlpha = 0.14;
   static const double labelOutlineAlpha = 0.50;
@@ -97,6 +101,14 @@ class NoteVisual {
   static Color tint(Category category, Brightness brightness) =>
       category.color.withValues(
         alpha: brightness == Brightness.dark ? tintAlphaDark : tintAlphaLight,
+      );
+
+  /// 헤딩(자식 보유 note) 배경 틴트 — leaf [tint] 보다 진해 섹션 헤더로 강조.
+  static Color headingTint(Category category, Brightness brightness) =>
+      category.color.withValues(
+        alpha: brightness == Brightness.dark
+            ? headingTintAlphaDark
+            : headingTintAlphaLight,
       );
 
   /// 좌측 accent 보더 색 — 카테고리색 원색.

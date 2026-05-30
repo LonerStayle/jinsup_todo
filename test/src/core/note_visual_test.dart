@@ -17,6 +17,30 @@ void main() {
     });
   });
 
+  group('NoteVisual.headingTint — 헤딩(자식 보유 note) 강조 틴트', () {
+    test('헤딩 틴트가 leaf 틴트보다 진하다 (라이트/다크)', () {
+      expect(
+        NoteVisual.headingTintAlphaLight,
+        greaterThan(NoteVisual.tintAlphaLight),
+      );
+      expect(
+        NoteVisual.headingTintAlphaDark,
+        greaterThan(NoteVisual.tintAlphaDark),
+      );
+    });
+
+    test('헤딩 틴트 alpha 라이트 0.14 / 다크 0.24', () {
+      expect(
+        NoteVisual.headingTint(Category.work, Brightness.light).a,
+        closeTo(NoteVisual.headingTintAlphaLight, 0.001),
+      );
+      expect(
+        NoteVisual.headingTint(Category.work, Brightness.dark).a,
+        closeTo(NoteVisual.headingTintAlphaDark, 0.001),
+      );
+    });
+  });
+
   group('NoteVisual.tint — 라이트/다크 분기', () {
     test('라이트는 0.08, 다크는 0.16 alpha', () {
       final light = NoteVisual.tint(Category.work, Brightness.light);

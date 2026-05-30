@@ -253,7 +253,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 **14-A. 메모 = 섹션 헤딩 모델 (parent 허용)**
 - [x] 도메인/정책 — `computeSubtreeProgress` 검증 결과 **보정 불필요**: root 타입과 무관하게 자식만 walk 하고 `c.type == task` 만 카운트(note 분자·분모 제외, 자손 note 아래 task 도 walk 로 카운트, root 자신 제외)하므로 note 헤딩 root 도 이미 정확. 단위 test 3건 추가(note 헤딩+task 자식 [1/3], 손자 누적+자손 note 제외 [1/4], note 자식만 [0/0]). 460/460 PASS.
 - [x] UI 가드 해제 — `todo_drill_list`/`todo_category_sections` 의 `canAddChild = type==task` 가드 제거(타입 무관 ＋하위 추가), `TodoTile` 의 `!isNote` 제거, `todo_detail_screen` FAB 를 note 도 노출 + 빈 상태 안내 갱신. `showAddChildSheet` 는 이미 타입 무관(타입 토글로 자식 종류 선택)이라 변경 불필요. 드릴/표시는 이미 타입 무관(hasChildren 기준). 기존 "note 자식 불가" 단정 테스트 2건 갱신 + drill_list note add-child 노출·콜백 test 1건 추가. 461/461 PASS.
-- [ ] TodoTile 헤딩 분기 — note 가 자식 ≥1 이면 "헤딩 밴드"(굵은 라벨 + 카테고리색 강조 배경 + 펼침 chevron + 진척 배지)로, 자식 0 이면 §13 의 leaf 메모(틴트 카드)로 분기 렌더. §13 note 시각 토큰 재사용. widget test (헤딩 vs leaf 분기 + 진척 배지).
+- [x] TodoTile 헤딩 분기 — `isNoteHeading = isNote && childCount>0` 면 `NoteVisual.headingTint`(leaf tint 보다 진함: light 0.14/dark 0.24) 배경 + 제목 w700 으로 "섹션 헤딩" 강조, 자식 0 이면 §13 leaf 틴트 카드. 자식수 배지("하위 N")는 기존 drillChildCount 가 담당, 펼침 chevron 은 인라인 모드 isExpanded 가 담당(둘 다 기존). [done/total] 서브트리 진척 배지는 allTodos 가 필요해 Outline(§14-A-4)에서. headingTint alpha test 2건 + 헤딩/leaf 렌더 test 2건 + WCAG 검증에 headingTint 배경 추가. 465/465 PASS.
 - [ ] Outline 통합 — note 헤딩(task 자손 보유)이 "체크리스트" 탭에도 섹션으로 노출되도록 필터 조정(현재 task root 만, `outline_screen.dart:342`). "메모" 탭은 자손 없는 순수 메모 트리 유지. 회귀 test (헤딩이 체크리스트탭 섹션으로, leaf 메모는 메모탭으로).
 - [ ] todo_detail_screen — note parent 진입 시 자식 리스트 + "＋ 하위 추가" FAB 노출(현재 `:87` isNote 면 FAB 숨김). 자식 진척 요약도 표시. widget test.
 
