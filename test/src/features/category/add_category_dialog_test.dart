@@ -88,6 +88,22 @@ void main() {
     expect(find.byType(AddCategoryDialog), findsNothing);
   });
 
+  test('iconPalette 는 builtin 카테고리 5종 아이콘을 모두 포함', () {
+    // 새 카테고리에서도 기본 카테고리와 같은 아이콘을 고를 수 있어야 한다.
+    for (final seed in Category.builtinSeeds) {
+      expect(
+        AddCategoryDialog.iconPalette,
+        contains(seed.iconCodePoint),
+        reason: 'builtin "${seed.label}" 아이콘이 palette 에서 누락됨',
+      );
+    }
+  });
+
+  test('iconPalette 에 중복 codepoint 없음', () {
+    final seen = AddCategoryDialog.iconPalette.toSet();
+    expect(seen, hasLength(AddCategoryDialog.iconPalette.length));
+  });
+
   testWidgets('색 / 아이콘 선택 → submission 에 반영', (tester) async {
     final repo = _FakeRepo();
     await mount(tester, repo);
