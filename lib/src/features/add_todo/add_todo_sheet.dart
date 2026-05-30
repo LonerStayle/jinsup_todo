@@ -103,6 +103,18 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _descriptionCtrl;
   late Category _category;
+
+  /// 작업 1 가드 — [_category] 가 "신뢰 가능한 선택"인지.
+  ///
+  /// true 인 경우: edit 모드의 initialTodo.category (이미 영속된 값), 또는 사용자가
+  /// 칩으로 명시 선택한 값. 이 경우 categoriesProvider 가 동기화 race 로 그 카테고리를
+  /// 아직 모르더라도 자동 보정(categories.first 로 리셋)을 하지 않는다 — 안 그러면
+  /// "카테고리 변경이 저장 후 원래대로 돌아오는" 증상이 된다.
+  ///
+  /// false 인 경우: add 모드의 initialCategory 기본값처럼 임시 선택 — 진짜 고아면
+  /// 첫 항목으로 보정해도 무해.
+  bool _categoryTrusted = false;
+
   DateTime? _dueAt;
 
   /// dueAt 의 시간 지정 여부. true = 하루 종일 (시간 부분 의미 없음, 00:00 보관).
@@ -143,6 +155,8 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
     _titleCtrl = TextEditingController(text: initial?.title ?? '');
     _descriptionCtrl = TextEditingController(text: initial?.description ?? '');
     _category = initial?.category ?? widget.initialCategory;
+    // edit 모드의 카테고리는 이미 영속된 값 → 신뢰. add 모드 기본값은 미신뢰.
+    _categoryTrusted = initial != null;
     _dueAt = initial?.dueAt ?? widget.initialDueAt;
     _allDay = widget.initialAllDay;
     _type = initial?.type ?? TodoType.task;
@@ -609,15 +623,30 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
 
     // v1.2 — 동적 카테고리. categoriesProvider 의 stream 으로 sidebar 와 동일 출처.
     // loading / error 시 builtin 5종 fallback.
-    final categories =
-        ref.watch(categoriesProvider).asData?.value ?? Category.builtinSeeds;
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final categories = categoriesAsync.asData?.value ?? Category.builtinSeeds;
     // J — 카테고리 칩을 소속 그룹별로 묶어 보여 주기 위해 그룹 목록도 watch.
     final groups = ref.watch(groupsProvider).asData?.value ?? const <Group>[];
     // 선택된 카테고리가 목록에 없으면 (삭제됨 / 초기값 불일치) 첫 항목으로 자동 보정.
     // build 중 setState 금지 → post-frame 으로 안전하게 갱신.
-    if (categories.isNotEmpty && !categories.any((c) => c.id == _category.id)) {
+    //
+    // 작업 1 가드 — 두 조건이 모두 맞을 때만 보정한다:
+    //  (1) provider 가 data 로 확정(hasValue) — loading/error 의 builtinSeeds
+    //      fallback 상태에서는 목록을 신뢰하지 않는다.
+    //  (2) 현재 선택이 "미신뢰"(_categoryTrusted == false) — edit 모드 initialTodo
+    //      나 사용자가 칩으로 명시 선택한 값은 동기화 race 로 목록에 아직 없더라도
+    //      덮어쓰지 않는다. 안 그러면 사용자가 고른 카테고리(예: 코기토)가 저장 후
+    //      categories.first(예: 일상)로 되돌아가는 증상이 된다.
+    if (categoriesAsync.hasValue &&
+        !_categoryTrusted &&
+        categories.isNotEmpty &&
+        !categories.any((c) => c.id == _category.id)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _category = categories.first);
+        if (!mounted) return;
+        final list = ref.read(categoriesProvider).asData?.value;
+        if (list == null || list.isEmpty) return;
+        if (list.any((c) => c.id == _category.id)) return;
+        setState(() => _category = list.first);
       });
     }
 
@@ -725,7 +754,11 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
                       categories: categories,
                       groups: groups,
                       selected: _category,
-                      onSelect: (c) => setState(() => _category = c),
+                      // 사용자가 명시 선택 → 신뢰 표시 (자동 보정 대상에서 제외).
+                      onSelect: (c) => setState(() {
+                        _category = c;
+                        _categoryTrusted = true;
+                      }),
                     ),
                   ],
                   const SizedBox(height: AppTokens.space16),
