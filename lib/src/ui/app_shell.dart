@@ -147,7 +147,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       await hotKeyManager.register(
         hotkey,
         keyDownHandler: (_) {
-          if (mounted) _openAddTodo();
+          if (mounted) _openAddMenu();
         },
       );
       _cmdN = hotkey;
@@ -354,6 +354,25 @@ class _AppShellState extends ConsumerState<AppShell> {
         .reorderInGroup(siblings, oldIndex, newIndex);
   }
 
+  /// FAB / Cmd+N 진입점 — 바로 새 할일을 띄우지 않고 **추가 선택 시트**를 먼저 연다.
+  /// 새 할일 / 카테고리 / 그룹 중 하나를 고르는 단일 추가 동선 (대표님 요청).
+  Future<void> _openAddMenu() async {
+    final choice = await showModalBottomSheet<_AddAction>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _AddActionSheet(),
+    );
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case _AddAction.todo:
+        await _openAddTodo();
+      case _AddAction.category:
+        await AddCategoryDialog.show(context);
+      case _AddAction.group:
+        await AddGroupDialog.show(context);
+    }
+  }
+
   Future<void> _openAddTodo() async {
     // _index 가 destinations 범위를 벗어났을 수 있으므로 safe lookup.
     final dest = (_index < _destinations.length)
@@ -514,15 +533,15 @@ class _AppShellState extends ConsumerState<AppShell> {
     final fab = AppPlatform.isDesktop
         ? FloatingActionButton.extended(
             key: const ValueKey('add-todo-fab'),
-            onPressed: _openAddTodo,
+            onPressed: _openAddMenu,
             icon: const Icon(Icons.add),
             label: const Text('추가'),
-            tooltip: '새 할 일 (Cmd+N)',
+            tooltip: '추가 (Cmd+N)',
           )
         : FloatingActionButton(
             key: const ValueKey('add-todo-fab'),
-            onPressed: _openAddTodo,
-            tooltip: '새 할 일',
+            onPressed: _openAddMenu,
+            tooltip: '추가',
             child: const Icon(Icons.add),
           );
 
@@ -537,8 +556,6 @@ class _AppShellState extends ConsumerState<AppShell> {
             selectedGroupId: selectedGroup?.id,
             onSelect: _select,
             onSelectGroup: _selectGroup,
-            onAddCategory: () => AddCategoryDialog.show(context),
-            onAddGroup: () => AddGroupDialog.show(context),
             onDeleteCategory: _deleteCategory,
             onMoveCategory: _moveCategoryToGroup,
             onDeleteGroup: _deleteGroup,
@@ -698,8 +715,6 @@ class _Sidebar extends StatefulWidget {
     required this.selectedGroupId,
     required this.onSelect,
     required this.onSelectGroup,
-    required this.onAddCategory,
-    required this.onAddGroup,
     required this.onDeleteCategory,
     required this.onMoveCategory,
     required this.onDeleteGroup,
@@ -717,8 +732,6 @@ class _Sidebar extends StatefulWidget {
 
   /// 그룹 헤더 탭 → 그 그룹 화면 진입.
   final ValueChanged<String> onSelectGroup;
-  final VoidCallback onAddCategory;
-  final VoidCallback onAddGroup;
   final ValueChanged<AppDestination> onDeleteCategory;
   final ValueChanged<AppDestination> onMoveCategory;
   final ValueChanged<Group> onDeleteGroup;
@@ -733,12 +746,14 @@ class _Sidebar extends StatefulWidget {
 }
 
 class _SidebarState extends State<_Sidebar> {
-  /// 접힌 그룹 id 집합. 기본은 모두 펼침.
-  final Set<String> _collapsed = <String>{};
+  /// 아코디언 — 펼쳐진 그룹은 **한 번에 하나뿐**. null 이면 모두 접힘 (대표님 요청).
+  /// 그룹 B 를 열면 A 를 포함한 나머지는 자동으로 접힌다.
+  String? _expandedGroupId;
 
   void _toggle(String groupId) {
     setState(() {
-      if (!_collapsed.remove(groupId)) _collapsed.add(groupId);
+      // 이미 열린 그룹을 다시 누르면 닫고, 아니면 그 그룹만 열어 나머지를 닫는다.
+      _expandedGroupId = _expandedGroupId == groupId ? null : groupId;
     });
   }
 
@@ -898,53 +913,18 @@ class _SidebarState extends State<_Sidebar> {
       for (final g in widget.groups) ...[
         _GroupHeader(
           group: g,
-          collapsed: _collapsed.contains(g.id),
+          collapsed: _expandedGroupId != g.id,
           selected: widget.selectedGroupId == g.id,
           onSelect: () => widget.onSelectGroup(g.id),
           onToggleCollapse: () => _toggle(g.id),
           onLongPress: () => _showGroupMenu(g),
         ),
-        if (!_collapsed.contains(g.id) &&
+        if (_expandedGroupId == g.id &&
             (byGroup[g.id] ?? const <int>[]).isNotEmpty)
           _reorderableCategorySection(byGroup[g.id]!),
       ],
-      // v1.2 — 카테고리 추가 / v1.3 — 그룹 추가 버튼.
-      Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppTokens.space12,
-          AppTokens.space8,
-          AppTokens.space12,
-          AppTokens.space4,
-        ),
-        child: TextButton.icon(
-          key: const ValueKey('sidebar-add-category'),
-          onPressed: widget.onAddCategory,
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('카테고리 추가'),
-          style: TextButton.styleFrom(
-            foregroundColor: colorScheme.onSurface.withValues(alpha: 0.72),
-            alignment: Alignment.centerLeft,
-          ),
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppTokens.space12,
-          AppTokens.space2,
-          AppTokens.space12,
-          AppTokens.space12,
-        ),
-        child: TextButton.icon(
-          key: const ValueKey('sidebar-add-group'),
-          onPressed: widget.onAddGroup,
-          icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-          label: const Text('그룹 추가'),
-          style: TextButton.styleFrom(
-            foregroundColor: colorScheme.onSurface.withValues(alpha: 0.72),
-            alignment: Alignment.centerLeft,
-          ),
-        ),
-      ),
+      // v1.5 — 카테고리/그룹 추가는 FAB(+) 의 "추가" 시트로 일원화됨 (대표님 요청).
+      const SizedBox(height: AppTokens.space12),
     ];
 
     return SizedBox(
@@ -1219,5 +1199,166 @@ class _MainArea extends StatelessWidget {
     if (destination.isToday) return const HomeScreen();
     if (destination.isOutline) return const OutlineScreen();
     return CategoryView(category: destination.category!);
+  }
+}
+
+/// FAB / Cmd+N 추가 선택 시트의 결과.
+enum _AddAction { todo, category, group }
+
+/// FAB / Cmd+N 진입 시 먼저 뜨는 "무엇을 추가할까요?" 하단 시트 (대표님 요청).
+/// 새 할일 / 카테고리 / 그룹 3 동선을 한곳에 모은다 — Drawer 의 추가 버튼들은 제거됨.
+class _AddActionSheet extends StatelessWidget {
+  const _AddActionSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppTokens.space12,
+          AppTokens.space8,
+          AppTokens.space12,
+          AppTokens.space16,
+        ),
+        child: Material(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(AppTokens.radiusL),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 드래그 핸들
+              Container(
+                margin: const EdgeInsets.only(top: AppTokens.space8),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: scheme.onSurface.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppTokens.space16,
+                  AppTokens.space16,
+                  AppTokens.space16,
+                  AppTokens.space8,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '무엇을 추가할까요?',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              _AddActionTile(
+                valueKey: 'add-action-todo',
+                icon: Icons.check_circle_outline,
+                color: scheme.primary,
+                title: '새 할 일',
+                subtitle: '할 일을 추가합니다',
+                onTap: () => Navigator.of(context).pop(_AddAction.todo),
+              ),
+              _AddActionTile(
+                valueKey: 'add-action-category',
+                icon: Icons.label_outline,
+                color: const Color(0xFFF97316),
+                title: '카테고리 추가',
+                subtitle: '새 분류를 만듭니다',
+                onTap: () => Navigator.of(context).pop(_AddAction.category),
+              ),
+              _AddActionTile(
+                valueKey: 'add-action-group',
+                icon: Icons.create_new_folder_outlined,
+                color: const Color(0xFF8B5CF6),
+                title: '그룹 추가',
+                subtitle: '카테고리를 묶는 그룹을 만듭니다',
+                onTap: () => Navigator.of(context).pop(_AddAction.group),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddActionTile extends StatelessWidget {
+  const _AddActionTile({
+    required this.valueKey,
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final String valueKey;
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return InkWell(
+      key: ValueKey(valueKey),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTokens.space16,
+          vertical: AppTokens.space12,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(AppTokens.radiusM),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: AppTokens.space16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppTokens.space2),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: scheme.onSurface.withValues(alpha: 0.3),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
