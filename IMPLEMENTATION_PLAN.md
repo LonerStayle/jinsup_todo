@@ -215,6 +215,57 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] AddTodoSheet edit 모드 widget test — `add_todo_sheet_edit_test.dart` 5건 (title prefill + "할 일 편집" 헤더 + "저장" 버튼 / description prefill 시 default 펼침 / 저장 시 onUpdate 호출 + onSubmit 안 호출 / description 변경 후 저장 / 제목 비우면 저장 비활성).
 - [x] 단축키 1~9 동적 매핑 widget test — `destination_dynamic_test.dart` 6건 (빈 categories / builtin 5종 / 8 카테고리 / 9 카테고리 (outline 단축키 없음) / 12 카테고리 (10~12 단축키 없음) / tooltipWithShortcut 분기). 326/326 PASS (+11 신규).
 
+### 13. memo-check-ui-split — 메모(note) ↔ 체크리스트(task) 시각 구분 강화
+
+대표님 보고: 메모와 체크리스트가 UI/UX 상 잘 구분 안 됨. 진단 — (1) 혼합 뷰에서 둘의 차이가 trailing 회색 아이콘 1개 + 제목 italic 뿐인데, **italic 은 한글 글리프에 거의 효과가 없어** 사실상 구분 신호가 없다. (2) 타입 신호가 우측 trailing 에 몰려 좌→우 pre-attentive 스캔에서 가장 약한 위치다. (3) Outline 메모탭 `_NoteCard` 는 좌측 보더+틴트 배경+본문 프리뷰로 잘 구분되는데 TodoTile 은 그 언어를 안 따라 일관성도 깨진다. **전략 — 메모를 "색 틴트 + 좌측 accent + 메모 라벨 + 본문 프리뷰" 의 명확히 다른 실루엣으로 재설계해 task(깔끔한 체크 행) 와 pre-attentive 대비를 만든다. 단일 시각 토큰을 모든 뷰가 공유.**
+
+> **[v1.5 머지 반영]** '오늘'·'타임라인' 은 `VisibilityPolicy.isVisibleToday` 로 **note 를 항상 제외**(note·무날짜 → 오늘 비노출, 의도된 v1.5 동작 — 되돌리지 말 것)하므로 **task 전용**이다. 메모와 할 일이 실제로 **섞이는 면은 `CategoryView` + 인라인 트리(자식) + 드릴다운 상세(`todo_detail_screen`) + Outline 메모탭** 뿐. §13 의 note 시각 재설계는 이 면들에 적용된다(TodoTile 이 공통 atom 이라 `todo_category_sections` 등 재사용처에도 자동 전파). 신규 위젯 `today_progress_summary`·`timeline_screen` 은 task 전용이라 note 시각 대상 아님.
+
+**시각 토큰 기반 (단일 출처)**
+- [ ] `theme.dart` 에 note 전용 시각 헬퍼 추가 — `NoteVisual` (또는 AppTokens 확장) 에 note 틴트 fill alpha(light/dark 분기), 좌측 accent 보더 두께(3px), "메모" 라벨 스타일·색 규칙을 단일 상수로 정의 + 카테고리색 기반 `noteTint(category, brightness)` / `noteAccent(category)` 순수 헬퍼. 단위 test (라이트/다크 alpha 분기 + 카테고리 5색 반영).
+
+**TodoTile note 재설계 (핵심)**
+- [ ] TodoTile note 분기에 좌측 카테고리색 accent 보더(3px) + 카테고리색 저알파 틴트 배경 적용 — Card color/shape override, task 는 기존 surface 유지, 라이트/다크 분기. 기존 8px 컬러바와 시각 충돌 정리(note 는 accent 보더로 대체). widget test (note 틴트/보더 존재 + task 미적용).
+- [ ] TodoTile note 제목 라인에 "메모" 마이크로 라벨 chip 추가(카테고리색 tint+outline, labelSmall) + **italic 의존 제거**(제목 normal weight 로 복귀, 구분은 라벨/틴트가 담당). widget test (라벨 존재 + 제목 non-italic).
+- [ ] TodoTile note leading 글리프 정리 — trailing 회색 `sticky_note_2` 아이콘 제거하고 좌측(컬러바 자리)에 카테고리색 `sticky_note_2` 글리프로 이동, 체크 affordance 완전 부재 명확화. task 의 trailing 체크 IconButton 은 유지. widget test (note=체크 부재·leading 글리프, task=trailing 체크 존재).
+- [ ] TodoTile note 본문 프리뷰 인라인 — description 있으면 제목 아래 2줄(maxLines:2, ellipsis, bodySmall muted) 노출(현재는 작은 힌트 아이콘만). description 빈 note 는 프리뷰 생략. task 는 현행(힌트 아이콘) 유지. widget test (프리뷰 2줄 + 빈 description 생략).
+
+**task 타일 명료화 (저위험 — 대비만)**
+- [ ] TodoTile task 미완료 체크 affordance 대비 강화 — `radio_button_unchecked` alpha 0.35 → 가독 대비 상향 + 카테고리색 ring 힌트로 "체크 가능" 신호 강화(leading 이동은 범위 밖, 대비/색만). widget test.
+
+**Outline 시각 언어 통일**
+- [ ] Outline 메모탭 `_NoteCard` 를 위 note 공유 토큰/헬퍼로 재배선 — 틴트 alpha·accent 보더 두께·"메모" 라벨을 TodoTile note 와 동일 출처로 통일하고 중복 하드코딩(0.5 alpha, 3px 등) 제거. 회귀 test.
+- [ ] Outline 체크리스트탭 task 노드 스타일을 TodoTile task 와 시각 일관 점검·조정(들여쓰기/체크 아이콘/카테고리색 사용 통일). 회귀 test.
+
+**혼합 뷰 회귀**
+- [ ] 실제 혼합 면(CategoryView + 인라인 트리 자식 + 드릴다운 상세)에서 같은 카테고리 내 task+note 혼재 시 새 시각 언어로 구분 렌더되는지 통합 회귀 test — note=틴트+라벨+프리뷰, task=깔끔한 체크 행 으로 시각 신호 분리 검증. (오늘/타임라인은 task 전용이라 제외) + '오늘' 리스트에 note 가 누수되지 않음을 함께 가드(`VisibilityPolicy.isVisibleToday` note=false 회귀).
+
+**대비 / 접근성**
+- [ ] note 틴트 fill + accent 보더 + 본문 텍스트의 라이트/다크 WCAG AA 대비 검증 test — 카테고리 5색 각각 본문/라벨 텍스트 대비비 계산, AA(4.5:1 본문 / 3:1 큰텍스트·보더) 미달 시 note 토큰 alpha 보정.
+
+**점수 재측정**
+- [ ] §13 종료 자가평가 — 디자인(가독성·대비·일관성) + 편의성(학습성) 점수 재측정, 9 이상 유지 확인 + IMPLEMENTATION_PLAN.md 에 §13 자가평가 섹션 추가. 미달 시 보강 task 자동 추가.
+
+### 14. memo-check 기획 — 메모 모델 재정의 (§13 시각과 함께 적용)
+
+§13(시각)과 별개로 **메모가 이 앱에서 무엇인가**를 재정의. 핵심 진단 — 현재 메모는 ⓐ 항상 leaf(자식 불가, `todo_tile.dart:171` `!isNote` 가드)라 v1.1 비전 "메모장 다층 구조 이식"과 어긋나고, ⓑ 개수가 어디에도 안 보여 존재 자체가 묻히며, ⓒ task↔note 전환은 되지만(`add_todo_sheet.dart:767`) 자식·doneAt 엣지가 미검증이다. **전략 — 메모를 "섹션 헤딩"으로 승격(자식 보유 가능 → 헤딩 밴드 렌더)해 구조·시각 구분을 최강화하고(메모=섹션 제목 / 할 일=그 아래 체크 행), 카운트 노출 + 전환 가드로 마감.**
+
+**14-A. 메모 = 섹션 헤딩 모델 (parent 허용)**
+- [ ] 도메인/정책 — note 가 parent 가능하도록 제약 재검토. `computeSubtreeProgress` 가 root 가 note(헤딩)여도 task 자손 기준 진척률을 정확히 계산하고 note 자신/note 자손은 분모에서 제외하는지 검증·보정. 단위 test (note 헤딩 + task 자식 [done/total], 손자까지 누적).
+- [ ] UI 가드 해제 — `TodoTile` / `showAddChildSheet` / `todo_detail_screen` 의 `!isNote` 제약 제거해 메모 아래에 할 일·메모 추가 가능. AddTodoSheet child 모드가 note parent 도 허용. widget test (note 에 ＋하위 추가 노출 + 자식 생성).
+- [ ] TodoTile 헤딩 분기 — note 가 자식 ≥1 이면 "헤딩 밴드"(굵은 라벨 + 카테고리색 강조 배경 + 펼침 chevron + 진척 배지)로, 자식 0 이면 §13 의 leaf 메모(틴트 카드)로 분기 렌더. §13 note 시각 토큰 재사용. widget test (헤딩 vs leaf 분기 + 진척 배지).
+- [ ] Outline 통합 — note 헤딩(task 자손 보유)이 "체크리스트" 탭에도 섹션으로 노출되도록 필터 조정(현재 task root 만, `outline_screen.dart:342`). "메모" 탭은 자손 없는 순수 메모 트리 유지. 회귀 test (헤딩이 체크리스트탭 섹션으로, leaf 메모는 메모탭으로).
+- [ ] todo_detail_screen — note parent 진입 시 자식 리스트 + "＋ 하위 추가" FAB 노출(현재 `:87` isNote 면 FAB 숨김). 자식 진척 요약도 표시. widget test.
+
+**14-B. "메모 N" 카운트 노출**
+- [ ] CategoryView 헤더 — 미체크/완료 칩 옆에 "메모 N" 보조 카운트 추가(해당 카테고리 note 전체 수, 0 이면 생략). 미체크/완료는 task 만 유지. widget test (메모 N 표시 + 0 생략).
+- [x] Outline 메모탭 카테고리 헤더 "메모 N" — **v1.4 머지로 이미 구현됨**(`outline_screen.dart` `_NoteCategorySection` 가 `${notes.length}` 를 카테고리색 labelSmall 로 표시). 별도 작업 불필요. (그룹 헤더 단위 합산 카운트는 over-engineering 으로 보류 — 카테고리 단위로 충분.)
+
+**14-C. 타입 전환 엣지 가드**
+- [ ] 타입 전환 정합 — AddTodoSheet edit 의 `_submit` 이 type 변경을 감지해 정합 필드 정리: task→note 전환 시 doneAt/dueAt/isAllDay/calendar 제거(체크·일정 개념 소멸), note→task 전환 시 기본 task 필드 복원. 단위/widget test (양방향 전환 후 필드 상태).
+- [ ] 전환 시 자식 보존 검증 — §14-A 로 note 도 parent 가능해졌으므로 자식 보유 항목의 task↔note 전환에서 자식 parentId·서브트리 정합이 유지되는지 통합 test(모든 조합). 깨지는 조합 발견 시 안내 dialog 가드.
+- [ ] §14 종료 자가평가 — 비전(다층 메모) 정렬 확인 + 디자인·편의성 점수 재측정(9 이상 유지) + IMPLEMENTATION_PLAN.md 에 §14 자가평가 섹션 추가. 미달 시 보강 task 자동 추가.
+
 ---
 
 ## 점수 측정 프로토콜
