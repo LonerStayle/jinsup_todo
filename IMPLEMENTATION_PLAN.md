@@ -235,7 +235,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 
 **Outline 시각 언어 통일**
 - [x] Outline 메모탭 `_NoteCard` 를 NoteVisual 공유 토큰으로 재배선 — 배경 `surfaceContainerHighest.alpha(0.5)`→`NoteVisual.tint`, 좌측 보더 하드코딩(category.color, width 3)→`NoteVisual.accent`+`accentWidth`, 글리프 회색 0.5→카테고리색, 제목 italic 제거(TodoTile note 와 일관). per-card "메모" 라벨은 메모 탭 맥락상 중복이라 생략(Tab 라벨과 충돌도 회피). 회귀 test 1건(틴트+accent 보더+non-italic). 453/453 PASS.
-- [ ] Outline 체크리스트탭 task 노드 스타일을 TodoTile task 와 시각 일관 점검·조정(들여쓰기/체크 아이콘/카테고리색 사용 통일). 회귀 test.
+- [x] Outline 체크리스트탭 task 노드(`_OutlineNode`/`_CheckCircle`) 점검 → 미완료 체크 ring 이 `scheme.outline`(회색)이라 TodoTile task(§13-6 카테고리색 0.55)와 불일치 → `_CheckCircle` 미완료 border 를 `color.alpha(0.55)` 로 통일(완료는 카테고리색 채움 유지). 들여쓰기/카테고리색 레일·진척 배지는 이미 일관 확인. 회귀 test 1건(미완료 ring 색 + 완료 채움). 454/454 PASS.
 
 **혼합 뷰 회귀**
 - [ ] 실제 혼합 면(CategoryView + 인라인 트리 자식 + 드릴다운 상세)에서 같은 카테고리 내 task+note 혼재 시 새 시각 언어로 구분 렌더되는지 통합 회귀 test — note=틴트+라벨+프리뷰, task=깔끔한 체크 행 으로 시각 신호 분리 검증. (오늘/타임라인은 task 전용이라 제외) + '오늘' 리스트에 note 가 누수되지 않음을 함께 가드(`VisibilityPolicy.isVisibleToday` note=false 회귀).

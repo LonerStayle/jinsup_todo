@@ -682,7 +682,6 @@ class _CheckCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       key: checkKey,
       onTap: onTap,
@@ -696,7 +695,12 @@ class _CheckCircle extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: done ? color : Colors.transparent,
-            border: Border.all(color: done ? color : scheme.outline, width: 2),
+            // §13 — 미완료 ring 도 카테고리색(0.55) 으로 — TodoTile task 와 일관
+            // ("체크 가능" 카테고리색 힌트). 완료는 카테고리색 채움 + 흰 체크.
+            border: Border.all(
+              color: done ? color : color.withValues(alpha: 0.55),
+              width: 2,
+            ),
           ),
           child: done
               ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)

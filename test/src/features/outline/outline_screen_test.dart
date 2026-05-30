@@ -129,6 +129,47 @@ void main() {
       expect(find.text('오타 수정'), findsOneWidget);
     });
 
+    testWidgets('체크 circle — 미완료 ring 카테고리색(0.55), 완료 채움 (TodoTile 일관)', (
+      tester,
+    ) async {
+      final undone = make(id: 'u', title: '미완료', category: Category.work);
+      final done = make(
+        id: 'd',
+        title: '완료',
+        category: Category.work,
+        doneAt: DateTime(2026, 5, 27, 10),
+      );
+      await mount(
+        tester,
+        rootsByCategory: {
+          Category.work: [undone, done],
+        },
+        allTodos: [undone, done],
+      );
+
+      BoxDecoration circleDeco(String id) {
+        final container = tester.widget<AnimatedContainer>(
+          find.descendant(
+            of: find.byKey(ValueKey('outline-check-$id')),
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+        return container.decoration! as BoxDecoration;
+      }
+
+      // 미완료 — 투명 채움 + 카테고리색 0.55 ring.
+      final u = circleDeco('u');
+      expect(u.color, Colors.transparent);
+      expect(
+        (u.border! as Border).top.color,
+        Category.work.color.withValues(alpha: 0.55),
+      );
+      // 완료 — 카테고리색 채움 + 동일 색 ring.
+      final d = circleDeco('d');
+      expect(d.color, Category.work.color);
+      expect((d.border! as Border).top.color, Category.work.color);
+    });
+
     testWidgets('펼침 → 접힘 토글 — 카테고리 row tap 시 자식 root 들 사라짐', (tester) async {
       final root = make(id: 'r', title: '회사 root');
       await mount(
