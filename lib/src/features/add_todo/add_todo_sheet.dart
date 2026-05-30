@@ -249,6 +249,11 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
     // edit 모드 — onUpdate 콜백 호출 (updatedAt 갱신은 호출자/Controller 책임).
     final initial = widget.initialTodo;
     if (_isEditMode && initial != null) {
+      // 카테고리를 바꿨고 이 항목이 하위(자식)였다면 → 부모에서 분리해 새 카테고리의
+      // 최상위로 올린다. (자식은 parentId 로 부모 밑에 고정되므로, 분리하지 않으면
+      // 카테고리만 바뀌고 화면상 부모 아래 그대로 남아 "이동이 안 되는" 것처럼 보인다.)
+      final movedCategory = _category.id != initial.category.id;
+      final detach = movedCategory && initial.parentId != null;
       final updated = initial.copyWith(
         title: _titleCtrl.text.trim(),
         category: _category,
@@ -258,6 +263,7 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
         timeAnchor: date.timeAnchor,
         type: _type,
         description: descOrNull,
+        parentId: detach ? null : initial.parentId,
       );
       widget.onUpdate?.call(updated);
       Navigator.of(context).maybePop();
