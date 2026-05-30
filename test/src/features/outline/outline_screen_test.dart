@@ -4,8 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:solo_todo/src/core/theme.dart';
 import 'package:solo_todo/src/domain/category.dart';
+import 'package:solo_todo/src/domain/group.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/category/categories_controller.dart';
+import 'package:solo_todo/src/features/category/groups_controller.dart';
 import 'package:solo_todo/src/features/outline/outline_screen.dart';
 import 'package:solo_todo/src/features/outline/tree_providers.dart';
 
@@ -45,6 +47,8 @@ void main() {
     required Map<Category, List<Todo>> rootsByCategory,
     Map<String, List<Todo>> childrenByParent = const {},
     required List<Todo> allTodos,
+    List<Category>? categories,
+    List<Group> groups = const [],
   }) async {
     await tester.binding.setSurfaceSize(const Size(800, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -61,8 +65,10 @@ void main() {
                 Stream.value(childrenByParent[parentId] ?? const <Todo>[]),
           ),
           categoriesProvider.overrideWith(
-            (_) => Stream.value(Category.builtinSeeds),
+            (_) => Stream.value(categories ?? Category.builtinSeeds),
           ),
+          // 작업 3 (L) — 그룹 계층. 기본은 빈 목록(= 그룹 헤더 없는 평면).
+          groupsProvider.overrideWith((_) => Stream.value(groups)),
         ],
         child: MaterialApp(
           theme: AppTheme.mobileLight(),
@@ -345,6 +351,93 @@ void main() {
         findsNothing,
       );
       expect(find.text('개인 메모'), findsOneWidget);
+    });
+  });
+
+  group('작업 3 (L) — 그룹 계층', () {
+    const groupA = Group(
+      id: 'ga',
+      label: '업무 큰분류',
+      colorValue: 0xFF2A66FF,
+      sortOrder: 0,
+    );
+    const catInGroup = Category(
+      id: 'work',
+      label: '회사 할일',
+      iconCodePoint: 0xef0a,
+      colorValue: 0xFF2A66FF,
+      sortOrder: 0,
+      isBuiltin: true,
+      groupId: 'ga',
+    );
+    const catUngrouped = Category(
+      id: 'daily',
+      label: '일상',
+      iconCodePoint: 0xf107,
+      colorValue: 0xFF10B981,
+      sortOrder: 2,
+      isBuiltin: true,
+    );
+
+    testWidgets('그룹 헤더 + 미분류 섹션 노출 + 그룹 안 카테고리', (tester) async {
+      final root = make(id: 'r', title: '그룹 안 할 일', category: catInGroup);
+      await mount(
+        tester,
+        categories: const [catInGroup, catUngrouped],
+        groups: const [groupA],
+        rootsByCategory: {
+          catInGroup: [root],
+        },
+        allTodos: [root],
+      );
+
+      // 그룹 헤더 + 미분류 라벨 동시 노출.
+      expect(find.byKey(const ValueKey('outline-group-ga')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('outline-ungrouped-label')),
+        findsOneWidget,
+      );
+      expect(find.text('업무 큰분류'), findsOneWidget);
+      // 그룹 안 카테고리 + 그 root.
+      expect(find.text('회사 할일'), findsOneWidget);
+      expect(find.text('그룹 안 할 일'), findsOneWidget);
+      // 미분류 카테고리.
+      expect(find.text('일상'), findsOneWidget);
+    });
+
+    testWidgets('그룹 헤더 접으면 그 그룹의 카테고리/할 일이 사라짐', (tester) async {
+      final root = make(id: 'r', title: '그룹 안 할 일', category: catInGroup);
+      await mount(
+        tester,
+        categories: const [catInGroup, catUngrouped],
+        groups: const [groupA],
+        rootsByCategory: {
+          catInGroup: [root],
+        },
+        allTodos: [root],
+      );
+
+      expect(find.text('회사 할일'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('outline-group-ga')));
+      await tester.pump();
+
+      // 그룹 헤더는 남고 그 안 카테고리는 사라짐. 미분류는 유지.
+      expect(find.byKey(const ValueKey('outline-group-ga')), findsOneWidget);
+      expect(find.text('회사 할일'), findsNothing);
+      expect(find.text('그룹 안 할 일'), findsNothing);
+      expect(find.text('일상'), findsOneWidget);
+    });
+
+    testWidgets('그룹이 없으면 그룹 헤더/미분류 라벨 없이 평면 (기존 모양)', (tester) async {
+      await mount(tester, rootsByCategory: const {}, allTodos: const []);
+
+      expect(
+        find.byKey(const ValueKey('outline-ungrouped-label')),
+        findsNothing,
+      );
+      for (final c in Category.values) {
+        expect(find.text(c.label), findsOneWidget);
+      }
     });
   });
 }

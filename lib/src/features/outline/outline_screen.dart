@@ -3,18 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import '../../domain/category.dart';
+import '../../domain/group.dart';
 import '../../domain/todo.dart';
 import '../category/categories_controller.dart';
+import '../category/groups_controller.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import 'tree_providers.dart';
 
-/// 전체 트리 view — 카테고리 root + 자식 트리를 한 화면에 펼침/접힘으로 표시.
+/// 전체 트리 view — **그룹 → 카테고리 → 태스크** 계층으로 펼침/접힘 표시.
 ///
 /// v1.4 (Task D) — 상단 탭 2개로 분리:
-///   - **체크리스트**: task 트리만 (note 제외). 카테고리 root + task 자식, 진척률·체크 토글.
-///   - **메모**: note 만 카테고리별 섹션으로 평탄 나열 (체크 개념 없음, 정적 표시).
+///   - **체크리스트**: task 트리만 (note 제외). 그룹 헤더 → 카테고리 root + task 자식.
+///   - **메모**: note 만 그룹 → 카테고리 섹션으로 평탄 나열 (체크 개념 없음).
 ///
-/// "메모는 메모별로, 체크리스트는 체크리스트로" — 한 화면에 섞지 않는다.
+/// 작업 3 (L) — 카테고리만 평면 나열하던 것을 그룹 계층으로 확장. '미분류' 카테고리는
+/// 별도 섹션. 그룹/카테고리 모두 sortOrder 순. 그룹이 하나도 없으면 그룹 헤더 없이
+/// 카테고리만 (기존 평면 모양과 동일) 표시한다.
 class OutlineScreen extends ConsumerWidget {
   const OutlineScreen({super.key});
 
@@ -23,6 +27,9 @@ class OutlineScreen extends ConsumerWidget {
     // v1.2 — 동적 카테고리. loading / error 시 builtin 5종 fallback.
     final categories =
         ref.watch(categoriesProvider).asData?.value ?? Category.builtinSeeds;
+    // 작업 3 (L) — 그룹 계층. loading / error 시 빈 목록 (= 그룹 헤더 없는 평면).
+    final groups = ref.watch(groupsProvider).asData?.value ?? const <Group>[];
+    final layout = _OutlineLayout.from(categories: categories, groups: groups);
 
     return DefaultTabController(
       length: 2,
@@ -50,12 +57,148 @@ class OutlineScreen extends ConsumerWidget {
           Expanded(
             child: TabBarView(
               children: [
-                _ChecklistTab(categories: categories),
-                _NotesTab(categories: categories),
+                _ChecklistTab(layout: layout),
+                _NotesTab(layout: layout),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 작업 3 (L) — 그룹 → 카테고리 배치를 한 번 계산해 두 탭이 공유.
+///
+/// '미분류'(groupId == null) 는 [ungrouped] 로, 그룹별 카테고리는 [sections] 로.
+/// 존재하지 않는 그룹에 매인 카테고리는 미분류로 흡수한다. 카테고리는 입력
+/// (categoriesProvider) 이 이미 sortOrder 순이므로 그 순서를 보존한다. 그룹도 입력
+/// (groupsProvider) 의 sortOrder 순.
+class _OutlineLayout {
+  const _OutlineLayout({
+    required this.groups,
+    required this.ungrouped,
+    required this.byGroup,
+  });
+
+  /// 그룹 헤더를 그릴지 여부 — 그룹이 하나라도 있으면 true.
+  final List<Group> groups;
+
+  /// 미분류 카테고리들 (sortOrder 순).
+  final List<Category> ungrouped;
+
+  /// groupId → 그 그룹의 카테고리들 (sortOrder 순).
+  final Map<String, List<Category>> byGroup;
+
+  bool get hasGroups => groups.isNotEmpty;
+
+  static _OutlineLayout from({
+    required List<Category> categories,
+    required List<Group> groups,
+  }) {
+    final ungrouped = <Category>[];
+    final byGroup = <String, List<Category>>{};
+    for (final c in categories) {
+      final gid = c.groupId;
+      if (gid == null) {
+        ungrouped.add(c);
+      } else {
+        byGroup.putIfAbsent(gid, () => <Category>[]).add(c);
+      }
+    }
+    // 존재하지 않는 그룹에 매인 카테고리는 미분류로 흡수.
+    final groupIds = groups.map((g) => g.id).toSet();
+    for (final entry in byGroup.entries.toList()) {
+      if (!groupIds.contains(entry.key)) {
+        ungrouped.addAll(entry.value);
+        byGroup.remove(entry.key);
+      }
+    }
+    return _OutlineLayout(
+      groups: groups,
+      ungrouped: ungrouped,
+      byGroup: byGroup,
+    );
+  }
+}
+
+/// 그룹 헤더 (접힘 토글) — 전체보기 공통. 색 dot + label + chevron + 접힘 상태.
+class _OutlineGroupHeader extends StatelessWidget {
+  const _OutlineGroupHeader({
+    required this.group,
+    required this.isExpanded,
+    required this.onToggle,
+  });
+
+  final Group group;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return InkWell(
+      key: ValueKey('outline-group-${group.id}'),
+      onTap: onToggle,
+      borderRadius: BorderRadius.circular(AppTokens.radiusM),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTokens.space8,
+          vertical: AppTokens.space12,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isExpanded
+                  ? Icons.keyboard_arrow_down_rounded
+                  : Icons.keyboard_arrow_right_rounded,
+              size: 22,
+              color: scheme.onSurface.withValues(alpha: 0.7),
+            ),
+            const SizedBox(width: AppTokens.space4),
+            Icon(Icons.circle, size: 12, color: group.color),
+            const SizedBox(width: AppTokens.space8),
+            Expanded(
+              child: Text(
+                group.label,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// '미분류' 섹션 라벨 (그룹 헤더보다 약한 시각 강조). 그룹이 있을 때만 노출.
+class _OutlineUngroupedLabel extends StatelessWidget {
+  const _OutlineUngroupedLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      key: const ValueKey('outline-ungrouped-label'),
+      padding: const EdgeInsets.fromLTRB(
+        AppTokens.space12,
+        AppTokens.space12,
+        AppTokens.space12,
+        AppTokens.space4,
+      ),
+      child: Text(
+        '미분류',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: scheme.onSurface.withValues(alpha: 0.55),
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
@@ -83,12 +226,12 @@ class _Header extends StatelessWidget {
 
 // ───────────────────────── 체크리스트 탭 (task 트리) ─────────────────────────
 
-/// 체크리스트 탭 — 카테고리별 task root + task 자식 트리. note 는 모두 제외.
+/// 체크리스트 탭 — 그룹 → 카테고리 task root + task 자식 트리. note 는 모두 제외.
 /// 펼침/접힘 상태는 이 탭이 자체 보유 (탭 전환해도 유지).
 class _ChecklistTab extends StatefulWidget {
-  const _ChecklistTab({required this.categories});
+  const _ChecklistTab({required this.layout});
 
-  final List<Category> categories;
+  final _OutlineLayout layout;
 
   @override
   State<_ChecklistTab> createState() => _ChecklistTabState();
@@ -97,7 +240,7 @@ class _ChecklistTab extends StatefulWidget {
 class _ChecklistTabState extends State<_ChecklistTab>
     with AutomaticKeepAliveClientMixin {
   /// "접힌" 노드 id 모음 — default 가 펼침 상태. id 가 set 에 있으면 접힌 상태.
-  /// 카테고리 헤더는 'cat:work' 접두 형식, todo 는 그대로 todo.id.
+  /// 그룹 헤더는 `grp:<id>`, 카테고리 헤더는 `cat:work`, todo 는 그대로 todo.id.
   final Set<String> _collapsed = {};
 
   bool _expanded(String id) => !_collapsed.contains(id);
@@ -114,6 +257,44 @@ class _ChecklistTabState extends State<_ChecklistTab>
   @override
   bool get wantKeepAlive => true;
 
+  /// 한 카테고리 트리 위젯 (그룹 안/미분류 공통).
+  Widget _category(Category c) => _OutlineCategory(
+    category: c,
+    collapsed: _collapsed,
+    expanded: _expanded,
+    onToggle: _toggle,
+  );
+
+  List<Widget> _buildChildren() {
+    final layout = widget.layout;
+    final children = <Widget>[];
+    // 미분류 섹션 — 그룹이 있을 때만 '미분류' 라벨. 그룹이 없으면 기존 평면 모양.
+    if (layout.ungrouped.isNotEmpty) {
+      if (layout.hasGroups) children.add(const _OutlineUngroupedLabel());
+      for (final c in layout.ungrouped) {
+        children.add(_category(c));
+      }
+    }
+    // 그룹별 섹션 — 헤더(접힘) + 그 그룹의 카테고리들.
+    for (final g in layout.groups) {
+      final items = layout.byGroup[g.id] ?? const <Category>[];
+      final groupExpanded = _expanded('grp:${g.id}');
+      children.add(
+        _OutlineGroupHeader(
+          group: g,
+          isExpanded: groupExpanded,
+          onToggle: () => _toggle('grp:${g.id}'),
+        ),
+      );
+      if (groupExpanded) {
+        for (final c in items) {
+          children.add(_category(c));
+        }
+      }
+    }
+    return children;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -128,15 +309,7 @@ class _ChecklistTabState extends State<_ChecklistTab>
             AppTokens.space48,
           ),
           sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              for (final c in widget.categories)
-                _OutlineCategory(
-                  category: c,
-                  collapsed: _collapsed,
-                  expanded: _expanded,
-                  onToggle: _toggle,
-                ),
-            ]),
+            delegate: SliverChildListDelegate(_buildChildren()),
           ),
         ),
       ],
@@ -384,14 +557,64 @@ class _OutlineNode extends ConsumerWidget {
 
 // ───────────────────────── 메모 탭 (note 평탄 목록) ─────────────────────────
 
-/// 메모 탭 — 카테고리별 섹션으로 note 를 평탄 나열. 체크 개념 없이 정적 표시.
-class _NotesTab extends StatelessWidget {
-  const _NotesTab({required this.categories});
+/// 메모 탭 — 그룹 → 카테고리 섹션으로 note 를 평탄 나열. 체크 개념 없이 정적 표시.
+///
+/// 작업 3 (L) — 체크리스트 탭과 일관되게 그룹 헤더(접힘) + '미분류' 섹션 구조.
+/// note 가 0건인 카테고리 섹션은 [_NoteCategorySection] 이 스스로 hide 한다.
+class _NotesTab extends StatefulWidget {
+  const _NotesTab({required this.layout});
 
-  final List<Category> categories;
+  final _OutlineLayout layout;
+
+  @override
+  State<_NotesTab> createState() => _NotesTabState();
+}
+
+class _NotesTabState extends State<_NotesTab>
+    with AutomaticKeepAliveClientMixin {
+  final Set<String> _collapsedGroups = {};
+
+  bool _expanded(String groupId) => !_collapsedGroups.contains(groupId);
+  void _toggle(String groupId) {
+    setState(() {
+      if (!_collapsedGroups.remove(groupId)) _collapsedGroups.add(groupId);
+    });
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+
+  List<Widget> _buildChildren() {
+    final layout = widget.layout;
+    final children = <Widget>[];
+    if (layout.ungrouped.isNotEmpty) {
+      if (layout.hasGroups) children.add(const _OutlineUngroupedLabel());
+      for (final c in layout.ungrouped) {
+        children.add(_NoteCategorySection(category: c));
+      }
+    }
+    for (final g in layout.groups) {
+      final items = layout.byGroup[g.id] ?? const <Category>[];
+      final groupExpanded = _expanded(g.id);
+      children.add(
+        _OutlineGroupHeader(
+          group: g,
+          isExpanded: groupExpanded,
+          onToggle: () => _toggle(g.id),
+        ),
+      );
+      if (groupExpanded) {
+        for (final c in items) {
+          children.add(_NoteCategorySection(category: c));
+        }
+      }
+    }
+    return children;
+  }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return CustomScrollView(
       key: const PageStorageKey('outline-notes'),
       slivers: [
@@ -403,9 +626,7 @@ class _NotesTab extends StatelessWidget {
             AppTokens.space48,
           ),
           sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              for (final c in categories) _NoteCategorySection(category: c),
-            ]),
+            delegate: SliverChildListDelegate(_buildChildren()),
           ),
         ),
       ],
