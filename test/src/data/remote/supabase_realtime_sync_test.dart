@@ -1,13 +1,19 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:solo_todo/src/data/local/app_database.dart';
+import 'package:solo_todo/src/data/local/local_categories_repository.dart';
+import 'package:solo_todo/src/data/local/local_groups_repository.dart';
 import 'package:solo_todo/src/data/local/local_todo_repository.dart';
+import 'package:solo_todo/src/data/remote/supabase_categories_api.dart';
+import 'package:solo_todo/src/data/remote/supabase_groups_api.dart';
 import 'package:solo_todo/src/data/remote/supabase_realtime_sync.dart';
 import 'package:solo_todo/src/data/remote/supabase_todos_api.dart';
 import 'package:solo_todo/src/data/syncing_todo_repository.dart';
 import 'package:solo_todo/src/data/todo_repository.dart';
 import 'package:solo_todo/src/domain/category.dart';
+import 'package:solo_todo/src/domain/group.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 
 void main() {
@@ -39,6 +45,10 @@ void main() {
         localApply: localOnly,
         flushOutbox: () => syncingRepo.flushPending(),
         userId: 'u1',
+        categoriesApi: _FakeCategoriesApi(),
+        categoriesApply: LocalCategoriesRepository(db.categoriesDao),
+        groupsApi: _FakeGroupsApi(),
+        groupsApply: LocalGroupsRepository(db.groupsDao),
       );
     });
 
@@ -119,6 +129,69 @@ void main() {
       );
     });
   });
+
+  group('categories / groups cross-device 동기화 — apply* 가 로컬 반영', () {
+    late AppDatabase db;
+    late SupabaseRealtimeSync sync;
+
+    setUp(() {
+      db = AppDatabase.memory();
+      sync = SupabaseRealtimeSync.forApplyOnly(
+        api: _FakeApi(),
+        localApply: LocalTodoRepository(db.todosDao),
+        flushOutbox: () async {},
+        userId: 'u1',
+        categoriesApi: _FakeCategoriesApi(),
+        categoriesApply: LocalCategoriesRepository(db.categoriesDao),
+        groupsApi: _FakeGroupsApi(),
+        groupsApply: LocalGroupsRepository(db.groupsDao),
+      );
+    });
+
+    tearDown(() async => db.close());
+
+    Category cat({String id = 'c1', String label = '회사'}) => Category(
+      id: id,
+      label: label,
+      iconCodePoint: Icons.work_outline.codePoint,
+      colorValue: 0xFF2A66FF,
+      sortOrder: 0,
+    );
+
+    Group grp({String id = 'g1', String label = '업무'}) =>
+        Group(id: id, label: label, colorValue: 0xFF2A66FF);
+
+    test('applyCategoryUpsert → 로컬 categories 에 반영', () async {
+      await sync.applyCategoryUpsert(cat());
+      final stored = await db.categoriesDao.getById('c1');
+      expect(stored, isNotNull);
+      expect(stored?.label, '회사');
+
+      // upsert 멱등 + 갱신 반영.
+      await sync.applyCategoryUpsert(cat(label: '회사(수정)'));
+      final updated = await db.categoriesDao.getById('c1');
+      expect(updated?.label, '회사(수정)');
+    });
+
+    test('applyCategoryDelete → 로컬에서 제거', () async {
+      await sync.applyCategoryUpsert(cat());
+      await sync.applyCategoryDelete('c1');
+      expect(await db.categoriesDao.getById('c1'), isNull);
+    });
+
+    test('applyGroupUpsert → 로컬 groups 에 반영', () async {
+      await sync.applyGroupUpsert(grp());
+      final stored = await db.groupsDao.getById('g1');
+      expect(stored, isNotNull);
+      expect(stored?.label, '업무');
+    });
+
+    test('applyGroupDelete → 로컬에서 제거', () async {
+      await sync.applyGroupUpsert(grp());
+      await sync.applyGroupDelete('g1');
+      expect(await db.groupsDao.getById('g1'), isNull);
+    });
+  });
 }
 
 class _FakeApi implements RemoteTodosApi {
@@ -134,6 +207,49 @@ class _FakeApi implements RemoteTodosApi {
   Future<void> upsert(Todo todo, String userId) async {
     remoteStore.removeWhere((r) => r.id == todo.id);
     remoteStore.add(todo);
+  }
+
+  @override
+  Future<void> deleteById(String id, String userId) async {
+    remoteStore.removeWhere((r) => r.id == id);
+  }
+}
+
+class _FakeCategoriesApi implements RemoteCategoriesApi {
+  final List<Category> remoteStore = [];
+
+  @override
+  Future<List<Category>> fetchAll(String userId) async => List.of(remoteStore);
+
+  @override
+  Category categoryFromRow(Map<String, dynamic> row) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> upsert(Category category, String userId) async {
+    remoteStore.removeWhere((r) => r.id == category.id);
+    remoteStore.add(category);
+  }
+
+  @override
+  Future<void> deleteById(String id, String userId) async {
+    remoteStore.removeWhere((r) => r.id == id);
+  }
+}
+
+class _FakeGroupsApi implements RemoteGroupsApi {
+  final List<Group> remoteStore = [];
+
+  @override
+  Future<List<Group>> fetchAll(String userId) async => List.of(remoteStore);
+
+  @override
+  Group groupFromRow(Map<String, dynamic> row) => throw UnimplementedError();
+
+  @override
+  Future<void> upsert(Group group, String userId) async {
+    remoteStore.removeWhere((r) => r.id == group.id);
+    remoteStore.add(group);
   }
 
   @override
