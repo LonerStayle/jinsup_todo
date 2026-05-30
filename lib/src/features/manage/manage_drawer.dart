@@ -5,21 +5,23 @@ import '../../core/theme.dart';
 import '../../data/providers.dart';
 import '../../domain/category.dart';
 import '../../domain/group.dart';
-import '../category/add_category_dialog.dart';
 import '../category/add_group_dialog.dart';
 import '../category/categories_controller.dart';
 import '../category/groups_controller.dart';
 
 /// 모바일 그룹/카테고리 관리 Drawer (Task A).
 ///
-/// 데스크탑 사이드바(`app_shell._Sidebar`)와 동일 기능을 모바일 좁은 폭에서
-/// 제공한다 — 그룹 추가/삭제, 카테고리 추가/삭제/그룹이동. 추가로 카테고리를
+/// 데스크탑 사이드바(`app_shell._Sidebar`)와 유사 기능을 모바일 좁은 폭에서
+/// 제공한다 — 카테고리 삭제/그룹이동, 그룹 삭제. 추가로 카테고리를
 /// **길게 눌러 다른 그룹 헤더(또는 '미분류') 위로 드롭**하면 그 그룹으로 이동한다
 /// (E). 각 카테고리 행은 소속 그룹명/색 chip 을 보여 준다 (F).
 ///
+/// 카테고리/그룹 **추가**는 더 이상 여기서 하지 않는다 — FAB(+) 의 "추가" 시트
+/// (`app_shell._AddActionSheet`)로 일원화됐다 (대표님 요청).
+///
 /// 자가완결 — 삭제/이동 confirm 다이얼로그를 직접 들고 있어 app_shell 의 핸들러를
-/// 재주입받을 필요가 없다. 컨트롤러/다이얼로그(`AddCategoryDialog` / `AddGroupDialog`
-/// / `categoriesControllerProvider` / `groupsControllerProvider`)는 재사용.
+/// 재주입받을 필요가 없다. 컨트롤러(`categoriesControllerProvider` /
+/// `groupsControllerProvider`)는 재사용.
 class ManageDrawer extends ConsumerStatefulWidget {
   const ManageDrawer({super.key, this.onSelectCategory, this.onSelectGroup});
 
@@ -36,8 +38,9 @@ class ManageDrawer extends ConsumerStatefulWidget {
 }
 
 class _ManageDrawerState extends ConsumerState<ManageDrawer> {
-  /// 접힌 그룹 id 집합. 기본은 모두 펼침.
-  final Set<String> _collapsed = <String>{};
+  /// 아코디언 — 펼쳐진 그룹은 **한 번에 하나뿐**. null 이면 모두 접힘 (대표님 요청).
+  /// 그룹 B 를 열면 A 를 포함한 나머지는 자동으로 접힌다.
+  String? _expandedGroupId;
 
   /// 드래그 중인 카테고리 위로 hover 중인 drop target group id. '미분류' 는
   /// 센티넬 [_ungroupedTargetKey]. 시각 피드백용.
@@ -48,14 +51,13 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
 
   void _toggle(String groupId) {
     setState(() {
-      if (!_collapsed.remove(groupId)) _collapsed.add(groupId);
+      // 이미 열린 그룹을 다시 누르면 닫고, 아니면 그 그룹만 열어 나머지를 닫는다.
+      _expandedGroupId = _expandedGroupId == groupId ? null : groupId;
     });
   }
 
-  Future<void> _addCategory() => AddCategoryDialog.show(context);
-  Future<void> _addGroup() => AddGroupDialog.show(context);
-
   /// 그룹 이름/색 수정 — 프리필된 다이얼로그(upsert). 같은 id 라 카테고리 소속 유지.
+  /// (카테고리/그룹 **추가**는 FAB(+) 시트로 이동했고, 여기서는 수정/삭제만 남김.)
   Future<void> _editGroup(Group group) =>
       AddGroupDialog.showEdit(context, group);
 
@@ -326,7 +328,7 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
       for (final g in groups) ...[
         _GroupDropHeader(
           group: g,
-          collapsed: _collapsed.contains(g.id),
+          collapsed: _expandedGroupId != g.id,
           hovering: _hoverTarget == g.id,
           onSelect: () => widget.onSelectGroup != null
               ? widget.onSelectGroup!(g)
@@ -340,7 +342,7 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
             _applyMove(cat, g.id);
           },
         ),
-        if (!_collapsed.contains(g.id))
+        if (_expandedGroupId == g.id)
           _ReorderableCategoryList(
             siblings: byGroup[g.id] ?? const <Category>[],
             group: g,
@@ -353,35 +355,6 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
             ),
           ),
       ],
-      const Divider(height: AppTokens.space24),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.space12),
-        child: TextButton.icon(
-          key: const ValueKey('drawer-add-category'),
-          onPressed: _addCategory,
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('카테고리 추가'),
-          style: TextButton.styleFrom(
-            foregroundColor: scheme.onSurface.withValues(alpha: 0.78),
-            alignment: Alignment.centerLeft,
-            minimumSize: const Size.fromHeight(44),
-          ),
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.space12),
-        child: TextButton.icon(
-          key: const ValueKey('drawer-add-group'),
-          onPressed: _addGroup,
-          icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-          label: const Text('그룹 추가'),
-          style: TextButton.styleFrom(
-            foregroundColor: scheme.onSurface.withValues(alpha: 0.78),
-            alignment: Alignment.centerLeft,
-            minimumSize: const Size.fromHeight(44),
-          ),
-        ),
-      ),
       const SizedBox(height: AppTokens.space12),
     ];
 
