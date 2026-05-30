@@ -231,7 +231,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] TodoTile note 본문 프리뷰 인라인 — note + description(trim 비어있지 않음) 면 제목 아래 2줄(`ValueKey('todo-tile-note-preview')`, maxLines:2, ellipsis, bodySmall muted) 노출. note 는 힌트 아이콘 생략(프리뷰가 대체), task 는 힌트 아이콘 유지·프리뷰 미노출, 빈/공백 description note 는 프리뷰 생략. widget test 3건. 448/448 PASS.
 
 **task 타일 명료화 (저위험 — 대비만)**
-- [ ] TodoTile task 미완료 체크 affordance 대비 강화 — `radio_button_unchecked` alpha 0.35 → 가독 대비 상향 + 카테고리색 ring 힌트로 "체크 가능" 신호 강화(leading 이동은 범위 밖, 대비/색만). widget test.
+- [x] TodoTile task 미완료 체크 affordance 대비 강화 — `radio_button_unchecked` 색을 회색 `onSurface.alpha(0.35)` → `category.color.alpha(0.55)` 로(카테고리색 ring 힌트 + 대비 상향), 완료는 카테고리색 원색 유지. widget test 2건(미완료 ring 색 + 완료 원색). 452/452 PASS.
 
 **Outline 시각 언어 통일**
 - [ ] Outline 메모탭 `_NoteCard` 를 위 note 공유 토큰/헬퍼로 재배선 — 틴트 alpha·accent 보더 두께·"메모" 라벨을 TodoTile note 와 동일 출처로 통일하고 중복 하드코딩(0.5 alpha, 3px 등) 제거. 회귀 test.

@@ -250,9 +250,11 @@ class TodoTile extends StatelessWidget {
                     isDone
                         ? Icons.check_circle_rounded
                         : Icons.radio_button_unchecked,
+                    // §13 — 미완료도 카테고리색 ring(0.55) 으로 "체크 가능" 신호 + 대비
+                    // 강화(기존 회색 0.35 는 너무 옅었다). 완료는 카테고리색 원색.
                     color: isDone
                         ? todo.category.color
-                        : scheme.onSurface.withValues(alpha: 0.35),
+                        : todo.category.color.withValues(alpha: 0.55),
                   ),
                   tooltip: isDone ? '완료 취소' : '완료',
                 ),

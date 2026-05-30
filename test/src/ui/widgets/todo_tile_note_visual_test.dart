@@ -127,4 +127,36 @@ void main() {
     expect(find.byKey(const ValueKey('todo-tile-note-leading')), findsNothing);
     expect(find.byKey(const ValueKey('todo-tile-check')), findsOneWidget);
   });
+
+  testWidgets('task 미완료 체크 — 카테고리색 ring(0.55) 대비 강화', (tester) async {
+    await mount(tester, make(type: TodoType.task, category: Category.work));
+    final btn = tester.widget<IconButton>(
+      find.byKey(const ValueKey('todo-tile-check')),
+    );
+    final icon = btn.icon as Icon;
+    expect(icon.icon, Icons.radio_button_unchecked);
+    expect(icon.color, Category.work.color.withValues(alpha: 0.55));
+  });
+
+  testWidgets('task 완료 체크 — 카테고리색 원색', (tester) async {
+    await mount(
+      tester,
+      Todo(
+        id: 'a',
+        title: 't',
+        category: Category.work,
+        dueAt: null,
+        doneAt: DateTime.utc(2026, 5, 27, 10),
+        createdAt: DateTime.utc(2026, 5, 27, 9),
+        updatedAt: DateTime.utc(2026, 5, 27, 9),
+        calendarEventId: null,
+      ),
+    );
+    final btn = tester.widget<IconButton>(
+      find.byKey(const ValueKey('todo-tile-check')),
+    );
+    final icon = btn.icon as Icon;
+    expect(icon.icon, Icons.check_circle_rounded);
+    expect(icon.color, Category.work.color);
+  });
 }
