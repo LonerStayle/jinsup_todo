@@ -48,6 +48,8 @@ class TodoDetailScreen extends ConsumerWidget {
 
     final isNote = live.type == TodoType.note;
     final isDone = live.isDone;
+    // §14 — 자손 task 진척 요약 (note 헤딩/ task 폴더 공통). taskCount 0 이면 숨김.
+    final progress = computeSubtreeProgress(live, allTodos);
 
     final actions = ref.read(todoActionsProvider);
 
@@ -106,6 +108,13 @@ class TodoDetailScreen extends ConsumerWidget {
           }
           return CustomScrollView(
             slivers: [
+              if (progress.taskCount > 0)
+                SliverToBoxAdapter(
+                  child: _SubtreeProgressBar(
+                    progress: progress,
+                    accent: live.category.color,
+                  ),
+                ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(
                   AppTokens.space16,
@@ -146,6 +155,52 @@ class TodoDetailScreen extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// §14 — 상세 화면 상단의 자손 task 진척 요약. `done/total 완료` + 진행 바.
+class _SubtreeProgressBar extends StatelessWidget {
+  const _SubtreeProgressBar({required this.progress, required this.accent});
+
+  final SubtreeProgress progress;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      key: const ValueKey('detail-progress'),
+      padding: const EdgeInsets.fromLTRB(
+        AppTokens.space16,
+        AppTokens.space16,
+        AppTokens.space16,
+        0,
+      ),
+      child: Row(
+        children: [
+          Text(
+            '${progress.doneCount}/${progress.taskCount} 완료',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: accent,
+            ),
+          ),
+          const SizedBox(width: AppTokens.space12),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+              child: LinearProgressIndicator(
+                value: progress.ratio ?? 0,
+                minHeight: 6,
+                backgroundColor: scheme.surfaceContainerHighest,
+                valueColor: AlwaysStoppedAnimation<Color>(accent),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

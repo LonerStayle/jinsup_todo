@@ -157,4 +157,34 @@ void main() {
     // §14 — note 도 섹션 헤딩으로 자식 보유 가능 → 하위 추가 FAB 노출.
     expect(find.byKey(const ValueKey('detail-add-child')), findsOneWidget);
   });
+
+  testWidgets('§14 — note 헤딩 자손 task 진척 요약 노출 (1/2 완료)', (tester) async {
+    final parent = make(id: 'p', title: '코기토', type: TodoType.note);
+    final c1 = make(id: 'c1', title: '서버', parentId: 'p', doneAt: now);
+    final c2 = make(id: 'c2', title: 'DNS', parentId: 'p');
+
+    await mount(tester, parent, children: [c1, c2], allTodos: [parent, c1, c2]);
+
+    expect(find.byKey(const ValueKey('detail-progress')), findsOneWidget);
+    expect(find.text('1/2 완료'), findsOneWidget);
+  });
+
+  testWidgets('자손에 task 없으면(순수 메모 자식) 진척 바 숨김', (tester) async {
+    final parent = make(id: 'p', title: '메모', type: TodoType.note);
+    final noteChild = make(
+      id: 'nc',
+      title: '메모 자식',
+      parentId: 'p',
+      type: TodoType.note,
+    );
+
+    await mount(
+      tester,
+      parent,
+      children: [noteChild],
+      allTodos: [parent, noteChild],
+    );
+
+    expect(find.byKey(const ValueKey('detail-progress')), findsNothing);
+  });
 }
