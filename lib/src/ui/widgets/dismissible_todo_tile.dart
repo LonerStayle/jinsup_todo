@@ -20,6 +20,7 @@ class DismissibleTodoTile extends StatelessWidget {
     this.isExpanded,
     this.onToggleExpand,
     this.childCount = 0,
+    this.drillChildCount,
   });
 
   /// 실수 swipe 방지를 위한 dismiss threshold. 0.4 (40%) 는 의도치 않은 살짝 swipe 으로도
@@ -43,6 +44,9 @@ class DismissibleTodoTile extends StatelessWidget {
   final bool? isExpanded;
   final VoidCallback? onToggleExpand;
   final int childCount;
+
+  /// 기능 M — 드릴다운 모드 배지 (자식 N + chevron). TodoTile 로 전달.
+  final int? drillChildCount;
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +81,7 @@ class DismissibleTodoTile extends StatelessWidget {
         isExpanded: isExpanded,
         onToggleExpand: onToggleExpand,
         childCount: childCount,
+        drillChildCount: drillChildCount,
       ),
     );
   }

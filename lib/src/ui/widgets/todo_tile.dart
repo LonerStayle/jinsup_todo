@@ -18,6 +18,7 @@ class TodoTile extends StatelessWidget {
     this.isExpanded,
     this.onToggleExpand,
     this.childCount = 0,
+    this.drillChildCount,
   });
 
   final Todo todo;
@@ -27,7 +28,7 @@ class TodoTile extends StatelessWidget {
   /// Task C — "＋ 하위 추가" 콜백. null 이면 버튼 미표시 (note 타입 등). task 만 자식 가능.
   final VoidCallback? onAddChild;
 
-  /// Task C — 접힘/펼침 상태. null 이면 자식이 없어 chevron 미표시.
+  /// Task C — 접힘/펼침 상태. null 이면 자식이 없어 chevron 미표시. (인라인 트리 전용)
   final bool? isExpanded;
 
   /// Task C — chevron tap 콜백 (펼침/접힘 토글). isExpanded != null 일 때만 의미.
@@ -36,6 +37,11 @@ class TodoTile extends StatelessWidget {
   /// Task C — 직속 자식 수 (>0 이면 폴더로 간주, 체크 진척률 배지 표시 가능). 현재는
   /// chevron 표시 판단에 isExpanded 와 함께 사용.
   final int childCount;
+
+  /// 기능 M — 드릴다운 모드. non-null 이면 "자식 N + chevron_right" 배지를 trailing
+  /// 앞에 표시(드릴 가능 표시). 타일 탭이 상세 화면 push 임을 시각적으로 알린다.
+  /// 인라인 펼침(isExpanded) 과는 상호 배타 — 드릴 리스트에서만 사용.
+  final int? drillChildCount;
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +132,41 @@ class TodoTile extends StatelessWidget {
                   ],
                 ),
               ),
+              // 기능 M — 드릴 가능 표시. "자식 N" + chevron_right. 탭하면 상세 화면 push.
+              if (drillChildCount != null)
+                Padding(
+                  key: ValueKey('todo-tile-drill-${todo.id}'),
+                  padding: const EdgeInsets.only(left: AppTokens.space4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTokens.space8,
+                          vertical: AppTokens.space2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(
+                            AppTokens.radiusFull,
+                          ),
+                        ),
+                        child: Text(
+                          '하위 $drillChildCount',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: scheme.onSurface.withValues(alpha: 0.7),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: scheme.onSurface.withValues(alpha: 0.5),
+                      ),
+                    ],
+                  ),
+                ),
               // Task C — task 타입만 "＋ 하위 추가" 버튼. note 는 자식 불가 → 미표시.
               if (onAddChild != null && !isNote)
                 IconButton(
