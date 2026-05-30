@@ -21,7 +21,11 @@ import '../category/groups_controller.dart';
 /// 재주입받을 필요가 없다. 컨트롤러/다이얼로그(`AddCategoryDialog` / `AddGroupDialog`
 /// / `categoriesControllerProvider` / `groupsControllerProvider`)는 재사용.
 class ManageDrawer extends ConsumerStatefulWidget {
-  const ManageDrawer({super.key});
+  const ManageDrawer({super.key, this.onSelectCategory});
+
+  /// 카테고리 행 탭 시 호출 — 그 카테고리 화면으로 이동 + Drawer 닫기 (app_shell 주입).
+  /// null 이면 탭은 long-press 메뉴와 동일 동작(이전 호환). 보통은 주입된다.
+  final ValueChanged<Category>? onSelectCategory;
 
   @override
   ConsumerState<ManageDrawer> createState() => _ManageDrawerState();
@@ -259,6 +263,7 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
             _CategoryRow(
               category: c,
               group: null,
+              onTap: () => widget.onSelectCategory?.call(c),
               onLongPress: () => _showCategoryMenu(c, groups),
             ),
           if (ungrouped.isEmpty && groups.isNotEmpty)
@@ -284,6 +289,7 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
             _CategoryRow(
               category: c,
               group: g,
+              onTap: () => widget.onSelectCategory?.call(c),
               onLongPress: () => _showCategoryMenu(c, groups),
             ),
       ],
@@ -377,6 +383,7 @@ class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
     required this.category,
     required this.group,
+    required this.onTap,
     required this.onLongPress,
   });
 
@@ -384,6 +391,11 @@ class _CategoryRow extends StatelessWidget {
 
   /// 소속 그룹. null = 미분류.
   final Group? group;
+
+  /// 탭 — 그 카테고리 화면으로 이동 + Drawer 닫기.
+  final VoidCallback onTap;
+
+  /// long-press — 그룹 이동 / 삭제 메뉴.
   final VoidCallback onLongPress;
 
   @override
@@ -400,8 +412,9 @@ class _CategoryRow extends StatelessWidget {
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(AppTokens.radiusM),
         child: InkWell(
-          onTap: onLongPress,
+          onTap: onTap,
           onLongPress: onLongPress,
+          onSecondaryTap: onLongPress,
           borderRadius: BorderRadius.circular(AppTokens.radiusM),
           child: Padding(
             padding: const EdgeInsets.symmetric(

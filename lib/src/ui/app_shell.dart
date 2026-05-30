@@ -49,6 +49,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   HotKey? _cmdN;
   TrayService? _tray;
 
+  /// 모바일 Drawer 를 NavigationBar '카테고리' 슬롯에서 열기 위한 키.
+  /// (NavigationBar 는 Scaffold 의 형제라 Scaffold.of 로 접근 불가 → key 사용.)
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   void initState() {
     super.initState();
@@ -351,6 +355,69 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
+  /// Drawer 에서 카테고리 탭 → 그 카테고리 destination 으로 이동 + Drawer 닫기.
+  /// destinations 에서 같은 category id 의 index 를 찾아 _select.
+  void _selectCategoryDestination(Category category) {
+    final idx = _destinations.indexWhere(
+      (d) =>
+          d.kind == DestinationKind.category && d.category?.id == category.id,
+    );
+    if (idx >= 0) _select(idx);
+    Navigator.of(context).pop(); // drawer 닫기
+  }
+
+  /// 모바일 하단 바 (옵션 1) — `[오늘, 전체보기, 카테고리]` 3 슬롯 고정.
+  ///
+  /// selectedIndex 는 **가상 인덱스** (destinations 의 실제 index 와 분리):
+  ///   - today → 0, outline → 1, 그 외(어느 카테고리든) → 2 (카테고리 슬롯).
+  /// 탭:
+  ///   - 0 → today destination 으로 _select
+  ///   - 1 → outline destination 으로 _select
+  ///   - 2 → 관리 Drawer 열기 (카테고리 선택은 Drawer 안에서)
+  /// 카테고리 슬롯 라벨/아이콘은 현재 카테고리에 있으면 그 카테고리, 아니면 기본값.
+  Widget _buildMobileNavBar(AppDestination current) {
+    final onCategory = current.kind == DestinationKind.category;
+    final navSelected = current.isToday
+        ? 0
+        : current.isOutline
+        ? 1
+        : 2;
+
+    final todayDest = _destinations.firstWhere((d) => d.isToday);
+    final outlineDest = _destinations.firstWhere((d) => d.isOutline);
+
+    final categoryIcon = onCategory ? current.icon : Icons.category_outlined;
+    final categoryLabel = onCategory ? current.label : '카테고리';
+
+    return NavigationBar(
+      selectedIndex: navSelected,
+      onDestinationSelected: (i) {
+        switch (i) {
+          case 0:
+            _selectByDestination(todayDest);
+            break;
+          case 1:
+            _selectByDestination(outlineDest);
+            break;
+          case 2:
+            _scaffoldKey.currentState?.openDrawer();
+            break;
+        }
+      },
+      destinations: [
+        NavigationDestination(icon: Icon(todayDest.icon), label: '오늘'),
+        NavigationDestination(icon: Icon(outlineDest.icon), label: '전체보기'),
+        NavigationDestination(icon: Icon(categoryIcon), label: categoryLabel),
+      ],
+    );
+  }
+
+  /// destination 객체 → 그 index 로 _select.
+  void _selectByDestination(AppDestination dest) {
+    final idx = _destinations.indexOf(dest);
+    if (idx >= 0) _select(idx);
+  }
+
   @override
   Widget build(BuildContext context) {
     // 미체크 카운트가 바뀌면 tray title 갱신 (macOS 만 실효).
@@ -421,6 +488,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       destinations: _destinations,
       onSelect: _selectByDigit,
       child: Scaffold(
+        key: _scaffoldKey,
         // 모바일만 상단 앱바 — ☰ 로 그룹/카테고리 관리 Drawer 를 연다 (Task A).
         // 데스크탑은 좌측 _Sidebar 가 모든 관리/네비를 담당하므로 앱바 없음.
         appBar: AppPlatform.isDesktop
@@ -436,28 +504,19 @@ class _AppShellState extends ConsumerState<AppShell> {
                   ),
                 ),
               ),
-        drawer: AppPlatform.isDesktop ? null : const ManageDrawer(),
+        drawer: AppPlatform.isDesktop
+            ? null
+            : ManageDrawer(onSelectCategory: _selectCategoryDestination),
         floatingActionButton: fab,
         // endFloat — Scaffold 가 FAB 를 bottomNavigationBar **위로** 띄워 네비를 가리지 않음.
         // (이전 endContained 는 nav bar 에 도킹돼 6개 destination 항목을 덮는 문제가 있었다.)
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         body: body,
         // desktop 은 좌측 _Sidebar 가 네비게이션을 담당해 bottomNavigationBar 가 의도적으로
-        // null. mobile 만 NavigationBar 노출.
+        // null. mobile 만 NavigationBar 노출 — 오늘/전체보기/카테고리 3 슬롯 고정 (옵션 1).
         bottomNavigationBar: AppPlatform.isDesktop
             ? null
-            : NavigationBar(
-                selectedIndex: safeIndex,
-                onDestinationSelected: _select,
-                destinations: [
-                  for (final d in _destinations)
-                    NavigationDestination(
-                      icon: Icon(d.icon),
-                      label: d.label,
-                      tooltip: d.tooltipWithShortcut,
-                    ),
-                ],
-              ),
+            : _buildMobileNavBar(destination),
       ),
     );
   }
