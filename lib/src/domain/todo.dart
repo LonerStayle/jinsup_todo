@@ -140,14 +140,29 @@ abstract class Todo with _$Todo {
 
 /// Todo JSON 의 `category` 필드를 nested object 가 아닌 string id 로 직렬화 유지.
 /// v1.0 / v1.1 의 옛 payload (예: `"category": "work"`) 가 그대로 복원된다.
+///
+/// ⚠️ v1.2 사용자 추가 카테고리 id ('cat-...') 는 builtin 이 아니라 [Category.tryFromId]
+/// 가 null 을 준다. 이때 [Category.daily] 로 붕괴시키면 안 된다 — outbox flush 가
+/// toJson→fromJson 으로 복원해 Supabase 에 업로드하므로, 붕괴 시 원격 row 의 category 가
+/// 전부 'daily' 로 오염되고 다른 기기(모바일)에서 모든 항목이 '일상'으로 보인다.
+/// 미지 id 는 id 만 보존하는 placeholder 로 복원한다 (label/color 는 categories join 으로
+/// 복원되므로 메타는 쓰이지 않음 — [SupabaseTodosApi._fromRow] / [TodosDao] 와 동일 규칙).
 Category _categoryFromJson(Object? value) {
   if (value is String) {
-    return Category.tryFromId(value) ?? Category.daily;
+    return Category.tryFromId(value) ?? _placeholderCategory(value);
   }
   if (value is Map<String, dynamic>) {
     return Category.fromJson(value);
   }
   return Category.daily;
 }
+
+/// 미지 카테고리 id 를 id 만 보존한 채 안전 복원. (SupabaseTodosApi._fromRow 와 동일.)
+Category _placeholderCategory(String id) => Category(
+  id: id,
+  label: '기타',
+  iconCodePoint: 0xe893,
+  colorValue: 0xFF9E9E9E,
+);
 
 String _categoryToJson(Category category) => category.id;

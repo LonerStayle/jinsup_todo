@@ -126,6 +126,38 @@ void main() {
       final restored = Todo.fromJson(original.toJson());
       expect(restored, original);
     });
+
+    test('사용자 추가 카테고리 id 보존 — 일상(daily)으로 붕괴하지 않는다', () {
+      // v1.2 사용자 정의 카테고리. builtin 5종이 아니므로 tryFromId 가 null.
+      // outbox flush 가 toJson→fromJson 으로 복원할 때 이 id 가 보존돼야 한다.
+      // 붕괴되면 Supabase 에 'daily' 로 업로드되어 다른 기기에서 전부 일상으로 보인다.
+      const custom = Category(
+        id: 'cat-abc123',
+        label: '운동',
+        iconCodePoint: 0xe1a3,
+        colorValue: 0xFF00BCD4,
+      );
+      final original = Todo(
+        id: 'u1',
+        title: '러닝 5km',
+        category: custom,
+        dueAt: null,
+        doneAt: null,
+        createdAt: DateTime.utc(2026, 5, 31, 9),
+        updatedAt: DateTime.utc(2026, 5, 31, 9),
+        calendarEventId: null,
+      );
+
+      final json = original.toJson();
+      expect(json['category'], 'cat-abc123');
+
+      final restored = Todo.fromJson(json);
+      expect(
+        restored.category.id,
+        'cat-abc123',
+        reason: '사용자 카테고리 id 가 daily 로 붕괴되면 안 됨 (서버 데이터 오염 원인)',
+      );
+    });
   });
 
   test('Equality (freezed) — 동일 필드는 ==', () {

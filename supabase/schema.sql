@@ -83,7 +83,8 @@ create table if not exists solo_todo.categories (
   user_id         uuid references auth.users(id) on delete cascade not null,
   label           text not null,
   icon_code_point integer not null,
-  color_value     integer not null,
+  -- color_value: 0xFFRRGGBB (부호없는 32비트, 최대 ~42억) 이라 int4 초과 → bigint.
+  color_value     bigint not null,
   sort_order      integer not null default 0,
   is_builtin      boolean not null default false,
   created_at      timestamptz not null default now()
@@ -136,7 +137,8 @@ create table if not exists solo_todo.groups (
   id          text primary key,
   user_id     uuid references auth.users(id) on delete cascade not null,
   label       text not null,
-  color_value integer not null,
+  -- color_value: 0xFFRRGGBB (부호없는 32비트) 이라 int4 초과 → bigint.
+  color_value bigint not null,
   sort_order  integer not null default 0,
   is_builtin  boolean not null default false,
   created_at  timestamptz not null default now()
@@ -174,6 +176,12 @@ end $$;
 -- 17) categories.group_id 컬럼 (신규). null = '미분류'. FK 제약 두지 않음
 -- (동기화 중 일시적 dangling 허용 + 앱이 미지 group_id 를 미분류로 fallback).
 alter table solo_todo.categories add column if not exists group_id text;
+
+-- 18) color_value 를 bigint 로 (기존 int4 프로젝트 마이그레이션). 색상값
+-- 0xFFRRGGBB 는 부호없는 32비트(최대 ~42억)라 int4(약 21억)를 초과 → 22003
+-- (integer out of range) 으로 카테고리/그룹 업로드가 거부되던 버그 수정.
+alter table solo_todo.categories alter column color_value type bigint;
+alter table solo_todo.groups     alter column color_value type bigint;
 
 -- ─────────────────────────────────────────────────────────────────────
 -- v1.1 → v1.2 마이그레이션 (기존 환경 — schema.sql 이미 실행된 프로젝트)
