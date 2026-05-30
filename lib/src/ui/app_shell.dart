@@ -19,6 +19,7 @@ import '../features/category/groups_controller.dart';
 import '../features/category/category_view.dart';
 import '../features/home/home_screen.dart';
 import '../features/home/today_providers.dart';
+import '../features/manage/manage_drawer.dart';
 import '../features/outline/outline_screen.dart';
 import '../features/system/tray_service.dart';
 import 'destination.dart';
@@ -412,6 +413,22 @@ class _AppShellState extends ConsumerState<AppShell> {
       destinations: _destinations,
       onSelect: _selectByDigit,
       child: Scaffold(
+        // 모바일만 상단 앱바 — ☰ 로 그룹/카테고리 관리 Drawer 를 연다 (Task A).
+        // 데스크탑은 좌측 _Sidebar 가 모든 관리/네비를 담당하므로 앱바 없음.
+        appBar: AppPlatform.isDesktop
+            ? null
+            : AppBar(
+                title: Text(destination.label),
+                leading: Builder(
+                  builder: (ctx) => IconButton(
+                    key: const ValueKey('manage-drawer-button'),
+                    icon: const Icon(Icons.menu),
+                    tooltip: '그룹/카테고리 관리',
+                    onPressed: () => Scaffold.of(ctx).openDrawer(),
+                  ),
+                ),
+              ),
+        drawer: AppPlatform.isDesktop ? null : const ManageDrawer(),
         floatingActionButton: fab,
         // endFloat — Scaffold 가 FAB 를 bottomNavigationBar **위로** 띄워 네비를 가리지 않음.
         // (이전 endContained 는 nav bar 에 도킹돼 6개 destination 항목을 덮는 문제가 있었다.)
