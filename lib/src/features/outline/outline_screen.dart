@@ -338,13 +338,14 @@ class _ChecklistTabState extends ConsumerState<_ChecklistTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    // 전체 todos 에서 카테고리별 task root 보유 여부를 한 번에 계산.
-    // (각 카테고리 헤더의 taskRootsOfCategoryProvider 와 같은 의미 — parentId null + task.)
+    // 전체 todos 에서 카테고리별 "체크리스트 관련 root" 보유 여부를 한 번에 계산.
+    // (taskRootsOfCategoryProvider 와 같은 의미 — task root 또는 task 자손 보유 note 헤딩.)
     final allTodos =
         ref.watch(allTodosProvider).asData?.value ?? const <Todo>[];
     final withTaskRoot = <String>{};
     for (final t in allTodos) {
-      if (t.type == TodoType.task && t.parentId == null) {
+      if (t.parentId == null &&
+          (t.type == TodoType.task || hasTaskDescendant(t, allTodos))) {
         withTaskRoot.add(t.category.id);
       }
     }
@@ -554,7 +555,7 @@ class _OutlineNode extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 체크리스트 탭 — task 자식만 (note 자식 제외).
+    // 체크리스트 탭 — task 자식 + task 자손 보유 note 헤딩(§14).
     final children = ref.watch(childTasksOfProvider(node.id)).asData?.value;
     final allTodos = ref.watch(allTodosProvider).asData?.value;
     final isFolder = children != null && children.isNotEmpty;
@@ -566,6 +567,8 @@ class _OutlineNode extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isDone = node.isDone;
+    // §14 — note 헤딩은 체크 개념이 없어 체크박스 대신 카테고리색 메모 글리프로 표시.
+    final isNote = node.type == TodoType.note;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,20 +584,34 @@ class _OutlineNode extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                // 큰 원형 체크박스 — 명확한 탭 타깃 + 상태 가시성.
-                _CheckCircle(
-                  checkKey: ValueKey('outline-check-${node.id}'),
-                  done: isDone,
-                  color: node.category.color,
-                  onTap: () => ref.read(todoActionsProvider).toggle(node),
-                ),
+                // task = 큰 원형 체크박스. note 헤딩 = 메모 글리프(체크 불가).
+                if (isNote)
+                  Padding(
+                    key: ValueKey('outline-note-glyph-${node.id}'),
+                    padding: const EdgeInsets.all(AppTokens.space4),
+                    child: Icon(
+                      Icons.sticky_note_2_outlined,
+                      size: 22,
+                      color: NoteVisual.accent(node.category),
+                    ),
+                  )
+                else
+                  _CheckCircle(
+                    checkKey: ValueKey('outline-check-${node.id}'),
+                    done: isDone,
+                    color: node.category.color,
+                    onTap: () => ref.read(todoActionsProvider).toggle(node),
+                  ),
                 const SizedBox(width: AppTokens.space12),
                 Expanded(
                   child: Text(
                     node.title,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       height: 1.3,
-                      fontWeight: isFolder ? FontWeight.w600 : FontWeight.w500,
+                      // note 헤딩은 굵게(섹션 제목). task 폴더 w600 / leaf w500.
+                      fontWeight: isNote
+                          ? FontWeight.w700
+                          : (isFolder ? FontWeight.w600 : FontWeight.w500),
                       decoration: isDone ? TextDecoration.lineThrough : null,
                       color: isDone
                           ? scheme.onSurface.withValues(alpha: 0.4)

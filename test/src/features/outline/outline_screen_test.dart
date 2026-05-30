@@ -537,4 +537,55 @@ void main() {
       }
     });
   });
+
+  group('§14 — note 헤딩(task 자손 보유) 체크리스트 통합', () {
+    testWidgets('note 헤딩이 체크리스트 탭에 섹션으로 노출 (글리프 + task 자식)', (tester) async {
+      final heading = make(id: 'h', title: '코기토 인프라', type: TodoType.note);
+      final taskChild = make(id: 'tc', title: '서버 세팅', parentId: 'h');
+      await mount(
+        tester,
+        rootsByCategory: {
+          Category.work: [heading],
+        },
+        childrenByParent: {
+          'h': [taskChild],
+        },
+        allTodos: [heading, taskChild],
+      );
+
+      // 체크리스트 탭(default) — note 헤딩 노드 + 메모 글리프(체크박스 아님).
+      expect(find.byKey(const ValueKey('outline-node-h')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('outline-note-glyph-h')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('outline-check-h')), findsNothing);
+      expect(find.text('코기토 인프라'), findsOneWidget);
+      // 펼쳐진 task 자식은 체크박스로 노출.
+      expect(find.text('서버 세팅'), findsOneWidget);
+      expect(find.byKey(const ValueKey('outline-check-tc')), findsOneWidget);
+    });
+
+    testWidgets('note 헤딩은 메모 탭에서 제외 (task 자손 보유 → 체크리스트로)', (tester) async {
+      final heading = make(id: 'h', title: '코기토 인프라', type: TodoType.note);
+      final taskChild = make(id: 'tc', title: '서버 세팅', parentId: 'h');
+      final pureMemo = make(id: 'm', title: '순수 메모', type: TodoType.note);
+      await mount(
+        tester,
+        rootsByCategory: {
+          Category.work: [heading, pureMemo],
+        },
+        childrenByParent: {
+          'h': [taskChild],
+        },
+        allTodos: [heading, taskChild, pureMemo],
+      );
+
+      await openNotesTab(tester);
+
+      // 순수 메모만 메모 탭에. 헤딩(task 자손 보유)은 제외.
+      expect(find.byKey(const ValueKey('outline-note-m')), findsOneWidget);
+      expect(find.byKey(const ValueKey('outline-note-h')), findsNothing);
+    });
+  });
 }

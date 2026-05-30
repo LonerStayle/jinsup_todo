@@ -43,35 +43,63 @@ final rootsOfCategoryProvider = StreamProvider.family<List<Todo>, Category>((
 // 1인 사용자 규모에서 비용 무시 가능). 이렇게 하면 BC 에이전트가 만든 DAO 를 건드리지
 // 않고 D 단독으로 완결된다.
 
-/// 카테고리 root 중 **task 타입만** — 체크리스트 탭의 카테고리 헤더 아래 첫 단계.
+/// §14 — 노드의 자손(재귀) 중 task 가 하나라도 있으면 true.
 ///
-/// note root 는 제외되지만, task root 의 자식 note 는 트리 walk 시 [childTasksOfProvider]
-/// 가 다시 걸러낸다. base [rootsOfCategoryProvider] 의 AsyncValue 를 그대로 따라가며
-/// (loading / error 전파) data 일 때만 task 필터를 건다 (Riverpod 3 — `.stream` 없음).
+/// note 가 task 자손을 가지면 "섹션 헤딩" 으로 간주해 체크리스트 탭에 노출하고,
+/// task 자손이 없는 순수 메모(트리)는 메모 탭에만 둔다.
+bool hasTaskDescendant(Todo node, List<Todo> all) {
+  final byParent = <String, List<Todo>>{};
+  for (final t in all) {
+    final pid = t.parentId;
+    if (pid == null) continue;
+    (byParent[pid] ??= []).add(t);
+  }
+  bool walk(String id) {
+    for (final c in byParent[id] ?? const <Todo>[]) {
+      if (c.type == TodoType.task) return true;
+      if (walk(c.id)) return true;
+    }
+    return false;
+  }
+
+  return walk(node.id);
+}
+
+/// 체크리스트 탭에 노출될 자격 — task 본인 또는 task 자손을 가진 note(헤딩).
+bool _isChecklistRelevant(Todo t, List<Todo> all) =>
+    t.type == TodoType.task || hasTaskDescendant(t, all);
+
+/// 카테고리 root 중 **체크리스트 관련** — task root + task 자손 보유 note 헤딩 root.
+///
+/// task 자손이 없는 순수 메모 root 는 제외(메모 탭으로). base [rootsOfCategoryProvider]
+/// 의 AsyncValue 를 그대로 따라가며 data 일 때만 필터를 건다 (Riverpod 3 — `.stream` 없음).
 final taskRootsOfCategoryProvider =
     Provider.family<AsyncValue<List<Todo>>, Category>((ref, category) {
+      final all = ref.watch(allTodosProvider).asData?.value ?? const <Todo>[];
       return ref
           .watch(rootsOfCategoryProvider(category))
           .whenData(
-            (roots) => roots.where((t) => t.type == TodoType.task).toList(),
+            (roots) =>
+                roots.where((t) => _isChecklistRelevant(t, all)).toList(),
           );
     });
 
-/// 특정 parent 의 직속 자식 중 **task 타입만** — 체크리스트 탭 트리 walk 용.
+/// 특정 parent 의 직속 자식 중 **체크리스트 관련** (task + task 자손 보유 note 헤딩).
 final childTasksOfProvider = Provider.family<AsyncValue<List<Todo>>, String>((
   ref,
   parentId,
 ) {
+  final all = ref.watch(allTodosProvider).asData?.value ?? const <Todo>[];
   return ref
       .watch(childrenOfProvider(parentId))
       .whenData(
-        (children) => children.where((t) => t.type == TodoType.task).toList(),
+        (children) =>
+            children.where((t) => _isChecklistRelevant(t, all)).toList(),
       );
 });
 
-/// 카테고리별 **note 평탄 목록** — 메모 탭. 트리 깊이와 무관하게 그 카테고리에 속한
-/// 모든 note 를 한 목록으로 본다 ("메모는 메모별로"). 정렬은 [allTodosProvider] 의
-/// 순서를 그대로 따른다 (DAO 의 sortOrder/updatedAt 기준).
+/// 카테고리별 **순수 메모 목록** — 메모 탭. task 자손을 가진 헤딩 note 는 제외(그건
+/// 체크리스트 탭으로). 트리 깊이 무관하게 그 카테고리의 순수 메모를 평탄 나열한다.
 final notesOfCategoryProvider =
     Provider.family<AsyncValue<List<Todo>>, Category>((ref, category) {
       return ref
@@ -80,7 +108,9 @@ final notesOfCategoryProvider =
             (all) => all
                 .where(
                   (t) =>
-                      t.type == TodoType.note && t.category.id == category.id,
+                      t.type == TodoType.note &&
+                      t.category.id == category.id &&
+                      !hasTaskDescendant(t, all),
                 )
                 .toList(),
           );
