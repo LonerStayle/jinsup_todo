@@ -17,6 +17,7 @@ import '../features/category/add_group_dialog.dart';
 import '../features/category/categories_controller.dart';
 import '../features/category/groups_controller.dart';
 import '../features/category/category_view.dart';
+import '../features/group/group_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/home/today_providers.dart';
 import '../features/manage/manage_drawer.dart';
@@ -46,6 +47,12 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   int _index = 0;
+
+  /// A안 — 선택된 그룹 id. non-null 이면 main area 에 그룹 화면([GroupScreen],
+  /// 오늘/전체보기 탭)을 띄운다. today/category/outline destination 을 고르면 null 로
+  /// 리셋된다. 선택한 그룹이 삭제되면 build 단계에서 자동으로 null fallback.
+  String? _selectedGroupId;
+
   HotKey? _cmdN;
   TrayService? _tray;
 
@@ -165,7 +172,22 @@ class _AppShellState extends ConsumerState<AppShell> {
   List<AppDestination> _destinations = AppDestination.all;
 
   void _select(int i) {
-    setState(() => _index = i);
+    // destination 선택은 그룹 화면을 빠져나간다 (A안).
+    setState(() {
+      _index = i;
+      _selectedGroupId = null;
+    });
+  }
+
+  /// A안 — 사이드바/Drawer 에서 그룹 헤더 탭 → 그 그룹 화면(오늘/전체보기 탭) 진입.
+  void _selectGroup(String groupId) {
+    setState(() => _selectedGroupId = groupId);
+  }
+
+  /// 모바일 Drawer 에서 그룹 탭 → 그룹 화면 진입 + Drawer 닫기.
+  void _selectGroupFromDrawer(Group group) {
+    _selectGroup(group.id);
+    Navigator.of(context).pop();
   }
 
   /// 단축키 digit (0~9) → destination index 매핑. 0 Today, 1~min(9,N) 카테고리,
@@ -386,9 +408,14 @@ class _AppShellState extends ConsumerState<AppShell> {
   ///   - 1 → outline destination 으로 _select
   ///   - 2 → 관리 Drawer 열기 (카테고리 선택은 Drawer 안에서)
   /// 카테고리 슬롯 라벨/아이콘은 현재 카테고리에 있으면 그 카테고리, 아니면 기본값.
-  Widget _buildMobileNavBar(AppDestination current) {
+  Widget _buildMobileNavBar(AppDestination current, Group? selectedGroup) {
+    // 그룹 화면일 땐 '카테고리' 슬롯(관리 Drawer 진입점)을 선택 상태로 — 그룹은 그
+    // Drawer 에서 고르므로 일관적이다. 슬롯 라벨/아이콘도 그룹명/폴더로 바꿔 표시.
+    final groupActive = selectedGroup != null;
     final onCategory = current.kind == DestinationKind.category;
-    final navSelected = current.isToday
+    final navSelected = groupActive
+        ? 2
+        : current.isToday
         ? 0
         : current.isOutline
         ? 1
@@ -397,8 +424,16 @@ class _AppShellState extends ConsumerState<AppShell> {
     final todayDest = _destinations.firstWhere((d) => d.isToday);
     final outlineDest = _destinations.firstWhere((d) => d.isOutline);
 
-    final categoryIcon = onCategory ? current.icon : Icons.category_outlined;
-    final categoryLabel = onCategory ? current.label : '카테고리';
+    final categoryIcon = groupActive
+        ? Icons.folder_outlined
+        : onCategory
+        ? current.icon
+        : Icons.category_outlined;
+    final categoryLabel = groupActive
+        ? selectedGroup.label
+        : onCategory
+        ? current.label
+        : '카테고리';
 
     return NavigationBar(
       selectedIndex: navSelected,
@@ -455,6 +490,25 @@ class _AppShellState extends ConsumerState<AppShell> {
     final safeIndex = _index < _destinations.length ? _index : 0;
     final destination = _destinations[safeIndex];
 
+    // A안 — 선택된 그룹 resolve. 삭제됐으면 null (→ destination 화면으로 fallback).
+    Group? selectedGroup;
+    if (_selectedGroupId != null) {
+      for (final g in groups) {
+        if (g.id == _selectedGroupId) {
+          selectedGroup = g;
+          break;
+        }
+      }
+    }
+
+    // main area 에 띄울 화면 — 그룹 선택 시 그룹 화면, 아니면 destination 화면.
+    final Widget mainContent = selectedGroup != null
+        ? GroupScreen(
+            key: ValueKey('group-${selectedGroup.id}'),
+            group: selectedGroup,
+          )
+        : _MainArea(destination: destination);
+
     // 모바일은 NavigationBar 를 가리지 않도록 컴팩트한 원형 FAB (endFloat 가 바 위로 띄움).
     // 데스크탑은 nav bar 가 없어 넓은 extended FAB 유지.
     final fab = AppPlatform.isDesktop
@@ -480,7 +534,9 @@ class _AppShellState extends ConsumerState<AppShell> {
             destinations: _destinations,
             groups: groups,
             selectedIndex: safeIndex,
+            selectedGroupId: selectedGroup?.id,
             onSelect: _select,
+            onSelectGroup: _selectGroup,
             onAddCategory: () => AddCategoryDialog.show(context),
             onAddGroup: () => AddGroupDialog.show(context),
             onDeleteCategory: _deleteCategory,
@@ -489,11 +545,11 @@ class _AppShellState extends ConsumerState<AppShell> {
             onReorderInGroup: _reorderCategoriesInGroup,
           ),
           const VerticalDivider(width: AppTokens.hairline),
-          Expanded(child: _MainArea(destination: destination)),
+          Expanded(child: mainContent),
         ],
       );
     } else {
-      body = SafeArea(child: _MainArea(destination: destination));
+      body = SafeArea(child: mainContent);
     }
 
     return _ShortcutsHost(
@@ -506,7 +562,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         appBar: AppPlatform.isDesktop
             ? null
             : AppBar(
-                title: Text(destination.label),
+                title: Text(selectedGroup?.label ?? destination.label),
                 leading: Builder(
                   builder: (ctx) => IconButton(
                     key: const ValueKey('manage-drawer-button'),
@@ -518,7 +574,10 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
         drawer: AppPlatform.isDesktop
             ? null
-            : ManageDrawer(onSelectCategory: _selectCategoryDestination),
+            : ManageDrawer(
+                onSelectCategory: _selectCategoryDestination,
+                onSelectGroup: _selectGroupFromDrawer,
+              ),
         floatingActionButton: fab,
         // endFloat — Scaffold 가 FAB 를 bottomNavigationBar **위로** 띄워 네비를 가리지 않음.
         // (이전 endContained 는 nav bar 에 도킹돼 6개 destination 항목을 덮는 문제가 있었다.)
@@ -528,7 +587,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         // null. mobile 만 NavigationBar 노출 — 오늘/전체보기/카테고리 3 슬롯 고정 (옵션 1).
         bottomNavigationBar: AppPlatform.isDesktop
             ? null
-            : _buildMobileNavBar(destination),
+            : _buildMobileNavBar(destination, selectedGroup),
       ),
     );
   }
@@ -636,7 +695,9 @@ class _Sidebar extends StatefulWidget {
     required this.destinations,
     required this.groups,
     required this.selectedIndex,
+    required this.selectedGroupId,
     required this.onSelect,
+    required this.onSelectGroup,
     required this.onAddCategory,
     required this.onAddGroup,
     required this.onDeleteCategory,
@@ -648,7 +709,14 @@ class _Sidebar extends StatefulWidget {
   final List<AppDestination> destinations;
   final List<Group> groups;
   final int selectedIndex;
+
+  /// A안 — 선택된 그룹 id (없으면 null). non-null 이면 그 그룹 헤더가 강조되고
+  /// today/category destination 의 선택 강조는 해제된다.
+  final String? selectedGroupId;
   final ValueChanged<int> onSelect;
+
+  /// 그룹 헤더 탭 → 그 그룹 화면 진입.
+  final ValueChanged<String> onSelectGroup;
   final VoidCallback onAddCategory;
   final VoidCallback onAddGroup;
   final ValueChanged<AppDestination> onDeleteCategory;
@@ -682,7 +750,8 @@ class _SidebarState extends State<_Sidebar> {
     return SidebarItem(
       key: key,
       destination: dest,
-      selected: index == widget.selectedIndex,
+      // 그룹 화면이 떠 있는 동안엔 destination 강조를 끈다.
+      selected: widget.selectedGroupId == null && index == widget.selectedIndex,
       onTap: () => widget.onSelect(index),
       // 카테고리만 long-press / right-click 으로 컨텍스트 메뉴 (삭제 / 그룹 이동).
       onLongPress: isCategory ? () => _showCategoryMenu(dest) : null,
@@ -825,12 +894,14 @@ class _SidebarState extends State<_Sidebar> {
           _SectionLabel(label: '미분류', textTheme: textTheme),
         _reorderableCategorySection(ungrouped),
       ],
-      // 그룹별 섹션 — 헤더(접힘 토글) + 그 그룹의 카테고리.
+      // 그룹별 섹션 — 헤더(탭 = 그룹 화면 진입, chevron = 접힘 토글) + 그 그룹의 카테고리.
       for (final g in widget.groups) ...[
         _GroupHeader(
           group: g,
           collapsed: _collapsed.contains(g.id),
-          onTap: () => _toggle(g.id),
+          selected: widget.selectedGroupId == g.id,
+          onSelect: () => widget.onSelectGroup(g.id),
+          onToggleCollapse: () => _toggle(g.id),
           onLongPress: () => _showGroupMenu(g),
         ),
         if (!_collapsed.contains(g.id) &&
@@ -920,18 +991,29 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// 그룹 헤더 — 색 dot + label + 접힘 chevron. tap 으로 접힘 토글.
+/// 그룹 헤더 — 색 dot + label + 접힘 chevron.
+///
+/// A안: **헤더 본문 탭 = 그 그룹 화면(오늘/전체보기) 진입**, 우측 chevron 탭 = 접힘
+/// 토글 (두 제스처 분리). 선택된 그룹은 배경 강조. long-press/우클릭 = 그룹 메뉴.
 class _GroupHeader extends StatelessWidget {
   const _GroupHeader({
     required this.group,
     required this.collapsed,
-    required this.onTap,
+    required this.selected,
+    required this.onSelect,
+    required this.onToggleCollapse,
     this.onLongPress,
   });
 
   final Group group;
   final bool collapsed;
-  final VoidCallback onTap;
+  final bool selected;
+
+  /// 본문 탭 — 그룹 화면 진입.
+  final VoidCallback onSelect;
+
+  /// chevron 탭 — 접힘 토글.
+  final VoidCallback onToggleCollapse;
 
   /// long-press / 우클릭 — 그룹 컨텍스트 메뉴 (삭제). 카테고리 아이템과 동일 패턴.
   final VoidCallback? onLongPress;
@@ -939,6 +1021,10 @@ class _GroupHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final bg = selected
+        ? scheme.primary.withValues(alpha: 0.12)
+        : Colors.transparent;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppTokens.space8,
@@ -946,36 +1032,57 @@ class _GroupHeader extends StatelessWidget {
         AppTokens.space8,
         AppTokens.space2,
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppTokens.radiusM),
-        onTap: onTap,
-        onLongPress: onLongPress,
-        onSecondaryTap: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space12,
-            vertical: AppTokens.space8,
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.circle, size: 12, color: group.color),
-              const SizedBox(width: AppTokens.space8),
-              Expanded(
-                child: Text(
-                  group.label,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+      child: Material(
+        color: bg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTokens.radiusM),
+          onTap: onSelect,
+          onLongPress: onLongPress,
+          onSecondaryTap: onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTokens.space12,
+              AppTokens.space4,
+              AppTokens.space4,
+              AppTokens.space4,
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.circle, size: 12, color: group.color),
+                const SizedBox(width: AppTokens.space8),
+                Expanded(
+                  child: Text(
+                    group.label,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface.withValues(
+                        alpha: selected ? 1.0 : 0.85,
+                      ),
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Icon(
-                collapsed ? Icons.chevron_right : Icons.expand_more,
-                size: 18,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
-            ],
+                IconButton(
+                  icon: Icon(
+                    collapsed ? Icons.chevron_right : Icons.expand_more,
+                    size: 18,
+                  ),
+                  color: scheme.onSurface.withValues(alpha: 0.5),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  tooltip: collapsed ? '펼치기' : '접기',
+                  onPressed: onToggleCollapse,
+                ),
+              ],
+            ),
           ),
         ),
       ),

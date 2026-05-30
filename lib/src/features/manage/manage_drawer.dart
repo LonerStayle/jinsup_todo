@@ -21,11 +21,15 @@ import '../category/groups_controller.dart';
 /// 재주입받을 필요가 없다. 컨트롤러/다이얼로그(`AddCategoryDialog` / `AddGroupDialog`
 /// / `categoriesControllerProvider` / `groupsControllerProvider`)는 재사용.
 class ManageDrawer extends ConsumerStatefulWidget {
-  const ManageDrawer({super.key, this.onSelectCategory});
+  const ManageDrawer({super.key, this.onSelectCategory, this.onSelectGroup});
 
   /// 카테고리 행 탭 시 호출 — 그 카테고리 화면으로 이동 + Drawer 닫기 (app_shell 주입).
   /// null 이면 탭은 long-press 메뉴와 동일 동작(이전 호환). 보통은 주입된다.
   final ValueChanged<Category>? onSelectCategory;
+
+  /// A안 — 그룹 헤더 탭 시 호출 — 그 그룹 화면(오늘/전체보기)으로 이동 + Drawer 닫기.
+  /// null 이면 헤더 본문 탭이 접힘 토글로 fallback (이전 호환).
+  final ValueChanged<Group>? onSelectGroup;
 
   @override
   ConsumerState<ManageDrawer> createState() => _ManageDrawerState();
@@ -287,7 +291,10 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
           group: g,
           collapsed: _collapsed.contains(g.id),
           hovering: _hoverTarget == g.id,
-          onTap: () => _toggle(g.id),
+          onSelect: () => widget.onSelectGroup != null
+              ? widget.onSelectGroup!(g)
+              : _toggle(g.id),
+          onToggleCollapse: () => _toggle(g.id),
           onLongPress: () => _deleteGroup(g),
           onWillAccept: () => setState(() => _hoverTarget = g.id),
           onLeave: () => setState(() => _hoverTarget = null),
@@ -625,12 +632,16 @@ class _DragFeedback extends StatelessWidget {
 }
 
 /// 그룹 헤더 — DragTarget. 카테고리를 드롭하면 그 그룹으로 이동(E).
+///
+/// A안: 본문 탭 = 그룹 화면 진입([onSelect]), 우측 chevron 탭 = 접힘 토글
+/// ([onToggleCollapse]).
 class _GroupDropHeader extends StatelessWidget {
   const _GroupDropHeader({
     required this.group,
     required this.collapsed,
     required this.hovering,
-    required this.onTap,
+    required this.onSelect,
+    required this.onToggleCollapse,
     required this.onLongPress,
     required this.onWillAccept,
     required this.onLeave,
@@ -640,7 +651,8 @@ class _GroupDropHeader extends StatelessWidget {
   final Group group;
   final bool collapsed;
   final bool hovering;
-  final VoidCallback onTap;
+  final VoidCallback onSelect;
+  final VoidCallback onToggleCollapse;
   final VoidCallback onLongPress;
   final VoidCallback onWillAccept;
   final VoidCallback onLeave;
@@ -673,7 +685,7 @@ class _GroupDropHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppTokens.radiusM),
             child: InkWell(
               borderRadius: BorderRadius.circular(AppTokens.radiusM),
-              onTap: onTap,
+              onTap: onSelect,
               onLongPress: onLongPress,
               onSecondaryTap: onLongPress,
               child: Container(
@@ -683,9 +695,11 @@ class _GroupDropHeader extends StatelessWidget {
                       ? Border.all(color: group.color, width: 1.6)
                       : null,
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTokens.space12,
-                  vertical: AppTokens.space12,
+                padding: const EdgeInsets.fromLTRB(
+                  AppTokens.space12,
+                  AppTokens.space4,
+                  AppTokens.space4,
+                  AppTokens.space4,
                 ),
                 child: Row(
                   children: [
@@ -701,10 +715,20 @@ class _GroupDropHeader extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Icon(
-                      collapsed ? Icons.chevron_right : Icons.expand_more,
-                      size: 18,
+                    IconButton(
+                      icon: Icon(
+                        collapsed ? Icons.chevron_right : Icons.expand_more,
+                        size: 18,
+                      ),
                       color: scheme.onSurface.withValues(alpha: 0.5),
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
+                      tooltip: collapsed ? '펼치기' : '접기',
+                      onPressed: onToggleCollapse,
                     ),
                   ],
                 ),
