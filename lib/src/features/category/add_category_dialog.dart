@@ -12,7 +12,7 @@ const _uuid = Uuid();
 
 /// 새 카테고리 추가 다이얼로그.
 ///
-/// label TextField + 16 색 palette + 12 Material Icons (outlined subset) picker.
+/// label TextField + 16 색 palette + Material Icons picker (builtin 5종 + 일상 모음).
 /// 확인 시 [CategoriesController.add] 호출. id 는 `cat-<uuid>` 로 부여 (builtin 의
 /// 'work' / 'personal_dev' 등과 충돌 회피).
 class AddCategoryDialog extends ConsumerStatefulWidget {
@@ -47,21 +47,57 @@ class AddCategoryDialog extends ConsumerStatefulWidget {
     0xFF6B7280, // gray
   ];
 
-  /// 사용자가 고를 12 Material Icons outlined codepoint.
+  /// 사용자가 고를 Material Icons codepoint.
+  ///
+  /// 맨 앞 5종은 builtin 카테고리(회사/개인개발/일상/장기목표/아이디어)가 쓰는
+  /// 아이콘과 동일 — 새 카테고리에서도 기본 카테고리와 같은 아이콘을 고를 수 있게 함.
+  /// ⚠️ 이 5개는 [Category.builtinSeeds] 의 iconCodePoint 와 항상 일치시켜야 한다.
+  /// 나머지는 업무/학습/사람/건강/지출/취미/장소 등 일상 카테고리용 모음.
   @visibleForTesting
   static const iconPalette = <int>[
+    // ── builtin 카테고리 5종 아이콘 (정렬 순서대로) ──
+    0xef0a, // business_center_outlined (회사 할일)
+    0xe176, // code (개인개발)
+    0xf107, // home_outlined (일상)
+    0xf07b, // flag_outlined (장기 목표)
+    0xe37c, // lightbulb_outline (아이디어)
+    // ── 업무 / 일정 ──
+    0xe6f4, // work_outline
+    0xe15b, // checklist
+    0xe66a, // today
+    0xe072, // alarm
+    0xe25c, // event_outlined
+    // ── 학습 / 독서 ──
     0xe865, // book
     0xe87c, // bookmark
+    0xe53e, // school
+    // ── 사람 / 관심 ──
     0xe7fd, // person
     0xe7ef, // group
+    0xe25b, // favorite
+    0xe4a1, // pets
+    // ── 건강 / 생활 ──
+    0xe28d, // fitness_center
+    0xe1dc, // directions_run
+    0xe56f, // self_improvement
+    0xe167, // cleaning_services
+    // ── 지출 / 쇼핑 ──
     0xe1aa, // attach_money
-    0xe55b, // place
-    0xe410, // photo
+    0xe553, // savings
+    0xe59c, // shopping_cart
+    // ── 취미 / 여가 ──
     0xe430, // music_note
+    0xe40d, // movie
     0xe038, // games
-    0xe53e, // school
-    0xe25c, // event_outlined
+    0xe5e8, // sports_esports
+    0xe113, // brush
+    0xe410, // photo
+    // ── 음식 / 장소 / 여행 ──
     0xe558, // restaurant
+    0xe38d, // local_cafe
+    0xe55b, // place
+    0xe297, // flight
+    0xe5f9, // star
   ];
 
   @override
