@@ -129,6 +129,47 @@ void main() {
       expect(find.text('오타 수정'), findsOneWidget);
     });
 
+    testWidgets('체크 circle — 미완료 ring 카테고리색(0.55), 완료 채움 (TodoTile 일관)', (
+      tester,
+    ) async {
+      final undone = make(id: 'u', title: '미완료', category: Category.work);
+      final done = make(
+        id: 'd',
+        title: '완료',
+        category: Category.work,
+        doneAt: DateTime(2026, 5, 27, 10),
+      );
+      await mount(
+        tester,
+        rootsByCategory: {
+          Category.work: [undone, done],
+        },
+        allTodos: [undone, done],
+      );
+
+      BoxDecoration circleDeco(String id) {
+        final container = tester.widget<AnimatedContainer>(
+          find.descendant(
+            of: find.byKey(ValueKey('outline-check-$id')),
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+        return container.decoration! as BoxDecoration;
+      }
+
+      // 미완료 — 투명 채움 + 카테고리색 0.55 ring.
+      final u = circleDeco('u');
+      expect(u.color, Colors.transparent);
+      expect(
+        (u.border! as Border).top.color,
+        Category.work.color.withValues(alpha: 0.55),
+      );
+      // 완료 — 카테고리색 채움 + 동일 색 ring.
+      final d = circleDeco('d');
+      expect(d.color, Category.work.color);
+      expect((d.border! as Border).top.color, Category.work.color);
+    });
+
     testWidgets('펼침 → 접힘 토글 — 카테고리 row tap 시 자식 root 들 사라짐', (tester) async {
       final root = make(id: 'r', title: '회사 root');
       await mount(
@@ -292,6 +333,39 @@ void main() {
       expect(find.text('체크할 일'), findsNothing);
       // 메모는 체크 토글 없음.
       expect(find.byKey(const ValueKey('outline-check-t')), findsNothing);
+    });
+
+    testWidgets('_NoteCard 가 NoteVisual 토큰으로 통일 (틴트+accent, non-italic)', (
+      tester,
+    ) async {
+      final note = make(
+        id: 'n1',
+        title: '메모1',
+        category: Category.idea,
+        type: TodoType.note,
+      );
+      await mount(
+        tester,
+        rootsByCategory: {
+          Category.idea: [note],
+        },
+        allTodos: [note],
+      );
+      await openNotesTab(tester);
+
+      final box = tester.widget<Container>(
+        find.byKey(const ValueKey('outline-note-n1')),
+      );
+      final deco = box.decoration! as BoxDecoration;
+      // 틴트 배경 = NoteVisual (라이트).
+      expect(deco.color, NoteVisual.tint(Category.idea, Brightness.light));
+      // 좌측 accent 보더 = NoteVisual 두께/색.
+      final left = (deco.border! as Border).left;
+      expect(left.width, NoteVisual.accentWidth);
+      expect(left.color, NoteVisual.accent(Category.idea));
+      // 제목 italic 제거 (TodoTile note 와 일관).
+      final title = tester.widget<Text>(find.text('메모1'));
+      expect(title.style?.fontStyle, isNot(FontStyle.italic));
     });
 
     testWidgets('note 가 트리 깊이와 무관하게 평탄 나열 (자식 note 포함)', (tester) async {
@@ -461,6 +535,57 @@ void main() {
       for (final c in Category.values) {
         expect(find.text(c.label), findsOneWidget);
       }
+    });
+  });
+
+  group('§14 — note 헤딩(task 자손 보유) 체크리스트 통합', () {
+    testWidgets('note 헤딩이 체크리스트 탭에 섹션으로 노출 (글리프 + task 자식)', (tester) async {
+      final heading = make(id: 'h', title: '코기토 인프라', type: TodoType.note);
+      final taskChild = make(id: 'tc', title: '서버 세팅', parentId: 'h');
+      await mount(
+        tester,
+        rootsByCategory: {
+          Category.work: [heading],
+        },
+        childrenByParent: {
+          'h': [taskChild],
+        },
+        allTodos: [heading, taskChild],
+      );
+
+      // 체크리스트 탭(default) — note 헤딩 노드 + 메모 글리프(체크박스 아님).
+      expect(find.byKey(const ValueKey('outline-node-h')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('outline-note-glyph-h')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('outline-check-h')), findsNothing);
+      expect(find.text('코기토 인프라'), findsOneWidget);
+      // 펼쳐진 task 자식은 체크박스로 노출.
+      expect(find.text('서버 세팅'), findsOneWidget);
+      expect(find.byKey(const ValueKey('outline-check-tc')), findsOneWidget);
+    });
+
+    testWidgets('note 헤딩은 메모 탭에서 제외 (task 자손 보유 → 체크리스트로)', (tester) async {
+      final heading = make(id: 'h', title: '코기토 인프라', type: TodoType.note);
+      final taskChild = make(id: 'tc', title: '서버 세팅', parentId: 'h');
+      final pureMemo = make(id: 'm', title: '순수 메모', type: TodoType.note);
+      await mount(
+        tester,
+        rootsByCategory: {
+          Category.work: [heading, pureMemo],
+        },
+        childrenByParent: {
+          'h': [taskChild],
+        },
+        allTodos: [heading, taskChild, pureMemo],
+      );
+
+      await openNotesTab(tester);
+
+      // 순수 메모만 메모 탭에. 헤딩(task 자손 보유)은 제외.
+      expect(find.byKey(const ValueKey('outline-note-m')), findsOneWidget);
+      expect(find.byKey(const ValueKey('outline-note-h')), findsNothing);
     });
   });
 }

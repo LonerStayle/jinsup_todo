@@ -289,6 +289,11 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
         type: _type,
         description: descOrNull,
         parentId: detach ? null : initial.parentId,
+        // §14-C — task→note 전환 시 doneAt/calendar 제거. note 는 체크·일정 개념이
+        // 없어 옛 doneAt 이 남으면 note→task 복귀 때 갑자기 완료로 표시되는 사고가 난다.
+        // (dueAt/isAllDay 는 _serializeDate 가 note 일 때 이미 null/false 로 비운다.)
+        doneAt: isNote ? null : initial.doneAt,
+        calendarEventId: isNote ? null : initial.calendarEventId,
       );
       widget.onUpdate?.call(updated);
       Navigator.of(context).maybePop();

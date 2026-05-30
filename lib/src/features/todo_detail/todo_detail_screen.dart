@@ -48,6 +48,8 @@ class TodoDetailScreen extends ConsumerWidget {
 
     final isNote = live.type == TodoType.note;
     final isDone = live.isDone;
+    // §14 — 자손 task 진척 요약 (note 헤딩/ task 폴더 공통). taskCount 0 이면 숨김.
+    final progress = computeSubtreeProgress(live, allTodos);
 
     final actions = ref.read(todoActionsProvider);
 
@@ -83,15 +85,13 @@ class TodoDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-      // ＋ 하위 추가 — task 만 (note 는 자식 불가).
-      floatingActionButton: isNote
-          ? null
-          : FloatingActionButton.extended(
-              key: const ValueKey('detail-add-child'),
-              onPressed: () => showAddChildSheet(context, ref, parent: live),
-              icon: const Icon(Icons.add),
-              label: const Text('하위 추가'),
-            ),
+      // §14 — ＋ 하위 추가. note 도 "섹션 헤딩" 으로 자식 보유 가능 → 항상 노출.
+      floatingActionButton: FloatingActionButton.extended(
+        key: const ValueKey('detail-add-child'),
+        onPressed: () => showAddChildSheet(context, ref, parent: live),
+        icon: const Icon(Icons.add),
+        label: const Text('하위 추가'),
+      ),
       body: asyncChildren.when(
         loading: () => const TodoListSkeleton(),
         error: (e, _) => _DetailError(message: '$e'),
@@ -102,12 +102,19 @@ class TodoDetailScreen extends ConsumerWidget {
               tone: live.category.color,
               title: '하위 항목이 없어요',
               subtitle: isNote
-                  ? '메모에는 하위를 추가할 수 없어요.'
+                  ? '아래 “하위 추가” 로 이 메모 아래에 항목을 만들어보세요.'
                   : '아래 “하위 추가” 로 체크리스트를 만들어보세요.',
             );
           }
           return CustomScrollView(
             slivers: [
+              if (progress.taskCount > 0)
+                SliverToBoxAdapter(
+                  child: _SubtreeProgressBar(
+                    progress: progress,
+                    accent: live.category.color,
+                  ),
+                ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(
                   AppTokens.space16,
@@ -149,6 +156,52 @@ class TodoDetailScreen extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// §14 — 상세 화면 상단의 자손 task 진척 요약. `done/total 완료` + 진행 바.
+class _SubtreeProgressBar extends StatelessWidget {
+  const _SubtreeProgressBar({required this.progress, required this.accent});
+
+  final SubtreeProgress progress;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      key: const ValueKey('detail-progress'),
+      padding: const EdgeInsets.fromLTRB(
+        AppTokens.space16,
+        AppTokens.space16,
+        AppTokens.space16,
+        0,
+      ),
+      child: Row(
+        children: [
+          Text(
+            '${progress.doneCount}/${progress.taskCount} 완료',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: accent,
+            ),
+          ),
+          const SizedBox(width: AppTokens.space12),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+              child: LinearProgressIndicator(
+                value: progress.ratio ?? 0,
+                minHeight: 6,
+                backgroundColor: scheme.surfaceContainerHighest,
+                valueColor: AlwaysStoppedAnimation<Color>(accent),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

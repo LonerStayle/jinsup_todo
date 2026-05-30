@@ -40,6 +40,7 @@ void main() {
     String title = 'x',
     DateTime? doneAt,
     TodoType type = TodoType.task,
+    String? description,
   }) => Todo(
     id: id,
     title: title,
@@ -50,6 +51,7 @@ void main() {
     createdAt: DateTime.utc(2026, 5, 27),
     updatedAt: DateTime.utc(2026, 5, 27),
     calendarEventId: null,
+    description: description,
   );
 
   testWidgets('빈 list → "{label}에 할 일이 없어요"', (tester) async {
@@ -92,11 +94,17 @@ void main() {
         doneAt: DateTime.utc(2026, 5, 27, 12),
       ),
       // note 는 체크 개념이 없어 카운트에서 빠져야 한다 (예전엔 미체크로 잘못 셈).
-      todo(id: '3', category: Category.idea, title: '메모', type: TodoType.note),
+      // 제목을 '참고 노트'로 — §13 "메모" 라벨 칩 텍스트와 충돌 회피.
+      todo(
+        id: '3',
+        category: Category.idea,
+        title: '참고 노트',
+        type: TodoType.note,
+      ),
     ]);
     await tester.pump();
 
-    expect(find.text('메모'), findsOneWidget);
+    expect(find.text('참고 노트'), findsOneWidget);
     expect(find.text('미체크 1'), findsOneWidget);
     expect(find.text('완료 1'), findsOneWidget);
   });
@@ -107,5 +115,63 @@ void main() {
     await tester.pump();
 
     expect(find.text('개인개발'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('§14-B 메모 N 카운트 — note 있으면 헤더에 "메모 N"', (tester) async {
+    final controller = await mount(tester, category: Category.idea);
+    controller.add([
+      todo(id: 't', category: Category.idea, title: '할 일'),
+      todo(
+        id: 'n1',
+        category: Category.idea,
+        title: '노트1',
+        type: TodoType.note,
+      ),
+      todo(
+        id: 'n2',
+        category: Category.idea,
+        title: '노트2',
+        type: TodoType.note,
+      ),
+    ]);
+    await tester.pump();
+
+    expect(find.text('메모 2'), findsOneWidget);
+  });
+
+  testWidgets('§14-B 메모 0 — "메모" 칩 생략', (tester) async {
+    final controller = await mount(tester, category: Category.idea);
+    controller.add([todo(id: 't', category: Category.idea, title: '할 일')]);
+    await tester.pump();
+
+    expect(find.textContaining('메모'), findsNothing);
+  });
+
+  testWidgets('§13 혼합 — task=체크 행, note=메모 글리프+라벨+프리뷰 로 시각 구분', (tester) async {
+    final controller = await mount(tester, category: Category.idea);
+    controller.add([
+      todo(id: 't', category: Category.idea, title: '할 일 항목'),
+      todo(
+        id: 'n',
+        category: Category.idea,
+        title: '노트 항목',
+        type: TodoType.note,
+        description: '노트 본문 미리보기',
+      ),
+    ]);
+    await tester.pump();
+
+    // task = trailing 체크 버튼(메모 글리프 없음).
+    expect(find.byKey(const ValueKey('todo-tile-check')), findsOneWidget);
+    // note = leading 메모 글리프 + "메모" 라벨 + 본문 프리뷰.
+    expect(
+      find.byKey(const ValueKey('todo-tile-note-leading')),
+      findsOneWidget,
+    );
+    expect(find.text('메모'), findsOneWidget);
+    expect(find.text('노트 본문 미리보기'), findsOneWidget);
+    // 둘 다 제목 노출.
+    expect(find.text('할 일 항목'), findsOneWidget);
+    expect(find.text('노트 항목'), findsOneWidget);
   });
 }

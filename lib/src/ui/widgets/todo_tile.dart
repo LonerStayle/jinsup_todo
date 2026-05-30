@@ -63,10 +63,20 @@ class TodoTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     final isDone = todo.isDone;
     final isNote = todo.type == TodoType.note;
+    // §14 — 자식 보유 note 는 "섹션 헤딩" 으로 강조(진한 틴트 + 굵은 제목).
+    // 자식 0 인 note 는 §13 의 leaf 메모(연한 틴트 카드).
+    final isNoteHeading = isNote && childCount > 0;
     // fast-tasks — 모드별 날짜 라벨. isAllDay 면 시간 미출력 (00:00 금지).
     final dateLabel = isNote ? null : TodoDateLabel.format(todo);
 
     return Card(
+      // §13/§14 — note 는 카테고리색 틴트 배경(헤딩=진한 틴트 / leaf=연한 틴트),
+      // task 는 null=기본 surface.
+      color: isNoteHeading
+          ? NoteVisual.headingTint(todo.category, theme.brightness)
+          : isNote
+          ? NoteVisual.tint(todo.category, theme.brightness)
+          : null,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTokens.radiusM),
@@ -94,14 +104,30 @@ class TodoTile extends StatelessWidget {
                     ),
                   ),
                 ),
+              // §13 — task = 8px 카테고리 컬러바. note = 3px accent 보더(틴트 배경
+              // 위라 얇은 accent 로 충분). 8px 컬러바와의 시각 충돌을 피한다.
               Container(
-                width: 8,
+                key: const ValueKey('todo-tile-colorbar'),
+                width: isNote ? NoteVisual.accentWidth : 8,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: todo.category.color,
+                  color: isNote
+                      ? NoteVisual.accent(todo.category)
+                      : todo.category.color,
                   borderRadius: BorderRadius.circular(AppTokens.radiusS),
                 ),
               ),
+              // §13 — note 는 시선이 먼저 닿는 좌측에 카테고리색 메모 글리프.
+              // 체크 affordance 는 note 어디에도 없음(trailing 도 제거).
+              if (isNote) ...[
+                const SizedBox(width: AppTokens.space8),
+                Icon(
+                  key: const ValueKey('todo-tile-note-leading'),
+                  Icons.sticky_note_2_outlined,
+                  size: 20,
+                  color: todo.category.color,
+                ),
+              ],
               const SizedBox(width: AppTokens.space12),
               Expanded(
                 child: Column(
@@ -109,22 +135,56 @@ class TodoTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
+                        // §13 — note 는 "메모" 라벨 칩으로 명시 구분한다. 한글은 italic
+                        // 글리프가 거의 없어 기존 italic 대신 라벨+틴트로 구분 신호를 옮긴다.
+                        if (isNote) ...[
+                          Container(
+                            key: const ValueKey('todo-tile-note-label'),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppTokens.space8,
+                              vertical: AppTokens.space2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: NoteVisual.labelBackground(todo.category),
+                              borderRadius: BorderRadius.circular(
+                                AppTokens.radiusFull,
+                              ),
+                              border: Border.all(
+                                color: NoteVisual.labelOutline(todo.category),
+                              ),
+                            ),
+                            child: Text(
+                              NoteVisual.label,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: NoteVisual.labelForeground(
+                                  theme.brightness,
+                                ),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppTokens.space8),
+                        ],
                         Flexible(
                           child: Text(
                             todo.title,
                             style: theme.textTheme.titleMedium?.copyWith(
+                              // §14 — 헤딩 note 는 굵게(섹션 제목 강조).
+                              fontWeight: isNoteHeading
+                                  ? FontWeight.w700
+                                  : null,
                               decoration: isDone
                                   ? TextDecoration.lineThrough
                                   : null,
                               color: isDone
                                   ? scheme.onSurface.withValues(alpha: 0.45)
                                   : null,
-                              fontStyle: isNote ? FontStyle.italic : null,
                             ),
                           ),
                         ),
-                        // v1.2 — description 이 있으면 작은 메모 아이콘으로 힌트 표시.
-                        if ((todo.description ?? '').isNotEmpty) ...[
+                        // v1.2 — task 는 description 있으면 작은 힌트 아이콘. note 는
+                        // §13 에서 본문 프리뷰를 직접 노출하므로 힌트 아이콘 생략.
+                        if (!isNote && (todo.description ?? '').isNotEmpty) ...[
                           const SizedBox(width: AppTokens.space8),
                           Icon(
                             key: const ValueKey('todo-tile-description-hint'),
@@ -135,6 +195,19 @@ class TodoTile extends StatelessWidget {
                         ],
                       ],
                     ),
+                    // §13 — note 본문(description) 2줄 프리뷰. "정보=메모" 를 즉시 전달.
+                    // task 는 미노출(위 힌트 아이콘 유지), 빈 description note 는 생략.
+                    if (isNote && (todo.description ?? '').trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppTokens.space4),
+                        child: Text(
+                          todo.description!.trim(),
+                          key: const ValueKey('todo-tile-note-preview'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
                     if (dateLabel != null)
                       Padding(
                         padding: const EdgeInsets.only(top: AppTokens.space2),
@@ -181,8 +254,8 @@ class TodoTile extends StatelessWidget {
                     ],
                   ),
                 ),
-              // Task C — task 타입만 "＋ 하위 추가" 버튼. note 는 자식 불가 → 미표시.
-              if (onAddChild != null && !isNote)
+              // §14 — note 도 "섹션 헤딩" 으로 자식 보유 가능 → 타입 무관 ＋하위 추가.
+              if (onAddChild != null)
                 IconButton(
                   key: ValueKey('todo-tile-add-child-${todo.id}'),
                   onPressed: onAddChild,
@@ -192,20 +265,9 @@ class TodoTile extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   tooltip: '하위 추가',
                 ),
-              if (isNote)
-                // note 는 체크 개념이 없어 trailing 을 점·노트 아이콘으로 대체. tap 무동작.
-                Padding(
-                  key: const ValueKey('todo-tile-note-leading'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTokens.space8,
-                  ),
-                  child: Icon(
-                    Icons.sticky_note_2_outlined,
-                    size: 20,
-                    color: scheme.onSurface.withValues(alpha: 0.45),
-                  ),
-                )
-              else
+              // §13 — note 는 trailing 을 비운다(체크 affordance 부재 명확화 — 메모는
+              // 좌측 글리프로만 식별). task 만 trailing 체크 버튼.
+              if (!isNote)
                 IconButton(
                   key: const ValueKey('todo-tile-check'),
                   onPressed: onToggle,
@@ -213,9 +275,11 @@ class TodoTile extends StatelessWidget {
                     isDone
                         ? Icons.check_circle_rounded
                         : Icons.radio_button_unchecked,
+                    // §13 — 미완료도 카테고리색 ring(0.55) 으로 "체크 가능" 신호 + 대비
+                    // 강화(기존 회색 0.35 는 너무 옅었다). 완료는 카테고리색 원색.
                     color: isDone
                         ? todo.category.color
-                        : scheme.onSurface.withValues(alpha: 0.35),
+                        : todo.category.color.withValues(alpha: 0.55),
                   ),
                   tooltip: isDone ? '완료 취소' : '완료',
                 ),

@@ -251,38 +251,24 @@ void main() {
       expect(find.text('하위 1'), findsOneWidget);
     });
 
-    testWidgets('task 타일에 ＋하위추가 버튼 노출, note 타일에는 없음', (tester) async {
-      final task = todo(id: 't', title: '할 일', category: Category.work);
-      final note = Todo(
-        id: 'n',
-        title: '메모',
-        category: Category.work,
-        dueAt: null,
-        doneAt: null,
-        createdAt: DateTime.utc(2026, 5, 27, 1),
-        updatedAt: DateTime.utc(2026, 5, 27, 1),
-        calendarEventId: null,
-        type: TodoType.note,
-      );
-      // note 는 today 정책상 안 보이므로 root 자식으로 붙여 트리에 노출시킨다.
-      final noteChild = note.copyWith(parentId: 't');
-      final controller = await mountWith(
-        tester,
-        fixedNow: DateTime(2026, 5, 27, 10),
-        allTodos: [task, noteChild],
-      );
-      controller.add([task]);
-      await tester.pump();
+    testWidgets(
+      '오늘 task 타일에 ＋하위추가 버튼 노출 (note 자식 add-child 는 drill_list_test 에서)',
+      (tester) async {
+        final task = todo(id: 't', title: '할 일', category: Category.work);
+        final controller = await mountWith(
+          tester,
+          fixedNow: DateTime(2026, 5, 27, 10),
+          allTodos: [task],
+        );
+        controller.add([task]);
+        await tester.pump();
 
-      expect(
-        find.byKey(const ValueKey('todo-tile-add-child-t')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('todo-tile-add-child-n')),
-        findsNothing,
-        reason: 'note 는 자식 추가 불가',
-      );
-    });
+        // §14 — 타입 무관하게 ＋하위 추가 노출. 오늘은 task 전용이라 여기선 task 만 검증.
+        expect(
+          find.byKey(const ValueKey('todo-tile-add-child-t')),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

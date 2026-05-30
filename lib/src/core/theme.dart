@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:macos_ui/macos_ui.dart';
 
+import '../domain/category.dart';
+
 // ----------------------------------------------------------------------------
 // 1. 디자인 토큰 — 모든 위젯이 이 상수만 import 한다.
 // ----------------------------------------------------------------------------
@@ -64,6 +66,71 @@ class AppPalette {
   // Brand accent — 액션 / 포커스 / 선택 강조 단일 출처.
   // Category.work 와 동일 hue 지만 의미는 분리 — accent 는 "동작", category 는 "분류".
   static const Color accent = Color(0xFF2A66FF);
+}
+
+/// 메모(note) 타일 전용 시각 토큰 — task(체크 행) 와 pre-attentive 대비를 만드는
+/// **단일 출처**. `TodoTile` 의 note 분기와 Outline `_NoteCard` 가 모두 이 헬퍼를
+/// 공유해 모든 뷰에서 메모 시각 언어를 일관 유지한다 (§13).
+///
+/// 배경: 한글은 italic 글리프가 사실상 없어 기존 "제목 italic" 만으로는 메모/할 일
+/// 구분이 약했다. → **카테고리색 틴트 fill + 좌측 accent 보더(3px) + "메모" 라벨** 의
+/// 다른 실루엣으로 구분한다. 모든 멤버는 [BuildContext] 없이 순수 — 색 입력은
+/// [Category.color] 한 곳에서만 파생한다.
+class NoteVisual {
+  const NoteVisual._();
+
+  /// 좌측 accent 보더 두께 (px). leaf 메모 카드의 카테고리색 좌측 띠.
+  static const double accentWidth = 3.0;
+
+  /// "메모" 마이크로 라벨 문구.
+  static const String label = '메모';
+
+  /// 틴트 fill alpha — 다크는 어두운 surface 위라 더 진해야 같은 가시성이 난다.
+  static const double tintAlphaLight = 0.08;
+  static const double tintAlphaDark = 0.16;
+
+  /// 헤딩(자식 보유 note=섹션) 틴트 alpha — leaf 보다 진해 "섹션 헤더" 로 강조(§14).
+  static const double headingTintAlphaLight = 0.14;
+  static const double headingTintAlphaDark = 0.24;
+
+  /// "메모" 라벨 배경 / 외곽선 alpha (전경은 카테고리색 원색).
+  static const double labelBgAlpha = 0.14;
+  static const double labelOutlineAlpha = 0.50;
+
+  /// 메모 카드 배경 틴트 (카테고리색 저알파). [brightness] 분기.
+  static Color tint(Category category, Brightness brightness) =>
+      category.color.withValues(
+        alpha: brightness == Brightness.dark ? tintAlphaDark : tintAlphaLight,
+      );
+
+  /// 헤딩(자식 보유 note) 배경 틴트 — leaf [tint] 보다 진해 섹션 헤더로 강조.
+  static Color headingTint(Category category, Brightness brightness) =>
+      category.color.withValues(
+        alpha: brightness == Brightness.dark
+            ? headingTintAlphaDark
+            : headingTintAlphaLight,
+      );
+
+  /// 좌측 accent 보더 색 — 카테고리색 원색.
+  static Color accent(Category category) => category.color;
+
+  /// "메모" 라벨 배경색.
+  static Color labelBackground(Category category) =>
+      category.color.withValues(alpha: labelBgAlpha);
+
+  /// "메모" 라벨 전경(텍스트)색 — 고대비 onSurface 톤([brightness] 분기).
+  ///
+  /// §13-10 — 작은 라벨 텍스트에 카테고리 원색을 쓰면 warm hue(주황/초록 등)에서
+  /// WCAG AA(4.5:1) 를 못 맞춘다. 카테고리 정체성은 [labelBackground]/[labelOutline]
+  /// + 옆 글리프가 담당하므로, 텍스트는 모든 카테고리에서 AA 를 보장하는 onSurface 사용.
+  static Color labelForeground(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? AppPalette.darkOnSurface
+      : AppPalette.lightOnSurface;
+
+  /// "메모" 라벨 외곽선색.
+  static Color labelOutline(Category category) =>
+      category.color.withValues(alpha: labelOutlineAlpha);
 }
 
 // ----------------------------------------------------------------------------

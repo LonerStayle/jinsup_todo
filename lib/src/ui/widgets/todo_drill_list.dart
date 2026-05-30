@@ -77,7 +77,6 @@ class TodoDrillListSliver extends StatelessWidget {
         final todo = items[i];
         final childCount = counts[todo.id] ?? 0;
         final hasChildren = childCount > 0;
-        final canAddChild = todo.type == TodoType.task;
         return Padding(
           key: ValueKey('drill-node-${todo.id}'),
           padding: const EdgeInsets.only(bottom: AppTokens.space8),
@@ -89,7 +88,8 @@ class TodoDrillListSliver extends StatelessWidget {
               onDelete: () => onDelete(todo),
               // 자식 있으면 드릴, 없으면 편집.
               onTap: () => hasChildren ? onDrillDown(todo) : onEdit(todo),
-              onAddChild: canAddChild ? () => onAddChild(todo) : null,
+              // §14 — note 도 자식(헤딩) 보유 가능 → 타입 무관하게 ＋하위 추가 노출.
+              onAddChild: () => onAddChild(todo),
               // 더보기(⋮) 메뉴 — 복사 / 편집(이 항목 자체) / 삭제.
               onCopy: () => onCopy(todo),
               onEditItem: () => onEdit(todo),

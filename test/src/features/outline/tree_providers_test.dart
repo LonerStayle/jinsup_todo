@@ -155,6 +155,46 @@ void main() {
       expect(p, const SubtreeProgress(doneCount: 0, taskCount: 1));
     });
 
+    // §14-A — 메모(note)가 "섹션 헤딩"으로 root 인 경우. root 타입과 무관하게
+    // 자식만 walk 하므로 task 자손 진척률이 정확히 계산되어야 한다.
+    test('note 헤딩 root — task 자식 [done/total] 정확', () {
+      final noteRoot = make(id: 'h', type: TodoType.note);
+      final all = [
+        noteRoot,
+        make(id: 't1', parentId: 'h', doneAt: t0),
+        make(id: 't2', parentId: 'h'),
+        make(id: 't3', parentId: 'h'),
+      ];
+      final p = computeSubtreeProgress(noteRoot, all);
+      expect(p, const SubtreeProgress(doneCount: 1, taskCount: 3));
+    });
+
+    test('note 헤딩 root — 손자까지 누적 + 자손 note 제외', () {
+      final noteRoot = make(id: 'h', type: TodoType.note);
+      final all = [
+        noteRoot,
+        make(id: 'sub', parentId: 'h'), // task 자식(폴더)
+        make(id: 'g1', parentId: 'sub', doneAt: t0), // 손자 task done
+        make(id: 'g2', parentId: 'sub'), // 손자 task
+        make(id: 'subnote', parentId: 'h', type: TodoType.note), // 자손 note 제외
+        make(id: 'gn', parentId: 'subnote'), // note 아래 task 도 walk 로 카운트
+      ];
+      final p = computeSubtreeProgress(noteRoot, all);
+      // sub, g1, g2, gn = task 4 / done 1. subnote(note) 제외.
+      expect(p, const SubtreeProgress(doneCount: 1, taskCount: 4));
+    });
+
+    test('note 헤딩 root — note 자식만 있으면 (0,0)', () {
+      final noteRoot = make(id: 'h', type: TodoType.note);
+      final all = [
+        noteRoot,
+        make(id: 'cn', parentId: 'h', type: TodoType.note),
+      ];
+      final p = computeSubtreeProgress(noteRoot, all);
+      expect(p, const SubtreeProgress(doneCount: 0, taskCount: 0));
+      expect(p.ratio, isNull);
+    });
+
     test('SubtreeProgress equality 와 toString', () {
       const a = SubtreeProgress(doneCount: 2, taskCount: 5);
       const b = SubtreeProgress(doneCount: 2, taskCount: 5);

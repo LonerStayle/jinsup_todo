@@ -99,4 +99,38 @@ void main() {
     expect(drilled, isNull);
     expect(find.byKey(const ValueKey('todo-tile-drill-l')), findsNothing);
   });
+
+  testWidgets('§14 — note 항목도 ＋하위 추가 버튼 노출 + 콜백 호출', (tester) async {
+    final note = make(id: 'm', title: '섹션 메모', type: TodoType.note);
+    Todo? added;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.mobileLight(),
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              TodoDrillListSliver(
+                items: [note],
+                allTodos: [note],
+                onDrillDown: (_) {},
+                onEdit: (_) {},
+                onToggle: (_) {},
+                onAddChild: (t) => added = t,
+                onCopy: (_) {},
+                onDelete: (_) {},
+                onReorderSiblings: (_, _, _) {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final addBtn = find.byKey(const ValueKey('todo-tile-add-child-m'));
+    expect(addBtn, findsOneWidget);
+    await tester.tap(addBtn);
+    await tester.pump();
+    expect(added?.id, 'm');
+  });
 }
