@@ -8,19 +8,31 @@ import 'groups_controller.dart';
 
 const _uuid = Uuid();
 
-/// 새 그룹 추가 다이얼로그. [AddCategoryDialog] 미러 (아이콘 picker 는 생략 — 그룹은
+/// 그룹 추가/수정 다이얼로그. [AddCategoryDialog] 미러 (아이콘 picker 는 생략 — 그룹은
 /// 사이드바 헤더에 색 dot + label 만 쓴다).
 ///
-/// label TextField + 16 색 palette. 확인 시 [GroupsController.add] 호출.
-/// id 는 `grp-<uuid>`, sortOrder 100.
+/// label TextField + 16 색 palette. 확인 시 [GroupsController.add] 호출 (upsert).
+/// 신규: id 는 `grp-<uuid>`, sortOrder 100. 수정([existing] 주입): 같은 id 로 label/color
+/// 만 갱신하고 sortOrder/isBuiltin 은 보존한다.
 class AddGroupDialog extends ConsumerStatefulWidget {
-  const AddGroupDialog({super.key});
+  const AddGroupDialog({super.key, this.existing});
 
-  /// 다이얼로그 표시 + 결과 반환 (true = 추가됨, false/null = 취소).
+  /// non-null 이면 **수정 모드** — 이 그룹의 label/color 를 프리필하고 같은 id 로 upsert.
+  final Group? existing;
+
+  /// 추가 다이얼로그 표시 + 결과 반환 (true = 추가됨, false/null = 취소).
   static Future<bool?> show(BuildContext context) {
     return showDialog<bool>(
       context: context,
       builder: (_) => const AddGroupDialog(),
+    );
+  }
+
+  /// 수정 다이얼로그 표시 — [group] 의 label/color 프리필. (true = 저장됨).
+  static Future<bool?> showEdit(BuildContext context, Group group) {
+    return showDialog<bool>(
+      context: context,
+      builder: (_) => AddGroupDialog(existing: group),
     );
   }
 
@@ -50,9 +62,14 @@ class AddGroupDialog extends ConsumerStatefulWidget {
 }
 
 class _AddGroupDialogState extends ConsumerState<AddGroupDialog> {
-  final _labelCtrl = TextEditingController();
-  int _selectedColor = AddGroupDialog.colorPalette.first;
+  late final _labelCtrl = TextEditingController(
+    text: widget.existing?.label ?? '',
+  );
+  late int _selectedColor =
+      widget.existing?.colorValue ?? AddGroupDialog.colorPalette.first;
   bool _submitted = false;
+
+  bool get _isEdit => widget.existing != null;
 
   @override
   void dispose() {
@@ -67,14 +84,21 @@ class _AddGroupDialogState extends ConsumerState<AddGroupDialog> {
     setState(() => _submitted = true);
     final controller = ref.read(groupsControllerProvider);
 
-    final newGroup = Group(
-      id: 'grp-${_uuid.v4()}',
-      label: _labelCtrl.text.trim(),
-      colorValue: _selectedColor,
-      sortOrder: 100,
-      isBuiltin: false,
-    );
-    await controller.add(newGroup);
+    // 수정 모드면 같은 id 로 label/color 만 갱신 (sortOrder/isBuiltin 보존).
+    // 신규면 새 id 발급. add() 는 upsert 라 둘 다 동일 경로.
+    final group =
+        widget.existing?.copyWith(
+          label: _labelCtrl.text.trim(),
+          colorValue: _selectedColor,
+        ) ??
+        Group(
+          id: 'grp-${_uuid.v4()}',
+          label: _labelCtrl.text.trim(),
+          colorValue: _selectedColor,
+          sortOrder: 100,
+          isBuiltin: false,
+        );
+    await controller.add(group);
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }
@@ -83,7 +107,7 @@ class _AddGroupDialogState extends ConsumerState<AddGroupDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('새 그룹'),
+      title: Text(_isEdit ? '그룹 수정' : '새 그룹'),
       content: SizedBox(
         width: 400,
         child: SingleChildScrollView(
@@ -120,7 +144,7 @@ class _AddGroupDialogState extends ConsumerState<AddGroupDialog> {
         ),
         FilledButton(
           onPressed: _canSubmit ? _submit : null,
-          child: const Text('추가'),
+          child: Text(_isEdit ? '저장' : '추가'),
         ),
       ],
     );

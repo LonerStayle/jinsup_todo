@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/group.dart';
 import '../../domain/todo.dart';
+import '../../ui/widgets/empty_state.dart';
 import '../category/categories_controller.dart';
 import '../category/groups_controller.dart';
 import '../todo_actions/todo_actions_controller.dart';
@@ -153,38 +154,53 @@ class _OutlineGroupHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return InkWell(
-      key: ValueKey('outline-group-${group.id}'),
-      onTap: onToggle,
-      borderRadius: BorderRadius.circular(AppTokens.radiusM),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.space8,
-          vertical: AppTokens.space12,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isExpanded
-                  ? Icons.keyboard_arrow_down_rounded
-                  : Icons.keyboard_arrow_right_rounded,
-              size: 22,
-              color: scheme.onSurface.withValues(alpha: 0.7),
-            ),
-            const SizedBox(width: AppTokens.space4),
-            Icon(Icons.circle, size: 12, color: group.color),
-            const SizedBox(width: AppTokens.space8),
-            Expanded(
-              child: Text(
-                group.label,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.2,
+    return Padding(
+      padding: const EdgeInsets.only(
+        top: AppTokens.space8,
+        bottom: AppTokens.space4,
+      ),
+      child: InkWell(
+        key: ValueKey('outline-group-${group.id}'),
+        onTap: onToggle,
+        borderRadius: BorderRadius.circular(AppTokens.radiusM),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space8,
+            vertical: AppTokens.space8,
+          ),
+          child: Row(
+            children: [
+              // 그룹 색 막대 — 섹션 정체성을 강하게.
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: group.color,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusFull),
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+              const SizedBox(width: AppTokens.space12),
+              Expanded(
+                child: Text(
+                  group.label,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              AnimatedRotation(
+                turns: isExpanded ? 0 : -0.25,
+                duration: AppTokens.motionFast,
+                child: Icon(
+                  Icons.expand_more_rounded,
+                  size: 24,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -243,16 +259,16 @@ class _Header extends StatelessWidget {
 
 /// 체크리스트 탭 — 그룹 → 카테고리 task root + task 자식 트리. note 는 모두 제외.
 /// 펼침/접힘 상태는 이 탭이 자체 보유 (탭 전환해도 유지).
-class _ChecklistTab extends StatefulWidget {
+class _ChecklistTab extends ConsumerStatefulWidget {
   const _ChecklistTab({required this.layout});
 
   final _OutlineLayout layout;
 
   @override
-  State<_ChecklistTab> createState() => _ChecklistTabState();
+  ConsumerState<_ChecklistTab> createState() => _ChecklistTabState();
 }
 
-class _ChecklistTabState extends State<_ChecklistTab>
+class _ChecklistTabState extends ConsumerState<_ChecklistTab>
     with AutomaticKeepAliveClientMixin {
   /// "접힌" 노드 id 모음 — default 가 펼침 상태. id 가 set 에 있으면 접힌 상태.
   /// 그룹 헤더는 `grp:<id>`, 카테고리 헤더는 `cat:work`, todo 는 그대로 todo.id.
@@ -280,19 +296,28 @@ class _ChecklistTabState extends State<_ChecklistTab>
     onToggle: _toggle,
   );
 
-  List<Widget> _buildChildren() {
+  /// 체크리스트(= task root) 가 하나라도 있는 카테고리 id 집합만 통과시킨다.
+  /// 메모만 있거나 완전히 빈 카테고리는 체크리스트 탭에서 숨긴다 (사용자 요청).
+  /// 그 결과 카테고리가 0개가 된 그룹 헤더 / '미분류' 라벨도 함께 숨겨진다.
+  List<Widget> _buildChildren(Set<String> withTaskRoot) {
     final layout = widget.layout;
     final children = <Widget>[];
-    // 미분류 섹션 — 그룹이 있을 때만 '미분류' 라벨. 그룹이 없으면 기존 평면 모양.
-    if (layout.ungrouped.isNotEmpty) {
+    // 미분류 — 체크리스트 있는 카테고리만.
+    final ungrouped = layout.ungrouped
+        .where((c) => withTaskRoot.contains(c.id))
+        .toList();
+    if (ungrouped.isNotEmpty) {
       if (layout.hasGroups) children.add(const _OutlineUngroupedLabel());
-      for (final c in layout.ungrouped) {
+      for (final c in ungrouped) {
         children.add(_category(c));
       }
     }
-    // 그룹별 섹션 — 헤더(접힘) + 그 그룹의 카테고리들.
+    // 그룹별 섹션 — 체크리스트 있는 카테고리가 하나라도 있을 때만 헤더 노출.
     for (final g in layout.groups) {
-      final items = layout.byGroup[g.id] ?? const <Category>[];
+      final items = (layout.byGroup[g.id] ?? const <Category>[])
+          .where((c) => withTaskRoot.contains(c.id))
+          .toList();
+      if (items.isEmpty) continue;
       final groupExpanded = _expanded('grp:${g.id}');
       children.add(
         _OutlineGroupHeader(
@@ -313,6 +338,34 @@ class _ChecklistTabState extends State<_ChecklistTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // 전체 todos 에서 카테고리별 task root 보유 여부를 한 번에 계산.
+    // (각 카테고리 헤더의 taskRootsOfCategoryProvider 와 같은 의미 — parentId null + task.)
+    final allTodos =
+        ref.watch(allTodosProvider).asData?.value ?? const <Todo>[];
+    final withTaskRoot = <String>{};
+    for (final t in allTodos) {
+      if (t.type == TodoType.task && t.parentId == null) {
+        withTaskRoot.add(t.category.id);
+      }
+    }
+
+    final children = _buildChildren(withTaskRoot);
+    if (children.isEmpty) {
+      return const CustomScrollView(
+        key: PageStorageKey('outline-checklist'),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(
+              icon: Icons.checklist_rounded,
+              title: '체크리스트가 없어요',
+              subtitle: '할 일을 추가하면 카테고리별로 여기에 모여요.',
+            ),
+          ),
+        ],
+      );
+    }
+
     return CustomScrollView(
       key: const PageStorageKey('outline-checklist'),
       slivers: [
@@ -323,9 +376,7 @@ class _ChecklistTabState extends State<_ChecklistTab>
             AppTokens.space16,
             AppTokens.space48,
           ),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate(_buildChildren()),
-          ),
+          sliver: SliverList(delegate: SliverChildListDelegate(children)),
         ),
       ],
     );
@@ -370,28 +421,51 @@ class _OutlineCategory extends ConsumerWidget {
       }
     }
 
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppTokens.space12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _CategoryRow(
-            category: category,
-            done: done,
-            total: total,
-            isExpanded: isExpanded,
-            onTap: () => onToggle('cat:${category.id}'),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(AppTokens.radiusL),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: 0.6),
+            width: AppTokens.hairline,
           ),
-          if (isExpanded && roots != null)
-            for (final r in roots)
-              _OutlineNode(
-                node: r,
-                depth: 1,
-                collapsed: collapsed,
-                expanded: expanded,
-                onToggle: onToggle,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _CategoryRow(
+              category: category,
+              done: done,
+              total: total,
+              isExpanded: isExpanded,
+              onTap: () => onToggle('cat:${category.id}'),
+            ),
+            if (isExpanded && roots != null && roots.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppTokens.space12,
+                  0,
+                  AppTokens.space8,
+                  AppTokens.space8,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final r in roots)
+                      _OutlineNode(
+                        node: r,
+                        collapsed: collapsed,
+                        expanded: expanded,
+                        onToggle: onToggle,
+                      ),
+                  ],
+                ),
               ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -419,34 +493,45 @@ class _CategoryRow extends StatelessWidget {
     return InkWell(
       key: ValueKey('outline-category-${category.id}'),
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTokens.radiusM),
+      borderRadius: BorderRadius.circular(AppTokens.radiusL),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.space8,
-          vertical: AppTokens.space8,
-        ),
+        padding: const EdgeInsets.all(AppTokens.space12),
         child: Row(
           children: [
-            Icon(
-              isExpanded
-                  ? Icons.keyboard_arrow_down_rounded
-                  : Icons.keyboard_arrow_right_rounded,
-              size: 20,
-              color: scheme.onSurface.withValues(alpha: 0.65),
+            // 카테고리 정체성 — 색 타일 + 아이콘 (가독성·스캔성 강화).
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: category.color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(AppTokens.radiusM),
+              ),
+              child: Icon(category.icon, size: 21, color: category.color),
             ),
-            const SizedBox(width: AppTokens.space4),
-            Icon(category.icon, size: 18, color: category.color),
-            const SizedBox(width: AppTokens.space8),
+            const SizedBox(width: AppTokens.space12),
             Expanded(
               child: Text(
                 category.label,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
+                  letterSpacing: 0.1,
                 ),
               ),
             ),
-            if (total > 0)
+            if (total > 0) ...[
               _ProgressBadge(done: done, total: total, accent: category.color),
+              const SizedBox(width: AppTokens.space8),
+            ],
+            AnimatedRotation(
+              turns: isExpanded ? 0 : -0.25,
+              duration: AppTokens.motionFast,
+              child: Icon(
+                Icons.expand_more_rounded,
+                size: 24,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),
@@ -457,14 +542,12 @@ class _CategoryRow extends StatelessWidget {
 class _OutlineNode extends ConsumerWidget {
   const _OutlineNode({
     required this.node,
-    required this.depth,
     required this.collapsed,
     required this.expanded,
     required this.onToggle,
   });
 
   final Todo node;
-  final int depth;
   final Set<String> collapsed;
   final bool Function(String id) expanded;
   final void Function(String id) onToggle;
@@ -492,80 +575,134 @@ class _OutlineNode extends ConsumerWidget {
           onTap: isFolder ? () => onToggle(node.id) : null,
           borderRadius: BorderRadius.circular(AppTokens.radiusM),
           child: Padding(
-            padding: EdgeInsets.only(
-              left: AppTokens.space8 + (depth * 16.0),
-              right: AppTokens.space8,
-              top: AppTokens.space4,
-              bottom: AppTokens.space4,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.space4,
+              vertical: AppTokens.space2,
             ),
             child: Row(
               children: [
-                // chevron 자리 — folder 면 펼침 화살표, leaf 면 동일 공간 (열·정렬 유지).
-                SizedBox(
-                  width: 20,
-                  child: isFolder
-                      ? Icon(
-                          isExpanded
-                              ? Icons.keyboard_arrow_down_rounded
-                              : Icons.keyboard_arrow_right_rounded,
-                          size: 18,
-                          color: scheme.onSurface.withValues(alpha: 0.55),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: AppTokens.space4),
-                // 체크리스트 탭은 task 만 — 탭하면 체크 토글 (자식 트리 포함).
-                InkWell(
-                  key: ValueKey('outline-check-${node.id}'),
+                // 큰 원형 체크박스 — 명확한 탭 타깃 + 상태 가시성.
+                _CheckCircle(
+                  checkKey: ValueKey('outline-check-${node.id}'),
+                  done: isDone,
+                  color: node.category.color,
                   onTap: () => ref.read(todoActionsProvider).toggle(node),
-                  customBorder: const CircleBorder(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppTokens.space4),
-                    child: Icon(
-                      isDone
-                          ? Icons.check_circle_rounded
-                          : Icons.radio_button_unchecked,
-                      size: 16,
-                      color: isDone
-                          ? node.category.color
-                          : scheme.onSurface.withValues(alpha: 0.45),
-                    ),
-                  ),
                 ),
-                const SizedBox(width: AppTokens.space4),
+                const SizedBox(width: AppTokens.space12),
                 Expanded(
                   child: Text(
                     node.title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      height: 1.3,
+                      fontWeight: isFolder ? FontWeight.w600 : FontWeight.w500,
                       decoration: isDone ? TextDecoration.lineThrough : null,
                       color: isDone
-                          ? scheme.onSurface.withValues(alpha: 0.45)
-                          : null,
+                          ? scheme.onSurface.withValues(alpha: 0.4)
+                          : scheme.onSurface,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (progress != null && progress.taskCount > 0)
+                if (progress != null && progress.taskCount > 0) ...[
+                  const SizedBox(width: AppTokens.space8),
                   _ProgressBadge(
                     done: progress.doneCount,
                     total: progress.taskCount,
                     accent: node.category.color,
                   ),
+                ],
+                // folder 펼침 화살표 — 우측에 두어 체크박스/제목 정렬을 깨지 않는다.
+                if (isFolder)
+                  Padding(
+                    padding: const EdgeInsets.only(left: AppTokens.space4),
+                    child: AnimatedRotation(
+                      turns: isExpanded ? 0 : -0.25,
+                      duration: AppTokens.motionFast,
+                      child: Icon(
+                        Icons.expand_more_rounded,
+                        size: 22,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
         ),
+        // 자식 — 카테고리 색 가이드 레일로 깊이를 시각화 (트리 연결선).
         if (isExpanded)
-          for (final c in children)
-            _OutlineNode(
-              node: c,
-              depth: depth + 1,
-              collapsed: collapsed,
-              expanded: expanded,
-              onToggle: onToggle,
+          Padding(
+            padding: const EdgeInsets.only(left: AppTokens.space16),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: node.category.color.withValues(alpha: 0.28),
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(left: AppTokens.space8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final c in children)
+                      _OutlineNode(
+                        node: c,
+                        collapsed: collapsed,
+                        expanded: expanded,
+                        onToggle: onToggle,
+                      ),
+                  ],
+                ),
+              ),
             ),
+          ),
       ],
+    );
+  }
+}
+
+/// 큰 원형 체크박스 — 미완료는 외곽선, 완료는 카테고리 색 채움 + 흰 체크.
+/// [checkKey] 는 InkWell 에 부여되어 테스트/탭 타깃 식별에 쓰인다.
+class _CheckCircle extends StatelessWidget {
+  const _CheckCircle({
+    required this.checkKey,
+    required this.done,
+    required this.color,
+    required this.onTap,
+  });
+
+  final Key checkKey;
+  final bool done;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      key: checkKey,
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Padding(
+        padding: const EdgeInsets.all(AppTokens.space4),
+        child: AnimatedContainer(
+          duration: AppTokens.motionFast,
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: done ? color : Colors.transparent,
+            border: Border.all(color: done ? color : scheme.outline, width: 2),
+          ),
+          child: done
+              ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+              : null,
+        ),
+      ),
     );
   }
 }
@@ -764,7 +901,8 @@ class _NoteCard extends StatelessWidget {
   }
 }
 
-/// `[done/total]` 라벨 + 얇은 progress bar. note 는 카운트에서 이미 제외됨.
+/// `done/total` 진척 pill. 완료(done==total)면 체크 아이콘 + 진한 배경으로 강조.
+/// note 는 카운트에서 이미 제외됨. 텍스트 `$done/$total` 는 그대로 노출(테스트 계약).
 class _ProgressBadge extends StatelessWidget {
   const _ProgressBadge({
     required this.done,
@@ -779,31 +917,28 @@ class _ProgressBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final ratio = total == 0 ? 0.0 : done / total;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 64),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+    final complete = total > 0 && done == total;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space8,
+        vertical: AppTokens.space2,
+      ),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: complete ? 0.20 : 0.11),
+        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+      ),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (complete) ...[
+            Icon(Icons.check_circle_rounded, size: 13, color: accent),
+            const SizedBox(width: AppTokens.space4),
+          ],
           Text(
             '$done/$total',
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w600,
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
               color: accent,
-            ),
-          ),
-          const SizedBox(height: AppTokens.space2),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppTokens.radiusFull),
-            child: SizedBox(
-              width: 56,
-              height: 3,
-              child: LinearProgressIndicator(
-                value: ratio,
-                backgroundColor: accent.withValues(alpha: 0.18),
-                color: accent,
-              ),
             ),
           ),
         ],
