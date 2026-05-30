@@ -90,18 +90,18 @@ void main() {
   }
 
   group('탭 구조', () {
-    testWidgets('체크리스트 / 메모 탭 + 빈 트리 — 5 카테고리 헤더만, progress 없음', (
-      tester,
-    ) async {
+    testWidgets('빈 트리 — 체크리스트 없는 카테고리는 모두 숨김 + 안내 노출', (tester) async {
       await mount(tester, rootsByCategory: const {}, allTodos: const []);
 
       expect(find.text('전체보기'), findsOneWidget);
       expect(find.text('체크리스트'), findsOneWidget);
       expect(find.text('메모'), findsOneWidget);
-      // 체크리스트 탭(default) — 5 카테고리 헤더 모두 노출.
+      // task root 가 없는 카테고리 헤더는 더 이상 노출되지 않는다 (메모만/빈 카테고리 숨김).
       for (final c in Category.values) {
-        expect(find.text(c.label), findsOneWidget);
+        expect(find.text(c.label), findsNothing);
       }
+      // 대신 빈 안내가 노출.
+      expect(find.text('체크리스트가 없어요'), findsOneWidget);
       expect(find.textContaining(RegExp(r'^\d+/\d+$')), findsNothing);
     });
   });
@@ -381,14 +381,20 @@ void main() {
 
     testWidgets('그룹 헤더 + 미분류 섹션 노출 + 그룹 안 카테고리', (tester) async {
       final root = make(id: 'r', title: '그룹 안 할 일', category: catInGroup);
+      final ungroupedRoot = make(
+        id: 'ur',
+        title: '일상 할 일',
+        category: catUngrouped,
+      );
       await mount(
         tester,
         categories: const [catInGroup, catUngrouped],
         groups: const [groupA],
         rootsByCategory: {
           catInGroup: [root],
+          catUngrouped: [ungroupedRoot],
         },
-        allTodos: [root],
+        allTodos: [root, ungroupedRoot],
       );
 
       // 그룹 헤더 + 미분류 라벨 동시 노출.
@@ -401,20 +407,27 @@ void main() {
       // 그룹 안 카테고리 + 그 root.
       expect(find.text('회사 할일'), findsOneWidget);
       expect(find.text('그룹 안 할 일'), findsOneWidget);
-      // 미분류 카테고리.
+      // 미분류 카테고리 (체크리스트 보유 → 노출).
       expect(find.text('일상'), findsOneWidget);
+      expect(find.text('일상 할 일'), findsOneWidget);
     });
 
     testWidgets('그룹 헤더 접으면 그 그룹의 카테고리/할 일이 사라짐', (tester) async {
       final root = make(id: 'r', title: '그룹 안 할 일', category: catInGroup);
+      final ungroupedRoot = make(
+        id: 'ur',
+        title: '일상 할 일',
+        category: catUngrouped,
+      );
       await mount(
         tester,
         categories: const [catInGroup, catUngrouped],
         groups: const [groupA],
         rootsByCategory: {
           catInGroup: [root],
+          catUngrouped: [ungroupedRoot],
         },
-        allTodos: [root],
+        allTodos: [root, ungroupedRoot],
       );
 
       expect(find.text('회사 할일'), findsOneWidget);
@@ -429,7 +442,17 @@ void main() {
     });
 
     testWidgets('그룹이 없으면 그룹 헤더/미분류 라벨 없이 평면 (기존 모양)', (tester) async {
-      await mount(tester, rootsByCategory: const {}, allTodos: const []);
+      // 각 builtin 카테고리에 task root 1건씩 — 체크리스트 보유 카테고리만 노출되므로
+      // 평면 모양을 검증하려면 모두 task 를 가져야 한다.
+      final roots = <Category, List<Todo>>{
+        for (final c in Category.values)
+          c: [make(id: 'root-${c.id}', title: '${c.label} 할 일', category: c)],
+      };
+      await mount(
+        tester,
+        rootsByCategory: roots,
+        allTodos: [for (final list in roots.values) ...list],
+      );
 
       expect(
         find.byKey(const ValueKey('outline-ungrouped-label')),
