@@ -20,30 +20,45 @@ import 'tree_providers.dart';
 /// 별도 섹션. 그룹/카테고리 모두 sortOrder 순. 그룹이 하나도 없으면 그룹 헤더 없이
 /// 카테고리만 (기존 평면 모양과 동일) 표시한다.
 class OutlineScreen extends ConsumerWidget {
-  const OutlineScreen({super.key});
+  const OutlineScreen({super.key, this.group, this.showHeader = true});
+
+  /// non-null = 이 그룹의 카테고리만 평면으로 (그룹 헤더 없이) 보여 준다 (A안 — 그룹별
+  /// '전체보기' 탭). null = 전역 (그룹 → 카테고리 계층).
+  final Group? group;
+
+  /// 큰 '전체보기' 헤더 표시 여부 (그룹 탭 임베드 시 false, 체크리스트/메모 탭만 노출).
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // v1.2 — 동적 카테고리. loading / error 시 builtin 5종 fallback.
-    final categories =
+    final allCategories =
         ref.watch(categoriesProvider).asData?.value ?? Category.builtinSeeds;
     // 작업 3 (L) — 그룹 계층. loading / error 시 빈 목록 (= 그룹 헤더 없는 평면).
-    final groups = ref.watch(groupsProvider).asData?.value ?? const <Group>[];
+    final allGroups =
+        ref.watch(groupsProvider).asData?.value ?? const <Group>[];
+
+    // 그룹 스코프면 그 그룹 카테고리만 + 그룹 헤더 제거 (groups 를 비워 평면 렌더).
+    final categories = group == null
+        ? allCategories
+        : allCategories.where((c) => c.groupId == group!.id).toList();
+    final groups = group == null ? allGroups : const <Group>[];
     final layout = _OutlineLayout.from(categories: categories, groups: groups);
 
     return DefaultTabController(
       length: 2,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppTokens.space24,
-              AppTokens.space32,
-              AppTokens.space24,
-              AppTokens.space12,
+          if (showHeader)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTokens.space24,
+                AppTokens.space32,
+                AppTokens.space24,
+                AppTokens.space12,
+              ),
+              child: _Header(),
             ),
-            child: _Header(),
-          ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: AppTokens.space16),
             child: TabBar(

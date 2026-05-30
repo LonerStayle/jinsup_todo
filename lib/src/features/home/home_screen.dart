@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../data/providers.dart';
+import '../../domain/category.dart';
+import '../../domain/group.dart';
+import '../../domain/policies/carryover_policy.dart';
 import '../../domain/todo.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../../ui/widgets/nested_todo_tree.dart';
@@ -11,59 +14,96 @@ import '../../ui/widgets/skeleton.dart';
 import '../../ui/widgets/undo_snackbar.dart';
 import '../add_todo/add_todo_controller.dart';
 import '../add_todo/add_todo_sheet.dart';
+import '../category/categories_controller.dart';
 import '../outline/tree_providers.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import 'today_providers.dart';
 
 /// 오늘 화면 — 헤더 + 이월 배너 + visible todos 리스트.
+///
+/// [group] 이 non-null 이면 그 그룹에 속한 카테고리의 오늘 할 일만 보여 준다 (A안 —
+/// 그룹별 '오늘' 탭). null 이면 전역 오늘. [showHeader] 가 false 면 큰 '오늘' 헤더를
+/// 숨긴다 (그룹 화면 탭으로 임베드될 때 — 탭 라벨이 제목을 대신한다).
 class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.group, this.showHeader = true});
+
+  /// non-null = 이 그룹 카테고리만 필터. null = 전역.
+  final Group? group;
+
+  /// 큰 '오늘' 헤더 표시 여부.
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncTodos = ref.watch(watchTodayTodosProvider);
-    final carryoverCount = ref.watch(carryoverCountProvider);
+    final globalCarryover = ref.watch(carryoverCountProvider);
     final allTodos = ref.watch(allTodosProvider).asData?.value ?? const [];
     final now = ref.watch(nowProvider)();
+
+    // 그룹 필터 — 이 그룹에 속한 카테고리 id 집합 (null = 전역, 필터 없음).
+    Set<String>? groupCategoryIds;
+    if (group != null) {
+      final categories =
+          ref.watch(categoriesProvider).asData?.value ?? const <Category>[];
+      groupCategoryIds = categories
+          .where((c) => c.groupId == group!.id)
+          .map((c) => c.id)
+          .toSet();
+    }
 
     return asyncTodos.when(
       loading: () => const TodoListSkeleton(),
       error: (e, _) => _Error(message: '$e'),
-      data: (todos) => _Loaded(
-        todos: todos,
-        allTodos: allTodos,
-        carryoverCount: carryoverCount,
-        now: now,
-        onToggle: (t) => ref.read(todoActionsProvider).toggle(t),
-        onDelete: (t) async {
-          final actions = ref.read(todoActionsProvider);
-          await actions.delete(t);
-          if (!context.mounted) return;
-          showUndoSnackbar(
-            context,
-            message: '"${t.title}" 삭제됨',
-            onUndo: () => actions.restore(t),
-          );
-        },
-        // v1.2 — tile tap → AddTodoSheet edit 모드 진입.
-        onTap: (t) async {
-          await AddTodoSheet.show(
-            context,
-            initialCategory: t.category,
-            initialTodo: t,
-            onSubmit: (_) {}, // edit 모드에선 호출 안 됨.
-            onUpdate: (updated) {
-              ref.read(todoActionsProvider).update(updated);
-            },
-          );
-        },
-        // Task C — ＋ 하위 추가.
-        onAddChild: (parent) => showAddChildSheet(context, ref, parent: parent),
-        // Task B — 형제 드래그 재정렬.
-        onReorderSiblings: (siblings, oldIndex, newIndex) => ref
-            .read(todoActionsProvider)
-            .reorderSiblings(siblings, oldIndex, newIndex),
-      ),
+      data: (allToday) {
+        final todos = groupCategoryIds == null
+            ? allToday
+            : allToday
+                  .where((t) => groupCategoryIds!.contains(t.category.id))
+                  .toList();
+        // 그룹 화면에선 이월 배너도 그 그룹 범위로 재계산 (전역 카운트는 오해 유발).
+        final carryoverCount = groupCategoryIds == null
+            ? globalCarryover
+            : todos
+                  .where((t) => CarryoverPolicy.shouldCarryOverToday(t, now))
+                  .length;
+        return _Loaded(
+          todos: todos,
+          allTodos: allTodos,
+          carryoverCount: carryoverCount,
+          showHeader: showHeader,
+          now: now,
+          onToggle: (t) => ref.read(todoActionsProvider).toggle(t),
+          onDelete: (t) async {
+            final actions = ref.read(todoActionsProvider);
+            await actions.delete(t);
+            if (!context.mounted) return;
+            showUndoSnackbar(
+              context,
+              message: '"${t.title}" 삭제됨',
+              onUndo: () => actions.restore(t),
+            );
+          },
+          // v1.2 — tile tap → AddTodoSheet edit 모드 진입.
+          onTap: (t) async {
+            await AddTodoSheet.show(
+              context,
+              initialCategory: t.category,
+              initialTodo: t,
+              onSubmit: (_) {}, // edit 모드에선 호출 안 됨.
+              onUpdate: (updated) {
+                ref.read(todoActionsProvider).update(updated);
+              },
+            );
+          },
+          // Task C — ＋ 하위 추가.
+          onAddChild: (parent) =>
+              showAddChildSheet(context, ref, parent: parent),
+          // Task B — 형제 드래그 재정렬.
+          onReorderSiblings: (siblings, oldIndex, newIndex) => ref
+              .read(todoActionsProvider)
+              .reorderSiblings(siblings, oldIndex, newIndex),
+        );
+      },
     );
   }
 }
@@ -73,6 +113,7 @@ class _Loaded extends StatefulWidget {
     required this.todos,
     required this.allTodos,
     required this.carryoverCount,
+    required this.showHeader,
     required this.now,
     required this.onToggle,
     required this.onDelete,
@@ -86,6 +127,9 @@ class _Loaded extends StatefulWidget {
   final List<Todo> todos;
   final List<Todo> allTodos;
   final int carryoverCount;
+
+  /// 큰 '오늘' 헤더 표시 여부 (그룹 탭 임베드 시 false).
+  final bool showHeader;
   final DateTime now;
   final void Function(Todo) onToggle;
   final void Function(Todo) onDelete;
@@ -123,15 +167,18 @@ class _LoadedState extends State<_Loaded> {
     final roots = _roots;
     return CustomScrollView(
       slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            AppTokens.space24,
-            AppTokens.space32,
-            AppTokens.space24,
-            AppTokens.space16,
-          ),
-          sliver: SliverToBoxAdapter(child: _Header(now: widget.now)),
-        ),
+        if (widget.showHeader)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTokens.space24,
+              AppTokens.space32,
+              AppTokens.space24,
+              AppTokens.space16,
+            ),
+            sliver: SliverToBoxAdapter(child: _Header(now: widget.now)),
+          )
+        else
+          const SliverToBoxAdapter(child: SizedBox(height: AppTokens.space16)),
         if (widget.carryoverCount > 0)
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
