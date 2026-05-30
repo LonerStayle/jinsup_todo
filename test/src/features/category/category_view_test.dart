@@ -40,6 +40,7 @@ void main() {
     String title = 'x',
     DateTime? doneAt,
     TodoType type = TodoType.task,
+    String? description,
   }) => Todo(
     id: id,
     title: title,
@@ -50,6 +51,7 @@ void main() {
     createdAt: DateTime.utc(2026, 5, 27),
     updatedAt: DateTime.utc(2026, 5, 27),
     calendarEventId: null,
+    description: description,
   );
 
   testWidgets('빈 list → "{label}에 할 일이 없어요"', (tester) async {
@@ -113,5 +115,33 @@ void main() {
     await tester.pump();
 
     expect(find.text('개인개발'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('§13 혼합 — task=체크 행, note=메모 글리프+라벨+프리뷰 로 시각 구분', (tester) async {
+    final controller = await mount(tester, category: Category.idea);
+    controller.add([
+      todo(id: 't', category: Category.idea, title: '할 일 항목'),
+      todo(
+        id: 'n',
+        category: Category.idea,
+        title: '노트 항목',
+        type: TodoType.note,
+        description: '노트 본문 미리보기',
+      ),
+    ]);
+    await tester.pump();
+
+    // task = trailing 체크 버튼(메모 글리프 없음).
+    expect(find.byKey(const ValueKey('todo-tile-check')), findsOneWidget);
+    // note = leading 메모 글리프 + "메모" 라벨 + 본문 프리뷰.
+    expect(
+      find.byKey(const ValueKey('todo-tile-note-leading')),
+      findsOneWidget,
+    );
+    expect(find.text('메모'), findsOneWidget);
+    expect(find.text('노트 본문 미리보기'), findsOneWidget);
+    // 둘 다 제목 노출.
+    expect(find.text('할 일 항목'), findsOneWidget);
+    expect(find.text('노트 항목'), findsOneWidget);
   });
 }

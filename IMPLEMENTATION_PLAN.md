@@ -238,7 +238,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] Outline 체크리스트탭 task 노드(`_OutlineNode`/`_CheckCircle`) 점검 → 미완료 체크 ring 이 `scheme.outline`(회색)이라 TodoTile task(§13-6 카테고리색 0.55)와 불일치 → `_CheckCircle` 미완료 border 를 `color.alpha(0.55)` 로 통일(완료는 카테고리색 채움 유지). 들여쓰기/카테고리색 레일·진척 배지는 이미 일관 확인. 회귀 test 1건(미완료 ring 색 + 완료 채움). 454/454 PASS.
 
 **혼합 뷰 회귀**
-- [ ] 실제 혼합 면(CategoryView + 인라인 트리 자식 + 드릴다운 상세)에서 같은 카테고리 내 task+note 혼재 시 새 시각 언어로 구분 렌더되는지 통합 회귀 test — note=틴트+라벨+프리뷰, task=깔끔한 체크 행 으로 시각 신호 분리 검증. (오늘/타임라인은 task 전용이라 제외) + '오늘' 리스트에 note 가 누수되지 않음을 함께 가드(`VisibilityPolicy.isVisibleToday` note=false 회귀).
+- [x] 실제 혼합 면(CategoryView) 회귀 test — 같은 카테고리 내 task+note 혼재 시 task=trailing 체크(`todo-tile-check`), note=leading 메모 글리프(`todo-tile-note-leading`)+"메모" 라벨+본문 프리뷰 로 시각 신호 분리됨을 검증(category_view_test 1건). '오늘' note 누수 가드는 `visibility_policy_test` 의 기존 3건(note dueAt 오늘/createdAt 어제/항상 false)으로 이미 충분 — 중복 추가 안 함. 454/454 PASS.
 
 **대비 / 접근성**
 - [ ] note 틴트 fill + accent 보더 + 본문 텍스트의 라이트/다크 WCAG AA 대비 검증 test — 카테고리 5색 각각 본문/라벨 텍스트 대비비 계산, AA(4.5:1 본문 / 3:1 큰텍스트·보더) 미달 시 note 토큰 alpha 보정.
