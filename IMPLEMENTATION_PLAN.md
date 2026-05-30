@@ -251,7 +251,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 §13(시각)과 별개로 **메모가 이 앱에서 무엇인가**를 재정의. 핵심 진단 — 현재 메모는 ⓐ 항상 leaf(자식 불가, `todo_tile.dart:171` `!isNote` 가드)라 v1.1 비전 "메모장 다층 구조 이식"과 어긋나고, ⓑ 개수가 어디에도 안 보여 존재 자체가 묻히며, ⓒ task↔note 전환은 되지만(`add_todo_sheet.dart:767`) 자식·doneAt 엣지가 미검증이다. **전략 — 메모를 "섹션 헤딩"으로 승격(자식 보유 가능 → 헤딩 밴드 렌더)해 구조·시각 구분을 최강화하고(메모=섹션 제목 / 할 일=그 아래 체크 행), 카운트 노출 + 전환 가드로 마감.**
 
 **14-A. 메모 = 섹션 헤딩 모델 (parent 허용)**
-- [ ] 도메인/정책 — note 가 parent 가능하도록 제약 재검토. `computeSubtreeProgress` 가 root 가 note(헤딩)여도 task 자손 기준 진척률을 정확히 계산하고 note 자신/note 자손은 분모에서 제외하는지 검증·보정. 단위 test (note 헤딩 + task 자식 [done/total], 손자까지 누적).
+- [x] 도메인/정책 — `computeSubtreeProgress` 검증 결과 **보정 불필요**: root 타입과 무관하게 자식만 walk 하고 `c.type == task` 만 카운트(note 분자·분모 제외, 자손 note 아래 task 도 walk 로 카운트, root 자신 제외)하므로 note 헤딩 root 도 이미 정확. 단위 test 3건 추가(note 헤딩+task 자식 [1/3], 손자 누적+자손 note 제외 [1/4], note 자식만 [0/0]). 460/460 PASS.
 - [ ] UI 가드 해제 — `TodoTile` / `showAddChildSheet` / `todo_detail_screen` 의 `!isNote` 제약 제거해 메모 아래에 할 일·메모 추가 가능. AddTodoSheet child 모드가 note parent 도 허용. widget test (note 에 ＋하위 추가 노출 + 자식 생성).
 - [ ] TodoTile 헤딩 분기 — note 가 자식 ≥1 이면 "헤딩 밴드"(굵은 라벨 + 카테고리색 강조 배경 + 펼침 chevron + 진척 배지)로, 자식 0 이면 §13 의 leaf 메모(틴트 카드)로 분기 렌더. §13 note 시각 토큰 재사용. widget test (헤딩 vs leaf 분기 + 진척 배지).
 - [ ] Outline 통합 — note 헤딩(task 자손 보유)이 "체크리스트" 탭에도 섹션으로 노출되도록 필터 조정(현재 task root 만, `outline_screen.dart:342`). "메모" 탭은 자손 없는 순수 메모 트리 유지. 회귀 test (헤딩이 체크리스트탭 섹션으로, leaf 메모는 메모탭으로).
