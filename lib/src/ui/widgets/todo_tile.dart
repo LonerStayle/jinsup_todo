@@ -96,6 +96,17 @@ class TodoTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppTokens.radiusS),
                 ),
               ),
+              // §13 — note 는 시선이 먼저 닿는 좌측에 카테고리색 메모 글리프.
+              // 체크 affordance 는 note 어디에도 없음(trailing 도 제거).
+              if (isNote) ...[
+                const SizedBox(width: AppTokens.space8),
+                Icon(
+                  key: const ValueKey('todo-tile-note-leading'),
+                  Icons.sticky_note_2_outlined,
+                  size: 20,
+                  color: todo.category.color,
+                ),
+              ],
               const SizedBox(width: AppTokens.space12),
               Expanded(
                 child: Column(
@@ -229,20 +240,9 @@ class TodoTile extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   tooltip: '하위 추가',
                 ),
-              if (isNote)
-                // note 는 체크 개념이 없어 trailing 을 점·노트 아이콘으로 대체. tap 무동작.
-                Padding(
-                  key: const ValueKey('todo-tile-note-leading'),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTokens.space8,
-                  ),
-                  child: Icon(
-                    Icons.sticky_note_2_outlined,
-                    size: 20,
-                    color: scheme.onSurface.withValues(alpha: 0.45),
-                  ),
-                )
-              else
+              // §13 — note 는 trailing 을 비운다(체크 affordance 부재 명확화 — 메모는
+              // 좌측 글리프로만 식별). task 만 trailing 체크 버튼.
+              if (!isNote)
                 IconButton(
                   key: const ValueKey('todo-tile-check'),
                   onPressed: onToggle,

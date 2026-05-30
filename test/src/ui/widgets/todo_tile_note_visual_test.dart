@@ -108,4 +108,23 @@ void main() {
     );
     expect(find.byKey(const ValueKey('todo-tile-note-preview')), findsNothing);
   });
+
+  testWidgets('note — leading 메모 글리프(카테고리색) + trailing 체크 부재', (tester) async {
+    await mount(tester, make(type: TodoType.note, category: Category.longterm));
+    final glyph = tester.widget<Icon>(
+      find.byKey(const ValueKey('todo-tile-note-leading')),
+    );
+    expect(glyph.icon, Icons.sticky_note_2_outlined);
+    expect(glyph.color, Category.longterm.color);
+    // 체크 affordance 가 어디에도 없어야 한다.
+    expect(find.byKey(const ValueKey('todo-tile-check')), findsNothing);
+    expect(find.byIcon(Icons.radio_button_unchecked), findsNothing);
+    expect(find.byIcon(Icons.check_circle_rounded), findsNothing);
+  });
+
+  testWidgets('task — leading 메모 글리프 없음 + trailing 체크 존재', (tester) async {
+    await mount(tester, make(type: TodoType.task));
+    expect(find.byKey(const ValueKey('todo-tile-note-leading')), findsNothing);
+    expect(find.byKey(const ValueKey('todo-tile-check')), findsOneWidget);
+  });
 }

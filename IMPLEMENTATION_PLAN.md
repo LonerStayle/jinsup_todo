@@ -227,7 +227,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 **TodoTile note 재설계 (핵심)**
 - [x] TodoTile note 분기에 좌측 카테고리색 accent 보더(3px) + 카테고리색 저알파 틴트 배경 적용 — `Card.color = NoteVisual.tint(category, brightness)`(task 는 null=기본 surface), 좌측 컬러바를 note 면 8px→3px accent(`NoteVisual.accent`)로 대체(`ValueKey('todo-tile-colorbar')`). 라이트/다크 분기. widget test 4건 (note light/dark 틴트 + 3px accent + task 미적용·8px 유지). 444/444 PASS.
 - [x] TodoTile note 제목 라인 앞에 "메모" 마이크로 라벨 chip 추가(`ValueKey('todo-tile-note-label')`, 카테고리색 `labelBackground`+`labelOutline`, labelSmall w600 `labelForeground`) + **italic 의존 제거**(제목 `fontStyle` 분기 삭제, normal). 기존 italic 단정 테스트를 non-italic+라벨 존재로 갱신, task 라벨 미표시 테스트 추가, category_view_test 의 note 제목 '메모'→'참고 노트'(라벨 텍스트 충돌 회피). 445/445 PASS.
-- [ ] TodoTile note leading 글리프 정리 — trailing 회색 `sticky_note_2` 아이콘 제거하고 좌측(컬러바 자리)에 카테고리색 `sticky_note_2` 글리프로 이동, 체크 affordance 완전 부재 명확화. task 의 trailing 체크 IconButton 은 유지. widget test (note=체크 부재·leading 글리프, task=trailing 체크 존재).
+- [x] TodoTile note leading 글리프 정리 — trailing 회색 `sticky_note_2` 아이콘 제거, 좌측 accent 보더 직후에 카테고리색 `sticky_note_2` 글리프(`ValueKey('todo-tile-note-leading')`) 배치, trailing 은 note 일 때 완전 비움(`if (!isNote)` 체크 버튼). task 는 trailing 체크 유지·leading 글리프 없음. widget test 2건(note=글리프 카테고리색·체크 3종 부재, task=글리프 없음·체크 존재). 450/450 PASS.
 - [x] TodoTile note 본문 프리뷰 인라인 — note + description(trim 비어있지 않음) 면 제목 아래 2줄(`ValueKey('todo-tile-note-preview')`, maxLines:2, ellipsis, bodySmall muted) 노출. note 는 힌트 아이콘 생략(프리뷰가 대체), task 는 힌트 아이콘 유지·프리뷰 미노출, 빈/공백 description note 는 프리뷰 생략. widget test 3건. 448/448 PASS.
 
 **task 타일 명료화 (저위험 — 대비만)**
