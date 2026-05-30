@@ -106,8 +106,15 @@ class NoteVisual {
   static Color labelBackground(Category category) =>
       category.color.withValues(alpha: labelBgAlpha);
 
-  /// "메모" 라벨 전경(텍스트)색 — 카테고리색 원색.
-  static Color labelForeground(Category category) => category.color;
+  /// "메모" 라벨 전경(텍스트)색 — 고대비 onSurface 톤([brightness] 분기).
+  ///
+  /// §13-10 — 작은 라벨 텍스트에 카테고리 원색을 쓰면 warm hue(주황/초록 등)에서
+  /// WCAG AA(4.5:1) 를 못 맞춘다. 카테고리 정체성은 [labelBackground]/[labelOutline]
+  /// + 옆 글리프가 담당하므로, 텍스트는 모든 카테고리에서 AA 를 보장하는 onSurface 사용.
+  static Color labelForeground(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? AppPalette.darkOnSurface
+      : AppPalette.lightOnSurface;
 
   /// "메모" 라벨 외곽선색.
   static Color labelOutline(Category category) =>

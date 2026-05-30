@@ -241,7 +241,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] 실제 혼합 면(CategoryView) 회귀 test — 같은 카테고리 내 task+note 혼재 시 task=trailing 체크(`todo-tile-check`), note=leading 메모 글리프(`todo-tile-note-leading`)+"메모" 라벨+본문 프리뷰 로 시각 신호 분리됨을 검증(category_view_test 1건). '오늘' note 누수 가드는 `visibility_policy_test` 의 기존 3건(note dueAt 오늘/createdAt 어제/항상 false)으로 이미 충분 — 중복 추가 안 함. 454/454 PASS.
 
 **대비 / 접근성**
-- [ ] note 틴트 fill + accent 보더 + 본문 텍스트의 라이트/다크 WCAG AA 대비 검증 test — 카테고리 5색 각각 본문/라벨 텍스트 대비비 계산, AA(4.5:1 본문 / 3:1 큰텍스트·보더) 미달 시 note 토큰 alpha 보정.
+- [x] note 텍스트 라이트/다크 WCAG AA 대비 검증 test — 상대휘도+대비비+투명색 합성 헬퍼로 5색×2모드 제목(onSurface)/프리뷰(muted)/"메모"라벨 모두 ≥4.5:1 검증. **보정**: 라벨 전경을 카테고리 원색→`labelForeground(brightness)`=onSurface 로 변경(warm hue 작은 라벨 텍스트 대비 미달 해소, 카테고리 정체성은 bg+outline+글리프가 담당). accent 좌측 보더는 식별이 글리프/라벨/틴트로 중복 전달돼 단독 지표 아니므로 텍스트 대비만 게이트. 458/458 PASS.
 
 **점수 재측정**
 - [ ] §13 종료 자가평가 — 디자인(가독성·대비·일관성) + 편의성(학습성) 점수 재측정, 9 이상 유지 확인 + IMPLEMENTATION_PLAN.md 에 §13 자가평가 섹션 추가. 미달 시 보강 task 자동 추가.

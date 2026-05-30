@@ -136,7 +136,7 @@ class TodoTile extends StatelessWidget {
                               NoteVisual.label,
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: NoteVisual.labelForeground(
-                                  todo.category,
+                                  theme.brightness,
                                 ),
                                 fontWeight: FontWeight.w600,
                               ),

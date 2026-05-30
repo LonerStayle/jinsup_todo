@@ -39,9 +39,17 @@ void main() {
       expect(NoteVisual.accent(Category.daily), Category.daily.color);
     });
 
-    test('라벨 전경은 원색, 배경/외곽선은 저알파', () {
+    test('라벨 전경은 고대비 onSurface(§13-10), 배경/외곽선은 카테고리 저알파', () {
       final cat = Category.personalDev;
-      expect(NoteVisual.labelForeground(cat), cat.color);
+      // §13-10 — 라벨 텍스트는 카테고리 원색이 아니라 onSurface(AA 보장).
+      expect(
+        NoteVisual.labelForeground(Brightness.light),
+        AppPalette.lightOnSurface,
+      );
+      expect(
+        NoteVisual.labelForeground(Brightness.dark),
+        AppPalette.darkOnSurface,
+      );
       expect(
         NoteVisual.labelBackground(cat).a,
         closeTo(NoteVisual.labelBgAlpha, 0.001),
