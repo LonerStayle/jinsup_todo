@@ -40,24 +40,27 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
     return (delete(todos)..where((t) => t.id.equals(id))).go();
   }
 
-  /// 미체크 우선 + sortOrder 오름 + dueAt 오름 + createdAt 내림 정렬.
+  /// Task B 정렬 키 — `sortOrder asc, updatedAt desc, createdAt desc`.
+  /// 불변식: **작은 sortOrder = 위쪽**. 같은 sortOrder 면 최근 수정/생성이 위로.
+  /// today 등에서 '미체크 먼저' 가 필요하면 호출자가 doneAt term 을 앞에 prepend.
+  List<OrderingTerm> _sortKey() => [
+    OrderingTerm(expression: todos.sortOrder, mode: OrderingMode.asc),
+    OrderingTerm(expression: todos.updatedAt, mode: OrderingMode.desc),
+    OrderingTerm(expression: todos.createdAt, mode: OrderingMode.desc),
+  ];
+
+  /// 미체크 우선 + Task B 정렬 키.
   ///
-  /// v1.1 — sortOrder 가 사용자 정의 순서 (drag-reorder 는 v1.2 후속). 같은 sortOrder
-  /// 인 경우 dueAt → createdAt 으로 자연 fallback. 모두 기본값 0 일 때는 기존 v1.0
-  /// 정렬과 동일하게 동작.
+  /// 미체크(doneAt IS NULL)가 항상 먼저 오도록 NULLS FIRST 후 [_sortKey] 적용.
   Stream<List<domain.Todo>> watchAll() {
     final q = _joined()
       ..orderBy([
-        // 미체크 (doneAt IS NULL) 가 항상 먼저 오도록 NULLS FIRST 명시.
-        // SQLite ASC 의 default 도 NULLS FIRST 이지만 미래 호환 + 의도 표시 차원에서 명시.
         OrderingTerm(
           expression: todos.doneAt,
           mode: OrderingMode.asc,
           nulls: NullsOrder.first,
         ),
-        OrderingTerm(expression: todos.sortOrder, mode: OrderingMode.asc),
-        OrderingTerm(expression: todos.dueAt, mode: OrderingMode.asc),
-        OrderingTerm(expression: todos.createdAt, mode: OrderingMode.desc),
+        ..._sortKey(),
       ]);
     return q.watch().map((rows) => rows.map(_mapJoined).toList());
   }
@@ -66,10 +69,12 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
     final q = _joined()
       ..where(todos.category.equals(category.id))
       ..orderBy([
-        OrderingTerm(expression: todos.doneAt, mode: OrderingMode.asc),
-        OrderingTerm(expression: todos.sortOrder, mode: OrderingMode.asc),
-        OrderingTerm(expression: todos.dueAt, mode: OrderingMode.asc),
-        OrderingTerm(expression: todos.createdAt, mode: OrderingMode.desc),
+        OrderingTerm(
+          expression: todos.doneAt,
+          mode: OrderingMode.asc,
+          nulls: NullsOrder.first,
+        ),
+        ..._sortKey(),
       ]);
     return q.watch().map((rows) => rows.map(_mapJoined).toList());
   }
@@ -86,14 +91,11 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
   }
 
   /// 특정 parent 의 직속 자식들 stream — outline view 의 펼침에 사용.
-  /// 정렬: sortOrder asc → createdAt asc. note 도 포함 (outline 은 트리 전체 표시).
+  /// 정렬: Task B 키 (sortOrder asc → updatedAt desc → createdAt desc). note 포함.
   Stream<List<domain.Todo>> watchChildrenOf(String parentId) {
     final q = _joined()
       ..where(todos.parentId.equals(parentId))
-      ..orderBy([
-        OrderingTerm(expression: todos.sortOrder, mode: OrderingMode.asc),
-        OrderingTerm(expression: todos.createdAt, mode: OrderingMode.asc),
-      ]);
+      ..orderBy(_sortKey());
     return q.watch().map((rows) => rows.map(_mapJoined).toList());
   }
 
@@ -101,11 +103,30 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
   Stream<List<domain.Todo>> watchRootsOfCategory(Category category) {
     final q = _joined()
       ..where(todos.parentId.isNull() & todos.category.equals(category.id))
-      ..orderBy([
-        OrderingTerm(expression: todos.sortOrder, mode: OrderingMode.asc),
-        OrderingTerm(expression: todos.createdAt, mode: OrderingMode.asc),
-      ]);
+      ..orderBy(_sortKey());
     return q.watch().map((rows) => rows.map(_mapJoined).toList());
+  }
+
+  /// Task B — 같은 형제 집합(같은 parentId + category)의 최소 sortOrder.
+  ///
+  /// 신규 생성 / 시트 수정 시 `min - 1` 로 맨 위에 올리기 위해 사용. 형제가 없으면 null.
+  /// parentId 가 null 이면 root 형제 (parent_id IS NULL) 를 대상으로 한다.
+  /// **불변식: 작은 sortOrder = 위.**
+  Future<int?> minSiblingSortOrder({
+    required String categoryId,
+    String? parentId,
+  }) async {
+    final minExpr = todos.sortOrder.min();
+    final q = selectOnly(todos)..addColumns([minExpr]);
+    if (parentId == null) {
+      q.where(todos.parentId.isNull() & todos.category.equals(categoryId));
+    } else {
+      q.where(
+        todos.parentId.equals(parentId) & todos.category.equals(categoryId),
+      );
+    }
+    final row = await q.getSingleOrNull();
+    return row?.read(minExpr);
   }
 
   // --- 매핑 헬퍼 ---------------------------------------------------------

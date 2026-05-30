@@ -57,6 +57,12 @@ class SyncingTodoRepository implements TodoRepository {
   Stream<List<Todo>> watchToday(DateTime Function() now) =>
       local.watchToday(now);
 
+  @override
+  Future<int?> minSiblingSortOrder({
+    required String categoryId,
+    String? parentId,
+  }) => local.minSiblingSortOrder(categoryId: categoryId, parentId: parentId);
+
   // --- TodoRepository mutation API ------------------------------------
 
   @override

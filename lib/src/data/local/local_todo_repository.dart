@@ -31,4 +31,10 @@ class LocalTodoRepository implements TodoRepository {
 
   @override
   Future<void> deleteById(String id) => _dao.deleteById(id);
+
+  @override
+  Future<int?> minSiblingSortOrder({
+    required String categoryId,
+    String? parentId,
+  }) => _dao.minSiblingSortOrder(categoryId: categoryId, parentId: parentId);
 }

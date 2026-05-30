@@ -350,4 +350,88 @@ void main() {
       expect(got.parentId, isNull);
     });
   });
+
+  group('Task B — minSiblingSortOrder', () {
+    test('형제 없으면 null', () async {
+      expect(
+        await repo.minSiblingSortOrder(categoryId: Category.work.id),
+        isNull,
+      );
+    });
+
+    test('root 형제(parentId null) 의 min 반환', () async {
+      await repo.upsert(make(id: 'a', category: Category.work, sortOrder: 3));
+      await repo.upsert(make(id: 'b', category: Category.work, sortOrder: -2));
+      await repo.upsert(make(id: 'c', category: Category.work, sortOrder: 5));
+      expect(await repo.minSiblingSortOrder(categoryId: Category.work.id), -2);
+    });
+
+    test('parentId 지정 시 그 부모의 자식들만 대상', () async {
+      await repo.upsert(
+        make(id: 'root', category: Category.work, sortOrder: 0),
+      );
+      await repo.upsert(
+        make(
+          id: 'ch1',
+          category: Category.work,
+          parentId: 'root',
+          sortOrder: 4,
+        ),
+      );
+      await repo.upsert(
+        make(
+          id: 'ch2',
+          category: Category.work,
+          parentId: 'root',
+          sortOrder: 1,
+        ),
+      );
+      expect(
+        await repo.minSiblingSortOrder(
+          categoryId: Category.work.id,
+          parentId: 'root',
+        ),
+        1,
+      );
+      // root 형제(parentId null)는 root 하나 → 0.
+      expect(await repo.minSiblingSortOrder(categoryId: Category.work.id), 0);
+    });
+
+    test('다른 카테고리는 집계에서 제외', () async {
+      await repo.upsert(make(id: 'w', category: Category.work, sortOrder: -9));
+      await repo.upsert(make(id: 'd', category: Category.daily, sortOrder: 2));
+      expect(await repo.minSiblingSortOrder(categoryId: Category.daily.id), 2);
+    });
+  });
+
+  group('Task B — 정렬 키 (sortOrder asc, updatedAt desc, createdAt desc)', () {
+    test('같은 sortOrder 면 updatedAt 최신이 위', () async {
+      await repo.upsert(
+        make(
+          id: 'old',
+          sortOrder: 0,
+          createdAt: DateTime.utc(2026, 5, 27, 8),
+          updatedAt: DateTime.utc(2026, 5, 27, 8),
+        ),
+      );
+      await repo.upsert(
+        make(
+          id: 'new',
+          sortOrder: 0,
+          createdAt: DateTime.utc(2026, 5, 27, 8),
+          updatedAt: DateTime.utc(2026, 5, 27, 12),
+        ),
+      );
+      final list = await repo.watchAll().first;
+      expect(list.map((t) => t.id), ['new', 'old']);
+    });
+
+    test('작은 sortOrder 가 위 (음수 포함)', () async {
+      await repo.upsert(make(id: 'mid', sortOrder: 0));
+      await repo.upsert(make(id: 'top', sortOrder: -5));
+      await repo.upsert(make(id: 'bottom', sortOrder: 3));
+      final list = await repo.watchAll().first;
+      expect(list.map((t) => t.id), ['top', 'mid', 'bottom']);
+    });
+  });
 }

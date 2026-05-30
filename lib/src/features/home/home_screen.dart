@@ -59,6 +59,10 @@ class HomeScreen extends ConsumerWidget {
         },
         // Task C — ＋ 하위 추가.
         onAddChild: (parent) => showAddChildSheet(context, ref, parent: parent),
+        // Task B — 형제 드래그 재정렬.
+        onReorderSiblings: (siblings, oldIndex, newIndex) => ref
+            .read(todoActionsProvider)
+            .reorderSiblings(siblings, oldIndex, newIndex),
       ),
     );
   }
@@ -74,6 +78,7 @@ class _Loaded extends StatefulWidget {
     required this.onDelete,
     required this.onTap,
     required this.onAddChild,
+    required this.onReorderSiblings,
   });
 
   /// 오늘 화면에서 root 로 보일 todo (visibility/carryover 정책 적용된 visible set).
@@ -86,6 +91,8 @@ class _Loaded extends StatefulWidget {
   final void Function(Todo) onDelete;
   final void Function(Todo) onTap;
   final void Function(Todo) onAddChild;
+  final void Function(List<Todo> siblings, int oldIndex, int newIndex)
+  onReorderSiblings;
 
   @override
   State<_Loaded> createState() => _LoadedState();
@@ -158,6 +165,7 @@ class _LoadedState extends State<_Loaded> {
               onDelete: widget.onDelete,
               onTap: widget.onTap,
               onAddChild: widget.onAddChild,
+              onReorderSiblings: widget.onReorderSiblings,
             ),
           ),
       ],

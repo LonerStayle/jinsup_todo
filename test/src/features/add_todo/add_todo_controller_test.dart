@@ -113,4 +113,43 @@ void main() {
     );
     expect(result.calendarWarning, isNull);
   });
+
+  group('Task B — 신규 생성 sortOrder = min(형제)-1 (맨 위)', () {
+    AddTodoSubmission sub(String title, {Category category = Category.work}) =>
+        AddTodoSubmission(
+          title: title,
+          category: category,
+          dueAt: null,
+          addToCalendar: false,
+        );
+
+    test('형제 없으면 sortOrder = -1 (0 - 1)', () async {
+      final r = await controller.add(sub('첫 항목'));
+      expect(r.todo.sortOrder, -1);
+    });
+
+    test('연속 생성 → 각 신규가 min-1 로 맨 위', () async {
+      final a = await controller.add(sub('A')); // -1
+      final b = await controller.add(sub('B')); // min(-1)-1 = -2
+      final c = await controller.add(sub('C')); // -3
+      expect(a.todo.sortOrder, -1);
+      expect(b.todo.sortOrder, -2);
+      expect(c.todo.sortOrder, -3);
+    });
+
+    test('다른 카테고리는 형제 집합이 달라 독립 min', () async {
+      await controller.add(sub('work-1')); // work: -1
+      final d = await controller.add(sub('daily-1', category: Category.daily));
+      expect(d.todo.sortOrder, -1, reason: 'daily 형제가 없으므로 0-1');
+    });
+
+    test('addAll — 입력 순서 보존 + 전체 맨 위 (첫 줄이 최상단)', () async {
+      await controller.add(sub('기존')); // -1
+      await controller.addAll([sub('첫'), sub('둘'), sub('셋')]);
+
+      final list = await repo.watchByCategory(Category.work).first;
+      // min=-1, n=3 → 첫=-4, 둘=-3, 셋=-2, 기존=-1. sortOrder asc → 첫,둘,셋,기존.
+      expect(list.map((t) => t.title).toList(), ['첫', '둘', '셋', '기존']);
+    });
+  });
 }

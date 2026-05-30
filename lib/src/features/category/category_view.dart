@@ -51,6 +51,9 @@ class CategoryView extends ConsumerWidget {
           );
         },
         onAddChild: (parent) => showAddChildSheet(context, ref, parent: parent),
+        onReorderSiblings: (siblings, oldIndex, newIndex) => ref
+            .read(todoActionsProvider)
+            .reorderSiblings(siblings, oldIndex, newIndex),
       ),
     );
   }
@@ -64,6 +67,7 @@ class _Loaded extends StatefulWidget {
     required this.onDelete,
     required this.onTap,
     required this.onAddChild,
+    required this.onReorderSiblings,
   });
 
   final Category category;
@@ -74,6 +78,8 @@ class _Loaded extends StatefulWidget {
   final void Function(Todo) onDelete;
   final void Function(Todo) onTap;
   final void Function(Todo) onAddChild;
+  final void Function(List<Todo> siblings, int oldIndex, int newIndex)
+  onReorderSiblings;
 
   @override
   State<_Loaded> createState() => _LoadedState();
@@ -139,6 +145,7 @@ class _LoadedState extends State<_Loaded> {
               onDelete: widget.onDelete,
               onTap: widget.onTap,
               onAddChild: widget.onAddChild,
+              onReorderSiblings: widget.onReorderSiblings,
             ),
           ),
       ],

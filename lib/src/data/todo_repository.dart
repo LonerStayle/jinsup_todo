@@ -28,4 +28,11 @@ abstract interface class TodoRepository {
   Future<void> upsert(Todo todo);
 
   Future<void> deleteById(String id);
+
+  /// Task B — 같은 형제 집합(같은 parentId + categoryId)의 최소 sortOrder. 형제가 없으면
+  /// null. 신규 생성 / 시트 수정 시 `min - 1` 로 맨 위(작은 sortOrder = 위)에 올릴 때 사용.
+  Future<int?> minSiblingSortOrder({
+    required String categoryId,
+    String? parentId,
+  });
 }

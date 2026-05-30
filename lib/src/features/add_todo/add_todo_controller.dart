@@ -14,13 +14,23 @@ Future<void> showAddChildSheet(
   BuildContext context,
   WidgetRef ref, {
   required Todo parent,
-}) {
-  return AddTodoSheet.show(
+}) async {
+  // bulk paste 까지 대응 — sheet 가 N건을 동기적으로 onSubmit 으로 흘려보내므로 버퍼에
+  // 모았다가 닫힌 뒤 addAll 로 입력 순서를 보존하며 일괄 저장 (Task B).
+  final pending = <AddTodoSubmission>[];
+  await AddTodoSheet.show(
     context,
     initialCategory: parent.category,
     parentId: parent.id,
-    onSubmit: (s) => ref.read(addTodoControllerProvider).add(s),
+    onSubmit: pending.add,
   );
+  if (pending.isEmpty) return;
+  final controller = ref.read(addTodoControllerProvider);
+  if (pending.length == 1) {
+    await controller.add(pending.first);
+  } else {
+    await controller.addAll(pending);
+  }
 }
 
 /// AddTodoSheet 가 만든 [AddTodoSubmission] 을 도메인 [Todo] 로 변환 + 저장 + (선택) Calendar 등록.
@@ -43,6 +53,12 @@ class AddTodoController {
   /// Calendar 호출 실패는 fatal X — todo 자체는 보존. UI 에 안내할 warning 메시지를
   /// 결과에 포함해 반환.
   Future<AddTodoResult> add(AddTodoSubmission s) async {
+    // Task B — 신규 생성은 맨 위로. 같은 형제(parentId+category) min sortOrder - 1.
+    final minSibling = await repo.minSiblingSortOrder(
+      categoryId: s.category.id,
+      parentId: s.parentId,
+    );
+    final sortOrder = (minSibling ?? 0) - 1;
     var todo = Todo.create(
       title: s.title,
       category: s.category,
@@ -54,6 +70,7 @@ class AddTodoController {
       isAllDay: s.isAllDay,
       timeAnchor: s.timeAnchor,
       parentId: s.parentId,
+      sortOrder: sortOrder,
     );
     await repo.upsert(todo);
 
@@ -80,6 +97,58 @@ class AddTodoController {
       }
     }
     return AddTodoResult(todo: todo, calendarWarning: warning);
+  }
+
+  /// Task B — bulk paste 용. 입력 순서를 보존하며 전체를 맨 위로 올린다.
+  ///
+  /// 같은 형제 집합(첫 항목의 parentId+category 기준) min sortOrder 를 한 번만 조회한 뒤
+  /// 입력 순서를 그대로 보존하며 전체를 기존 형제들 위로 올린다 — 첫 줄이 맨 위(가장 작은
+  /// sortOrder), 마지막 줄이 `min-1`. 즉 i 번째 = `min - (N - i)` (N = 줄 수).
+  /// 작은 sortOrder = 위 불변식과 맞물려 화면에서 입력 순서대로 위→아래로 보인다.
+  /// Calendar 등록은 건당 [add] 와 동일하게 처리.
+  ///
+  /// 모든 submission 이 같은 category/parentId 라고 가정 (AddTodoSheet bulk 흐름이 보장).
+  Future<void> addAll(List<AddTodoSubmission> subs) async {
+    if (subs.isEmpty) return;
+    final first = subs.first;
+    final minSibling = await repo.minSiblingSortOrder(
+      categoryId: first.category.id,
+      parentId: first.parentId,
+    );
+    final min = minSibling ?? 0;
+    final n = subs.length;
+    for (var i = 0; i < subs.length; i++) {
+      final s = subs[i];
+      var todo = Todo.create(
+        title: s.title,
+        category: s.category,
+        dueAt: s.dueAt,
+        now: now,
+        type: s.type,
+        description: s.description,
+        endAt: s.endAt,
+        isAllDay: s.isAllDay,
+        timeAnchor: s.timeAnchor,
+        parentId: s.parentId,
+        // 첫 줄 = min - N (맨 위), 마지막 줄 = min - 1.
+        sortOrder: min - (n - i),
+      );
+      await repo.upsert(todo);
+      if (s.addToCalendar && s.dueAt != null && calendar != null) {
+        try {
+          final eventId = await calendar!.createEventForTodo(
+            todo,
+            isAllDay: s.isAllDay,
+          );
+          if (eventId != null) {
+            todo = todo.withCalendarEvent(eventId, now: now);
+            await repo.upsert(todo);
+          }
+        } catch (e) {
+          debugPrint('[solo_todo] Calendar 이벤트 생성 실패 (bulk): $e');
+        }
+      }
+    }
   }
 }
 
