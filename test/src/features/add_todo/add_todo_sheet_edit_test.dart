@@ -193,4 +193,54 @@ void main() {
     );
     expect(saveBtn.onPressed, isNull);
   });
+
+  testWidgets('§14-C — task(done+dueAt+calendar)→note 전환 시 정합 정리', (
+    tester,
+  ) async {
+    final initial = Todo(
+      id: 'edit-1',
+      title: '완료된 일',
+      category: Category.work,
+      dueAt: DateTime.utc(2026, 5, 28, 9),
+      doneAt: DateTime.utc(2026, 5, 28, 10),
+      createdAt: DateTime.utc(2026, 5, 28),
+      updatedAt: DateTime.utc(2026, 5, 28),
+      calendarEventId: 'evt-123',
+      type: TodoType.task,
+    );
+    final result = await mount(tester, initialTodo: initial);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('type-note')));
+    await tester.tap(find.byKey(const ValueKey('type-note')));
+    await tester.pumpAndSettle();
+
+    final saveBtn = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '저장'),
+    );
+    saveBtn.onPressed?.call();
+    await tester.pumpAndSettle();
+
+    final u = result.updates.single;
+    expect(u.type, TodoType.note);
+    expect(u.doneAt, isNull, reason: 'note 는 체크 개념 없음 → doneAt 제거');
+    expect(u.calendarEventId, isNull, reason: 'note 는 일정 없음 → calendar 링크 제거');
+    expect(u.dueAt, isNull, reason: 'note 는 일정 무관 → dueAt 제거');
+  });
+
+  testWidgets('§14-C — note→task 전환 시 type=task', (tester) async {
+    final initial = makeInitial(title: '메모', type: TodoType.note);
+    final result = await mount(tester, initialTodo: initial);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('type-task')));
+    await tester.tap(find.byKey(const ValueKey('type-task')));
+    await tester.pumpAndSettle();
+
+    final saveBtn = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '저장'),
+    );
+    saveBtn.onPressed?.call();
+    await tester.pumpAndSettle();
+
+    expect(result.updates.single.type, TodoType.task);
+  });
 }
