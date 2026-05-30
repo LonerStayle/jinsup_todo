@@ -287,6 +287,30 @@ void main() {
       final restored = _fromRowForCheck(row);
       expect(restored.isAllDay, isTrue);
     });
+
+    test('updated_at/created_at 은 로컬 DateTime 이어도 UTC(Z)로 직렬화', () {
+      // 회귀: nowProvider 가 DateTime.now()(로컬) 라 updatedAt 이 local-naive 면,
+      // Supabase 왕복본(UTC)과 LWW 비교에서 timezone offset 만큼 어긋나 방금 쓴 값이
+      // stale 원격으로 덮어써졌다. 전송은 반드시 UTC 여야 한다.
+      final localNow = DateTime(2026, 5, 30, 18, 0, 0); // isUtc == false (로컬)
+      final todo = Todo(
+        id: 'tz',
+        title: 'y',
+        category: Category.work,
+        dueAt: null,
+        doneAt: null,
+        createdAt: localNow,
+        updatedAt: localNow,
+        calendarEventId: null,
+      );
+      final row = _toRowForCheck(todo, 'u');
+      expect(row['updated_at'], endsWith('Z'), reason: 'UTC 직렬화여야 함');
+      expect(
+        DateTime.parse(row['updated_at'] as String),
+        localNow.toUtc(),
+        reason: '동일 instant(UTC) 보존',
+      );
+    });
   });
 }
 
@@ -300,8 +324,8 @@ Map<String, dynamic> _toRowForCheck(Todo t, String userId) => {
   'category': t.category.id,
   'due_at': t.dueAt?.toIso8601String(),
   'done_at': t.doneAt?.toIso8601String(),
-  'created_at': t.createdAt.toIso8601String(),
-  'updated_at': t.updatedAt.toIso8601String(),
+  'created_at': t.createdAt.toUtc().toIso8601String(),
+  'updated_at': t.updatedAt.toUtc().toIso8601String(),
   'calendar_event_id': t.calendarEventId,
   'parent_id': t.parentId,
   'type': t.type.name,

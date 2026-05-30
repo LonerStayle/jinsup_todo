@@ -62,8 +62,9 @@ class SupabaseTodosApi implements RemoteTodosApi {
     'category': t.category.id,
     'due_at': t.dueAt?.toIso8601String(),
     'done_at': t.doneAt?.toIso8601String(),
-    'created_at': t.createdAt.toIso8601String(),
-    'updated_at': t.updatedAt.toIso8601String(),
+    'created_at': t.createdAt.toUtc().toIso8601String(),
+    // updatedAt 은 LWW 키 — UTC 로 전송해 로컬 저장(UTC)과 round-trip 일치.
+    'updated_at': t.updatedAt.toUtc().toIso8601String(),
     'calendar_event_id': t.calendarEventId,
     // v1.1 — 트리 / 메모 모델
     'parent_id': t.parentId,

@@ -53,4 +53,20 @@ void main() {
       expect(LastWriteWins.remoteWins(local, remote), isFalse);
     },
   );
+
+  test('같은 instant 인데 local 은 로컬-naive, remote 는 UTC → remote 가 이기면 안 됨 '
+      '(UTC 정규화 회귀)', () {
+    // 회귀: 편집 직후 local updatedAt 이 로컬시간(Z 없음)으로 저장되고, Supabase
+    // 왕복본은 UTC(Z) 라 동일 시각인데도 remote 가 timezone offset 만큼 "최신"으로
+    // 오판되어 방금 쓴 값이 stale 원격으로 덮어써졌다. remoteWins 는 UTC 로 비교한다.
+    final utc = DateTime.utc(2026, 5, 27, 10, 30);
+    final localNaive = utc.toLocal(); // 동일 instant, 로컬 표현 (isUtc == false)
+    final local = at(localNaive, title: 'just-edited');
+    final remote = at(utc, title: 'echo');
+    expect(
+      LastWriteWins.remoteWins(local, remote),
+      isFalse,
+      reason: '같은 instant → 동률 → local 보존(skip)',
+    );
+  });
 }

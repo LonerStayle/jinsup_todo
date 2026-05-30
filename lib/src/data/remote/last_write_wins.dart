@@ -17,6 +17,8 @@ class LastWriteWins {
 
   static bool remoteWins(Todo? local, Todo remote) {
     if (local == null) return true;
-    return remote.updatedAt.isAfter(local.updatedAt);
+    // 반드시 UTC 로 정규화해 비교한다. 한쪽이 local-naive (Z 없음), 다른 쪽이 UTC(Z)
+    // 면 같은 시각도 timezone offset 만큼 어긋나 stale 가 최신으로 오판된다.
+    return remote.updatedAt.toUtc().isAfter(local.updatedAt.toUtc());
   }
 }
