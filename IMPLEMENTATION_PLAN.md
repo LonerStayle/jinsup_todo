@@ -258,7 +258,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] todo_detail_screen — FAB·자식 리스트는 §14-A(가드 해제)에서 이미 노출. 남은 자식 진척 요약 추가: `_SubtreeProgressBar`(`detail-progress`, "done/total 완료" + 카테고리색 LinearProgressIndicator)를 `computeSubtreeProgress(live, all).taskCount>0` 일 때 children 리스트 위에 표시(note 헤딩/task 폴더 공통). widget test 2건(헤딩 1/2 노출 + task 자손 없으면 숨김). 469/469 PASS.
 
 **14-B. "메모 N" 카운트 노출**
-- [ ] CategoryView 헤더 — 미체크/완료 칩 옆에 "메모 N" 보조 카운트 추가(해당 카테고리 note 전체 수, 0 이면 생략). 미체크/완료는 task 만 유지. widget test (메모 N 표시 + 0 생략).
+- [x] CategoryView 헤더 — 미체크/완료 칩 옆에 "메모 N" `_StatChip`(onSurface 0.45) 추가, `noteCount = todos.where(note).length`, 0 이면 생략. 미체크/완료는 task 만 유지. widget test 2건(메모 2 표시 + 메모 0 생략). 471/471 PASS.
 - [x] Outline 메모탭 카테고리 헤더 "메모 N" — **v1.4 머지로 이미 구현됨**(`outline_screen.dart` `_NoteCategorySection` 가 `${notes.length}` 를 카테고리색 labelSmall 로 표시). 별도 작업 불필요. (그룹 헤더 단위 합산 카운트는 over-engineering 으로 보류 — 카테고리 단위로 충분.)
 
 **14-C. 타입 전환 엣지 가드**

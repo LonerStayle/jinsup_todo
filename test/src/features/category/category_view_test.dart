@@ -117,6 +117,36 @@ void main() {
     expect(find.text('개인개발'), findsAtLeastNWidgets(1));
   });
 
+  testWidgets('§14-B 메모 N 카운트 — note 있으면 헤더에 "메모 N"', (tester) async {
+    final controller = await mount(tester, category: Category.idea);
+    controller.add([
+      todo(id: 't', category: Category.idea, title: '할 일'),
+      todo(
+        id: 'n1',
+        category: Category.idea,
+        title: '노트1',
+        type: TodoType.note,
+      ),
+      todo(
+        id: 'n2',
+        category: Category.idea,
+        title: '노트2',
+        type: TodoType.note,
+      ),
+    ]);
+    await tester.pump();
+
+    expect(find.text('메모 2'), findsOneWidget);
+  });
+
+  testWidgets('§14-B 메모 0 — "메모" 칩 생략', (tester) async {
+    final controller = await mount(tester, category: Category.idea);
+    controller.add([todo(id: 't', category: Category.idea, title: '할 일')]);
+    await tester.pump();
+
+    expect(find.textContaining('메모'), findsNothing);
+  });
+
   testWidgets('§13 혼합 — task=체크 행, note=메모 글리프+라벨+프리뷰 로 시각 구분', (tester) async {
     final controller = await mount(tester, category: Category.idea);
     controller.add([

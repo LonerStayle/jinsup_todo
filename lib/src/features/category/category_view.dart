@@ -107,6 +107,8 @@ class _LoadedState extends State<_Loaded> {
     final tasks = todos.where((t) => t.type == TodoType.task);
     final undone = tasks.where((t) => !t.isDone).length;
     final done = tasks.where((t) => t.isDone).length;
+    // §14-B — 메모 개수 보조 카운트 (0 이면 헤더에서 생략).
+    final noteCount = todos.where((t) => t.type == TodoType.note).length;
 
     return CustomScrollView(
       slivers: [
@@ -118,7 +120,12 @@ class _LoadedState extends State<_Loaded> {
             AppTokens.space16,
           ),
           sliver: SliverToBoxAdapter(
-            child: _Header(category: category, undone: undone, done: done),
+            child: _Header(
+              category: category,
+              undone: undone,
+              done: done,
+              noteCount: noteCount,
+            ),
           ),
         ),
         if (todos.isEmpty)
@@ -160,11 +167,13 @@ class _Header extends StatelessWidget {
     required this.category,
     required this.undone,
     required this.done,
+    required this.noteCount,
   });
 
   final Category category;
   final int undone;
   final int done;
+  final int noteCount;
 
   @override
   Widget build(BuildContext context) {
@@ -205,6 +214,15 @@ class _Header extends StatelessWidget {
               count: done,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
             ),
+            // §14-B — 메모가 있을 때만 "메모 N" 보조 카운트.
+            if (noteCount > 0) ...[
+              const SizedBox(width: AppTokens.space8),
+              _StatChip(
+                label: '메모',
+                count: noteCount,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+              ),
+            ],
           ],
         ),
       ],
