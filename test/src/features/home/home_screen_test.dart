@@ -199,8 +199,8 @@ void main() {
     );
   });
 
-  group('Task C — today 중첩 트리', () {
-    testWidgets('root todo 1건 → 그대로 표시 (chevron 없음)', (tester) async {
+  group('기능 M — today 평면 + 드릴다운', () {
+    testWidgets('root todo 1건 (자식 없음) → 그대로 표시, 드릴 배지 없음', (tester) async {
       final t = todo(id: 'r', title: '회사 todo', category: Category.work);
       final controller = await mountWith(
         tester,
@@ -211,11 +211,11 @@ void main() {
       await tester.pump();
 
       expect(find.text('회사 todo'), findsOneWidget);
-      // 자식이 없으므로 chevron 미표시.
-      expect(find.byKey(const ValueKey('todo-tile-chevron-r')), findsNothing);
+      // 자식이 없으므로 드릴 배지 미표시.
+      expect(find.byKey(const ValueKey('todo-tile-drill-r')), findsNothing);
     });
 
-    testWidgets('부모(today) + 자식(today 아님) → 자식이 부모 아래 중첩 표시', (tester) async {
+    testWidgets('자식 있는 root → 인라인으로 펼치지 않고 드릴 배지("하위 N") 표시', (tester) async {
       final parent = todo(id: 'p', title: 'JS슈퍼', category: Category.work);
       final child = Todo(
         id: 'c',
@@ -228,7 +228,6 @@ void main() {
         calendarEventId: null,
         parentId: 'p',
       );
-      // allTodos 에 자식 포함 → 부모 아래에 펼쳐져 보여야 함. controller 는 부모만 today.
       final controller = await mountWith(
         tester,
         fixedNow: DateTime(2026, 5, 27, 10),
@@ -238,47 +237,15 @@ void main() {
       await tester.pump();
 
       expect(find.text('JS슈퍼'), findsOneWidget);
+      // 인라인 펼침 제거 — 자식은 최상위에서 보이지 않는다 (드릴로만 접근).
       expect(
         find.text('워크트리 만들기'),
-        findsOneWidget,
-        reason: '자식이 today 가 아니어도 부모 아래 하위 체크리스트로 보여야 함',
+        findsNothing,
+        reason: '드릴다운으로 대체 — 자식은 인라인으로 펼치지 않는다',
       );
-      // 부모는 자식이 있으므로 chevron 노출.
-      expect(find.byKey(const ValueKey('todo-tile-chevron-p')), findsOneWidget);
-    });
-
-    testWidgets('chevron tap → 자식 접힘/펼침 토글', (tester) async {
-      final parent = todo(id: 'p', title: '부모', category: Category.work);
-      final child = Todo(
-        id: 'c',
-        title: '자식',
-        category: Category.work,
-        dueAt: null,
-        doneAt: null,
-        createdAt: DateTime.utc(2026, 5, 27, 1),
-        updatedAt: DateTime.utc(2026, 5, 27, 1),
-        calendarEventId: null,
-        parentId: 'p',
-      );
-      final controller = await mountWith(
-        tester,
-        fixedNow: DateTime(2026, 5, 27, 10),
-        allTodos: [parent, child],
-      );
-      controller.add([parent]);
-      await tester.pump();
-
-      expect(find.text('자식'), findsOneWidget);
-
-      // 접기.
-      await tester.tap(find.byKey(const ValueKey('todo-tile-chevron-p')));
-      await tester.pump();
-      expect(find.text('자식'), findsNothing);
-
-      // 다시 펼치기.
-      await tester.tap(find.byKey(const ValueKey('todo-tile-chevron-p')));
-      await tester.pump();
-      expect(find.text('자식'), findsOneWidget);
+      // 자식 있는 root 는 드릴 배지 노출.
+      expect(find.byKey(const ValueKey('todo-tile-drill-p')), findsOneWidget);
+      expect(find.text('하위 1'), findsOneWidget);
     });
 
     testWidgets('task 타일에 ＋하위추가 버튼 노출, note 타일에는 없음', (tester) async {

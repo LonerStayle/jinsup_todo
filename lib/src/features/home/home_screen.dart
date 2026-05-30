@@ -6,13 +6,14 @@ import '../../core/theme.dart';
 import '../../data/providers.dart';
 import '../../domain/todo.dart';
 import '../../ui/widgets/empty_state.dart';
-import '../../ui/widgets/nested_todo_tree.dart';
 import '../../ui/widgets/skeleton.dart';
+import '../../ui/widgets/todo_drill_list.dart';
 import '../../ui/widgets/undo_snackbar.dart';
 import '../add_todo/add_todo_controller.dart';
 import '../add_todo/add_todo_sheet.dart';
 import '../outline/tree_providers.dart';
 import '../todo_actions/todo_actions_controller.dart';
+import '../todo_detail/todo_detail_screen.dart';
 import 'today_providers.dart';
 
 /// 오늘 화면 — 헤더 + 이월 배너 + visible todos 리스트.
@@ -45,8 +46,8 @@ class HomeScreen extends ConsumerWidget {
             onUndo: () => actions.restore(t),
           );
         },
-        // v1.2 — tile tap → AddTodoSheet edit 모드 진입.
-        onTap: (t) async {
+        // 기능 M — leaf tap → AddTodoSheet edit 모드 진입.
+        onEdit: (t) async {
           await AddTodoSheet.show(
             context,
             initialCategory: t.category,
@@ -57,6 +58,12 @@ class HomeScreen extends ConsumerWidget {
             },
           );
         },
+        // 기능 M — 하위 있는 root tap → 상세 화면(드릴다운) push.
+        onDrillDown: (folder) => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => TodoDetailScreen(parent: folder),
+          ),
+        ),
         // Task C — ＋ 하위 추가.
         onAddChild: (parent) => showAddChildSheet(context, ref, parent: parent),
         // Task B — 형제 드래그 재정렬.
@@ -76,20 +83,22 @@ class _Loaded extends StatefulWidget {
     required this.now,
     required this.onToggle,
     required this.onDelete,
-    required this.onTap,
+    required this.onEdit,
+    required this.onDrillDown,
     required this.onAddChild,
     required this.onReorderSiblings,
   });
 
   /// 오늘 화면에서 root 로 보일 todo (visibility/carryover 정책 적용된 visible set).
-  /// 이 todo 들의 자손은 '오늘'이 아니어도 [allTodos] 인덱스로 하위 체크리스트가 펼쳐진다.
+  /// 자식은 인라인으로 펼치지 않고 드릴다운 상세 화면에서 본다.
   final List<Todo> todos;
   final List<Todo> allTodos;
   final int carryoverCount;
   final DateTime now;
   final void Function(Todo) onToggle;
   final void Function(Todo) onDelete;
-  final void Function(Todo) onTap;
+  final void Function(Todo) onEdit;
+  final void Function(Todo) onDrillDown;
   final void Function(Todo) onAddChild;
   final void Function(List<Todo> siblings, int oldIndex, int newIndex)
   onReorderSiblings;
@@ -99,15 +108,6 @@ class _Loaded extends StatefulWidget {
 }
 
 class _LoadedState extends State<_Loaded> {
-  /// 접힌 노드 id set (default 펼침).
-  final Set<String> _collapsed = {};
-
-  void _toggleCollapse(String id) {
-    setState(() {
-      if (!_collapsed.remove(id)) _collapsed.add(id);
-    });
-  }
-
   /// 오늘 화면 root 후보: visible todo 중 그 부모도 visible 인 항목은 자식으로만 보여야
   /// 중복되지 않는다. 부모가 today set 에 있으면 그 부모 아래 자식으로 자연 렌더되므로
   /// root 목록에서 제외. (부모가 today 가 아니면 이 visible 자식이 root 로 올라온다.)
@@ -156,14 +156,13 @@ class _LoadedState extends State<_Loaded> {
               AppTokens.space24,
               AppTokens.space48,
             ),
-            sliver: NestedTodoTreeSliver(
-              roots: roots,
+            sliver: TodoDrillListSliver(
+              items: roots,
               allTodos: widget.allTodos,
-              collapsed: _collapsed,
-              onToggleCollapse: _toggleCollapse,
               onToggle: widget.onToggle,
               onDelete: widget.onDelete,
-              onTap: widget.onTap,
+              onEdit: widget.onEdit,
+              onDrillDown: widget.onDrillDown,
               onAddChild: widget.onAddChild,
               onReorderSiblings: widget.onReorderSiblings,
             ),

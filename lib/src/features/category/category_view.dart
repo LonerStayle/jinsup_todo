@@ -5,12 +5,13 @@ import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/todo.dart';
 import '../../ui/widgets/empty_state.dart';
-import '../../ui/widgets/nested_todo_tree.dart';
 import '../../ui/widgets/skeleton.dart';
+import '../../ui/widgets/todo_drill_list.dart';
 import '../../ui/widgets/undo_snackbar.dart';
 import '../add_todo/add_todo_controller.dart';
 import '../add_todo/add_todo_sheet.dart';
 import '../todo_actions/todo_actions_controller.dart';
+import '../todo_detail/todo_detail_screen.dart';
 import 'category_providers.dart';
 
 /// 카테고리 destination 선택 시 보여줄 화면. 헤더 + 미체크/완료 통계 + 리스트.
@@ -40,7 +41,7 @@ class CategoryView extends ConsumerWidget {
             onUndo: () => actions.restore(t),
           );
         },
-        onTap: (t) async {
+        onEdit: (t) async {
           await AddTodoSheet.show(
             context,
             initialCategory: t.category,
@@ -50,6 +51,11 @@ class CategoryView extends ConsumerWidget {
                 ref.read(todoActionsProvider).update(updated),
           );
         },
+        onDrillDown: (folder) => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => TodoDetailScreen(parent: folder),
+          ),
+        ),
         onAddChild: (parent) => showAddChildSheet(context, ref, parent: parent),
         onReorderSiblings: (siblings, oldIndex, newIndex) => ref
             .read(todoActionsProvider)
@@ -65,18 +71,20 @@ class _Loaded extends StatefulWidget {
     required this.todos,
     required this.onToggle,
     required this.onDelete,
-    required this.onTap,
+    required this.onEdit,
+    required this.onDrillDown,
     required this.onAddChild,
     required this.onReorderSiblings,
   });
 
   final Category category;
 
-  /// 이 카테고리에 속한 모든 todo (root + 자손). root + child 인덱스 양쪽에 사용.
+  /// 이 카테고리에 속한 모든 todo (root + 자손). root 선별 + childCount 양쪽에 사용.
   final List<Todo> todos;
   final void Function(Todo) onToggle;
   final void Function(Todo) onDelete;
-  final void Function(Todo) onTap;
+  final void Function(Todo) onEdit;
+  final void Function(Todo) onDrillDown;
   final void Function(Todo) onAddChild;
   final void Function(List<Todo> siblings, int oldIndex, int newIndex)
   onReorderSiblings;
@@ -86,15 +94,7 @@ class _Loaded extends StatefulWidget {
 }
 
 class _LoadedState extends State<_Loaded> {
-  final Set<String> _collapsed = {};
-
-  void _toggleCollapse(String id) {
-    setState(() {
-      if (!_collapsed.remove(id)) _collapsed.add(id);
-    });
-  }
-
-  /// 이 카테고리의 root (parentId null). 자식은 트리에서 들여쓰기로 표시.
+  /// 이 카테고리의 root (parentId null). 자식은 드릴다운 상세 화면에서 본다.
   List<Todo> get _roots =>
       widget.todos.where((t) => t.parentId == null).toList();
 
@@ -136,14 +136,13 @@ class _LoadedState extends State<_Loaded> {
               AppTokens.space24,
               AppTokens.space48,
             ),
-            sliver: NestedTodoTreeSliver(
-              roots: _roots,
+            sliver: TodoDrillListSliver(
+              items: _roots,
               allTodos: todos,
-              collapsed: _collapsed,
-              onToggleCollapse: _toggleCollapse,
               onToggle: widget.onToggle,
               onDelete: widget.onDelete,
-              onTap: widget.onTap,
+              onEdit: widget.onEdit,
+              onDrillDown: widget.onDrillDown,
               onAddChild: widget.onAddChild,
               onReorderSiblings: widget.onReorderSiblings,
             ),

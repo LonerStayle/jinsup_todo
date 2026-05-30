@@ -1,0 +1,156 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:solo_todo/src/core/theme.dart';
+import 'package:solo_todo/src/data/local/app_database.dart';
+import 'package:solo_todo/src/data/local/local_todo_repository.dart';
+import 'package:solo_todo/src/data/providers.dart';
+import 'package:solo_todo/src/domain/category.dart';
+import 'package:solo_todo/src/domain/todo.dart';
+import 'package:solo_todo/src/features/outline/tree_providers.dart';
+import 'package:solo_todo/src/features/todo_detail/todo_detail_screen.dart';
+
+void main() {
+  late AppDatabase db;
+  late LocalTodoRepository repo;
+
+  final now = DateTime.utc(2026, 5, 30, 9);
+
+  setUp(() {
+    db = AppDatabase.memory();
+    repo = LocalTodoRepository(db.todosDao);
+  });
+
+  tearDown(() async => db.close());
+
+  Todo make({
+    required String id,
+    String title = 't',
+    String? parentId,
+    TodoType type = TodoType.task,
+    DateTime? doneAt,
+  }) => Todo(
+    id: id,
+    title: title,
+    category: Category.work,
+    dueAt: null,
+    doneAt: doneAt,
+    createdAt: now,
+    updatedAt: now,
+    calendarEventId: null,
+    parentId: parentId,
+    type: type,
+  );
+
+  /// [children] = parent 직속 자식, [allTodos] = childCount 판정용 전체.
+  /// watch provider 는 plain Stream override (Drift 타이머 leak 회피), 액션 콜백은
+  /// 실제 memory-repo override 로 동작.
+  Future<void> mount(
+    WidgetTester tester,
+    Todo parent, {
+    List<Todo> children = const [],
+    List<Todo>? allTodos,
+  }) async {
+    final repoOverride = LocalTodoRepository(db.todosDao);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          nowProvider.overrideWithValue(() => now),
+          todoRepositoryProvider.overrideWithValue(repoOverride),
+          allTodosProvider.overrideWith(
+            (_) => Stream.value(allTodos ?? [parent, ...children]),
+          ),
+          childrenOfProvider(
+            parent.id,
+          ).overrideWith((_) => Stream.value(children)),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.mobileLight(),
+          home: TodoDetailScreen(parent: parent),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(Duration.zero);
+  }
+
+  testWidgets('AppBar 에 parent 제목 + 직속 자식 리스트 표시', (tester) async {
+    final parent = make(id: 'p', title: '회사 프로젝트');
+    final child = make(id: 'c1', title: '설계', parentId: 'p');
+
+    await mount(tester, parent, children: [child]);
+
+    expect(find.text('회사 프로젝트'), findsOneWidget); // AppBar title
+    expect(find.text('설계'), findsOneWidget); // 직속 자식
+  });
+
+  testWidgets('자식 체크 토글 → doneAt 채워짐', (tester) async {
+    final parent = make(id: 'p', title: '부모');
+    final child = make(id: 'c1', title: '자식', parentId: 'p');
+    await repo.upsert(child); // toggle 이 upsert 할 대상.
+
+    await mount(tester, parent, children: [child]);
+    expect(find.text('자식'), findsOneWidget);
+
+    // 자식 타일의 체크 버튼 탭.
+    await tester.tap(find.byKey(const ValueKey('todo-tile-check')));
+    await tester.pump();
+    await tester.pump(Duration.zero);
+
+    final fromDb = await repo.getById('c1');
+    expect(fromDb!.isDone, isTrue);
+  });
+
+  testWidgets('상세 AppBar 체크 토글 → parent doneAt 채워짐', (tester) async {
+    final parent = make(id: 'p', title: '부모');
+    final child = make(id: 'c1', title: '자식', parentId: 'p');
+    await repo.upsert(parent);
+
+    await mount(tester, parent, children: [child]);
+
+    await tester.tap(find.byKey(const ValueKey('detail-toggle')));
+    await tester.pump();
+    await tester.pump(Duration.zero);
+
+    final fromDb = await repo.getById('p');
+    expect(fromDb!.isDone, isTrue);
+  });
+
+  testWidgets('자식이 또 자식을 가지면 드릴 배지 표시 (더 깊은 드릴 가능)', (tester) async {
+    final parent = make(id: 'p', title: '부모');
+    final child = make(id: 'c1', title: '중간 폴더', parentId: 'p');
+    final grand = make(id: 'g1', title: '손자', parentId: 'c1');
+
+    await mount(
+      tester,
+      parent,
+      children: [child],
+      allTodos: [parent, child, grand],
+    );
+
+    expect(find.text('중간 폴더'), findsOneWidget);
+    // 자식(c1)이 손자를 가지므로 드릴 배지 노출.
+    expect(find.byKey(const ValueKey('todo-tile-drill-c1')), findsOneWidget);
+    // 손자는 인라인으로 펼쳐지지 않는다.
+    expect(find.text('손자'), findsNothing);
+  });
+
+  testWidgets('자식 없으면 빈 상태 + 하위 추가 FAB', (tester) async {
+    final parent = make(id: 'p', title: '빈 부모');
+
+    await mount(tester, parent);
+
+    expect(find.text('하위 항목이 없어요'), findsOneWidget);
+    expect(find.byKey(const ValueKey('detail-add-child')), findsOneWidget);
+  });
+
+  testWidgets('note parent 면 체크 토글/추가 FAB 없음', (tester) async {
+    final parent = make(id: 'p', title: '메모', type: TodoType.note);
+
+    await mount(tester, parent);
+
+    expect(find.byKey(const ValueKey('detail-toggle')), findsNothing);
+    expect(find.byKey(const ValueKey('detail-add-child')), findsNothing);
+  });
+}
