@@ -847,8 +847,10 @@ class _NoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final desc = note.description;
+    // §13 — TodoTile note 와 동일한 NoteVisual 토큰을 공유해 시각 언어 통일.
+    // 틴트 배경 + 좌측 accent 보더 + 카테고리색 글리프 + non-italic 제목.
+    // (메모 탭은 전체가 메모라 per-card "메모" 라벨은 맥락상 중복 → 생략.)
     return Container(
       key: ValueKey('outline-note-${note.id}'),
       margin: const EdgeInsets.symmetric(
@@ -857,9 +859,14 @@ class _NoteCard extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(AppTokens.space12),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        color: NoteVisual.tint(note.category, theme.brightness),
         borderRadius: BorderRadius.circular(AppTokens.radiusM),
-        border: Border(left: BorderSide(color: note.category.color, width: 3)),
+        border: Border(
+          left: BorderSide(
+            color: NoteVisual.accent(note.category),
+            width: NoteVisual.accentWidth,
+          ),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -867,7 +874,7 @@ class _NoteCard extends StatelessWidget {
           Icon(
             Icons.sticky_note_2_outlined,
             size: 16,
-            color: scheme.onSurface.withValues(alpha: 0.5),
+            color: NoteVisual.accent(note.category),
           ),
           const SizedBox(width: AppTokens.space8),
           Expanded(
@@ -878,16 +885,13 @@ class _NoteCard extends StatelessWidget {
                   note.title,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontStyle: FontStyle.italic,
                   ),
                 ),
                 if (desc != null && desc.trim().isNotEmpty) ...[
                   const SizedBox(height: AppTokens.space4),
                   Text(
                     desc,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurface.withValues(alpha: 0.6),
-                    ),
+                    style: theme.textTheme.bodySmall,
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),

@@ -234,7 +234,7 @@ v1.0 의 "5종 고정" 폐기 — 카테고리를 DB row 로 저장해 사용자
 - [x] TodoTile task 미완료 체크 affordance 대비 강화 — `radio_button_unchecked` 색을 회색 `onSurface.alpha(0.35)` → `category.color.alpha(0.55)` 로(카테고리색 ring 힌트 + 대비 상향), 완료는 카테고리색 원색 유지. widget test 2건(미완료 ring 색 + 완료 원색). 452/452 PASS.
 
 **Outline 시각 언어 통일**
-- [ ] Outline 메모탭 `_NoteCard` 를 위 note 공유 토큰/헬퍼로 재배선 — 틴트 alpha·accent 보더 두께·"메모" 라벨을 TodoTile note 와 동일 출처로 통일하고 중복 하드코딩(0.5 alpha, 3px 등) 제거. 회귀 test.
+- [x] Outline 메모탭 `_NoteCard` 를 NoteVisual 공유 토큰으로 재배선 — 배경 `surfaceContainerHighest.alpha(0.5)`→`NoteVisual.tint`, 좌측 보더 하드코딩(category.color, width 3)→`NoteVisual.accent`+`accentWidth`, 글리프 회색 0.5→카테고리색, 제목 italic 제거(TodoTile note 와 일관). per-card "메모" 라벨은 메모 탭 맥락상 중복이라 생략(Tab 라벨과 충돌도 회피). 회귀 test 1건(틴트+accent 보더+non-italic). 453/453 PASS.
 - [ ] Outline 체크리스트탭 task 노드 스타일을 TodoTile task 와 시각 일관 점검·조정(들여쓰기/체크 아이콘/카테고리색 사용 통일). 회귀 test.
 
 **혼합 뷰 회귀**

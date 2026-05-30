@@ -294,6 +294,39 @@ void main() {
       expect(find.byKey(const ValueKey('outline-check-t')), findsNothing);
     });
 
+    testWidgets('_NoteCard 가 NoteVisual 토큰으로 통일 (틴트+accent, non-italic)', (
+      tester,
+    ) async {
+      final note = make(
+        id: 'n1',
+        title: '메모1',
+        category: Category.idea,
+        type: TodoType.note,
+      );
+      await mount(
+        tester,
+        rootsByCategory: {
+          Category.idea: [note],
+        },
+        allTodos: [note],
+      );
+      await openNotesTab(tester);
+
+      final box = tester.widget<Container>(
+        find.byKey(const ValueKey('outline-note-n1')),
+      );
+      final deco = box.decoration! as BoxDecoration;
+      // 틴트 배경 = NoteVisual (라이트).
+      expect(deco.color, NoteVisual.tint(Category.idea, Brightness.light));
+      // 좌측 accent 보더 = NoteVisual 두께/색.
+      final left = (deco.border! as Border).left;
+      expect(left.width, NoteVisual.accentWidth);
+      expect(left.color, NoteVisual.accent(Category.idea));
+      // 제목 italic 제거 (TodoTile note 와 일관).
+      final title = tester.widget<Text>(find.text('메모1'));
+      expect(title.style?.fontStyle, isNot(FontStyle.italic));
+    });
+
     testWidgets('note 가 트리 깊이와 무관하게 평탄 나열 (자식 note 포함)', (tester) async {
       // task root > note 자식 — 메모 탭은 트리 무관하게 카테고리의 모든 note 를 나열.
       final root = make(id: 'r', title: '루트 task');
