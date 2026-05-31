@@ -1483,7 +1483,7 @@ class _RecurrenceSection extends StatelessWidget {
                   child: Text(
                     endAt == null
                         ? '종료일 없음 (계속 반복)'
-                        : '${KoDate.short(endAt!)} 까지',
+                        : '${KoDate.shortDate(endAt!)} 까지',
                   ),
                 ),
               ),
