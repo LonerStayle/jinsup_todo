@@ -118,21 +118,27 @@ class CalendarService {
       end: gcal.EventDateTime(dateTime: end.toUtc(), timeZone: 'UTC'),
     );
 
-    switch (todo.dateMode) {
-      case TodoDateMode.none:
-        // dueAt!.toUtc() 가 위에서 보장되므로 도달 안 함. 안전상 종일로.
-        return allDayEvent(due, due);
-      case TodoDateMode.allDay:
-        return allDayEvent(due, due);
-      case TodoDateMode.startTime:
-      case TodoDateMode.endTime:
-        // 시각 기준 기본 1시간. (anchor 는 표시 의미라 캘린더는 동일하게 1h 블록.)
-        return timedEvent(due, due.add(const Duration(hours: 1)));
-      case TodoDateMode.range:
-        final end = todo.endAt ?? due;
-        if (todo.isAllDay) return allDayEvent(due, end);
-        return timedEvent(due, end);
+    final event = switch (todo.dateMode) {
+      // none: dueAt!.toUtc() 가 위에서 보장되므로 도달 안 함. 안전상 종일로.
+      TodoDateMode.none || TodoDateMode.allDay => allDayEvent(due, due),
+      // 시각 기준 기본 1시간. (anchor 는 표시 의미라 캘린더는 동일하게 1h 블록.)
+      TodoDateMode.startTime || TodoDateMode.endTime => timedEvent(
+        due,
+        due.add(const Duration(hours: 1)),
+      ),
+      TodoDateMode.range =>
+        todo.isAllDay
+            ? allDayEvent(due, todo.endAt ?? due)
+            : timedEvent(due, todo.endAt ?? due),
+    };
+
+    // date-repeat: 반복 마스터면 RRULE 1개를 이벤트에 부착해 반복 일정으로 등록한다.
+    // 인스턴스/일반 Todo 는 단일 이벤트 — 반복은 마스터의 RRULE 이 커버하므로 부착 X.
+    final rule = todo.recurrence;
+    if (todo.isRecurringMaster && rule != null) {
+      event.recurrence = [rule.toRRule(todo.recurrenceEndAt)];
     }
+    return event;
   }
 }
 
