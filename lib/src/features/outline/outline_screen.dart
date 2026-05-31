@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/group.dart';
@@ -569,6 +570,8 @@ class _OutlineNode extends ConsumerWidget {
     final isDone = node.isDone;
     // §14 — note 헤딩은 체크 개념이 없어 체크박스 대신 카테고리색 메모 글리프로 표시.
     final isNote = node.type == TodoType.note;
+    // 날짜가 지정된 체크리스트 항목은 제목 아래에 날짜 라벨을 노출 (TodoTile 과 동일 출처).
+    final dateLabel = isNote ? null : TodoDateLabel.format(node);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -604,21 +607,58 @@ class _OutlineNode extends ConsumerWidget {
                   ),
                 const SizedBox(width: AppTokens.space12),
                 Expanded(
-                  child: Text(
-                    node.title,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      height: 1.3,
-                      // note 헤딩은 굵게(섹션 제목). task 폴더 w600 / leaf w500.
-                      fontWeight: isNote
-                          ? FontWeight.w700
-                          : (isFolder ? FontWeight.w600 : FontWeight.w500),
-                      decoration: isDone ? TextDecoration.lineThrough : null,
-                      color: isDone
-                          ? scheme.onSurface.withValues(alpha: 0.4)
-                          : scheme.onSurface,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        node.title,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          height: 1.3,
+                          // note 헤딩은 굵게(섹션 제목). task 폴더 w600 / leaf w500.
+                          fontWeight: isNote
+                              ? FontWeight.w700
+                              : (isFolder ? FontWeight.w600 : FontWeight.w500),
+                          decoration: isDone
+                              ? TextDecoration.lineThrough
+                              : null,
+                          color: isDone
+                              ? scheme.onSurface.withValues(alpha: 0.4)
+                              : scheme.onSurface,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      // 날짜가 있으면 제목 아래에 카테고리색 캘린더 글리프 + 날짜.
+                      if (dateLabel != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: AppTokens.space2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.event_rounded,
+                                size: 13,
+                                color: isDone
+                                    ? scheme.onSurfaceVariant.withValues(
+                                        alpha: 0.5,
+                                      )
+                                    : node.category.color,
+                              ),
+                              const SizedBox(width: AppTokens.space4),
+                              Text(
+                                dateLabel,
+                                key: ValueKey('outline-node-date-${node.id}'),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: isDone
+                                      ? scheme.onSurface.withValues(alpha: 0.4)
+                                      : scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 if (progress != null && progress.taskCount > 0) ...[
