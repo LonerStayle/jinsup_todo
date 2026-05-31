@@ -7,9 +7,12 @@ import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/group.dart';
 import '../../domain/recurrence.dart';
+import '../../domain/recurrence_materializer.dart';
 import '../../domain/todo.dart' show Todo, TodoDateMode, TodoType;
 import '../category/categories_controller.dart';
 import '../category/groups_controller.dart';
+import '../outline/tree_providers.dart';
+import '../recurrence/recurrence_actions.dart';
 
 /// "빠른 추가" 입력 패널.
 ///
@@ -1338,6 +1341,64 @@ class _CalendarToggle extends StatelessWidget {
         ),
         Switch(value: value, onChanged: onChanged),
       ],
+    );
+  }
+}
+
+/// date-repeat — 편집 모드의 반복 시리즈 항목 정보 + "반복 중지" 버튼.
+///
+/// 규칙 자체 수정은 미지원이라 입력 칩 대신 마스터의 규칙을 한 줄 요약으로 보여 주고,
+/// "반복 중지"(마스터 삭제, 비파괴적) 만 제공한다. 마스터를 [allTodosProvider] 에서
+/// [RecurrenceMaterializer.findMaster] 로 역추적해 규칙을 읽는다.
+class _RecurrenceEditInfo extends ConsumerWidget {
+  const _RecurrenceEditInfo({required this.item});
+
+  final Todo item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final all = ref.watch(allTodosProvider).asData?.value ?? const <Todo>[];
+    final master = RecurrenceMaterializer.findMaster(all, item);
+    final rule = master?.recurrence;
+    final summary = rule == null
+        ? '반복 항목'
+        : rule.describe(until: master!.recurrenceEndAt);
+
+    return Container(
+      key: const ValueKey('edit-recurrence-info'),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space12,
+        vertical: AppTokens.space8,
+      ),
+      decoration: BoxDecoration(
+        color: item.category.color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppTokens.radiusM),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.repeat_rounded, size: 18, color: item.category.color),
+          const SizedBox(width: AppTokens.space8),
+          Expanded(
+            child: Text(
+              summary,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            key: const ValueKey('edit-recurrence-stop'),
+            onPressed: () async {
+              final ok = await confirmStopRecurrence(context, ref, item);
+              if (ok && context.mounted) Navigator.of(context).maybePop();
+            },
+            style: TextButton.styleFrom(foregroundColor: scheme.error),
+            child: const Text('반복 중지'),
+          ),
+        ],
+      ),
     );
   }
 }

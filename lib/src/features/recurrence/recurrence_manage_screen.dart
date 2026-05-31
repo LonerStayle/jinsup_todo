@@ -7,7 +7,7 @@ import '../../domain/recurrence.dart';
 import '../../domain/todo.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../home/today_providers.dart';
-import '../todo_actions/todo_actions_controller.dart';
+import 'recurrence_actions.dart';
 
 /// date-repeat (FR-6) — 반복 규칙 관리 화면.
 ///
@@ -35,40 +35,10 @@ class RecurrenceManageScreen extends ConsumerWidget {
                   const SizedBox(height: AppTokens.space8),
               itemBuilder: (context, i) => _MasterCard(
                 master: masters[i],
-                onStop: () => _confirmStop(context, ref, masters[i]),
+                onStop: () => confirmStopRecurrence(context, ref, masters[i]),
               ),
             ),
     );
-  }
-
-  Future<void> _confirmStop(
-    BuildContext context,
-    WidgetRef ref,
-    Todo master,
-  ) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('반복 중지'),
-        content: Text(
-          '"${master.title}" 의 반복을 멈출까요?\n'
-          '앞으로 새 항목은 생기지 않아요. 이미 만들어진 항목은 그대로 남아요.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('반복 중지'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) {
-      await ref.read(todoActionsProvider).delete(master);
-    }
   }
 }
 
