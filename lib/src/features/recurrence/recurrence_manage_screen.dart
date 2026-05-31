@@ -168,6 +168,6 @@ String describeRecurrence(RecurrenceRule rule, DateTime? endAt) {
     parts.add('($days)');
   }
   var summary = parts.join(' ');
-  if (endAt != null) summary = '$summary · ${KoDate.short(endAt)} 까지';
+  if (endAt != null) summary = '$summary · ${KoDate.shortDate(endAt)} 까지';
   return summary;
 }
