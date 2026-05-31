@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/date_format.dart';
 import '../../core/theme.dart';
-import '../../domain/recurrence.dart';
 import '../../domain/todo.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../home/today_providers.dart';
