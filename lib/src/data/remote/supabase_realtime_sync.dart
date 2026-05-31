@@ -11,7 +11,9 @@ import '../categories_repository.dart';
 import '../groups_repository.dart';
 import '../local/local_categories_repository.dart';
 import '../local/local_groups_repository.dart';
+import '../local/app_database.dart';
 import '../local/local_todo_repository.dart';
+import '../local/outbox_dao.dart';
 import '../providers.dart';
 import '../syncing_todo_repository.dart';
 import '../todo_repository.dart';
@@ -44,9 +46,10 @@ class SupabaseRealtimeSync {
     required this.categoriesApply,
     required this.groupsApi,
     required this.groupsApply,
+    this.outbox,
   });
 
-  /// 단위 테스트 전용 — channel subscribe / start 를 거치지 않고 apply* 메서드만 검증.
+  /// 단위 테스트 전용 — channel subscribe / start 를 거치지 않고 apply*/reconcile* 만 검증.
   @visibleForTesting
   SupabaseRealtimeSync.forApplyOnly({
     required this.api,
@@ -57,10 +60,15 @@ class SupabaseRealtimeSync {
     required this.categoriesApply,
     required this.groupsApi,
     required this.groupsApply,
+    this.outbox,
   }) : client = null;
 
   final SupabaseClient? client;
   final RemoteTodosApi api;
+
+  /// snapshot 재조정 시 "로컬 삭제 대기 / 미push 신규" 를 구분하기 위해 outbox 를 읽는다.
+  /// null 이면 재조정의 삭제 단계를 건너뛰고 upsert-only 로 동작(구버전 호환).
+  final OutboxDao? outbox;
 
   /// outbox 우회 — local-only repository. [SyncingTodoRepository] 금지.
   final TodoRepository localApply;
@@ -151,20 +159,53 @@ class SupabaseRealtimeSync {
           )
           .subscribe();
 
-      final remoteAll = await api.fetchAll(userId);
-      for (final remote in remoteAll) {
-        await applyInsertOrUpdate(remote);
-      }
+      // snapshot 재조정 — upsert 뿐 아니라 **삭제까지** 로컬에 반영한다.
+      // fetchAll 은 "원격에 남은" 행만 주므로, outbox 의 미push mutation 을 참고해
+      // (1) 로컬 삭제 대기 행 부활 방지, (2) 다른 기기서 삭제된 행 로컬 제거를 한다.
+      // outbox 가 없으면(구버전 경로) 삭제 단계를 건너뛰고 upsert-only 로 동작.
+      final ob = outbox;
+      final entries = ob == null ? const <OutboxRow>[] : await ob.allOrdered();
+      Set<String> idsOf(Set<String> kinds) => {
+        for (final e in entries)
+          if (kinds.contains(e.kind)) e.todoId,
+      };
 
-      // categories / groups snapshot 풀백 — 구독 후 받은 변경과 중복돼도 upsert 멱등.
+      final remoteAll = await api.fetchAll(userId);
+      final localTodoIds = (await localApply.watchAll().first)
+          .map((t) => t.id)
+          .toSet();
+      await reconcileTodos(
+        remoteAll,
+        localIds: localTodoIds,
+        pendingDeleteIds: idsOf({'delete'}),
+        pendingUpsertIds: idsOf({'upsert'}),
+        reconcileDeletes: ob != null,
+      );
+
+      // categories / groups snapshot 재조정 — todos 와 동일 규칙.
       final remoteCategories = await categoriesApi.fetchAll(userId);
-      for (final remote in remoteCategories) {
-        await applyCategoryUpsert(remote);
-      }
+      final localCategoryIds = (await categoriesApply.getAll())
+          .map((c) => c.id)
+          .toSet();
+      await reconcileCategories(
+        remoteCategories,
+        localIds: localCategoryIds,
+        pendingDeleteIds: idsOf({'cat-delete'}),
+        pendingUpsertIds: idsOf({'cat-upsert'}),
+        reconcileDeletes: ob != null,
+      );
+
       final remoteGroups = await groupsApi.fetchAll(userId);
-      for (final remote in remoteGroups) {
-        await applyGroupUpsert(remote);
-      }
+      final localGroupIds = (await groupsApply.getAll())
+          .map((g) => g.id)
+          .toSet();
+      await reconcileGroups(
+        remoteGroups,
+        localIds: localGroupIds,
+        pendingDeleteIds: idsOf({'grp-delete'}),
+        pendingUpsertIds: idsOf({'grp-upsert'}),
+        reconcileDeletes: ob != null,
+      );
 
       await flushOutbox();
 
@@ -214,6 +255,84 @@ class SupabaseRealtimeSync {
   @visibleForTesting
   Future<void> applyGroupDelete(String id) async {
     await groupsApply.deleteById(id);
+  }
+
+  // ---- snapshot 재조정 (삭제 전파 + 부활 방지) ---------------------------
+  //
+  // fetchAll 은 "원격에 현재 남아 있는" 행만 돌려준다. 그래서 upsert-only 로는:
+  //   증상① 로컬에서 막 삭제(아직 원격 push 전)한 행을 snapshot 이 되살림.
+  //   증상② 다른 기기에서 삭제된 행이 로컬에 영원히 남음(realtime DELETE 를 오프라인에
+  //         서 놓치면 복구 경로가 없음).
+  // reconcile* 가 outbox(미push mutation)를 참고해 둘 다 막는다.
+  //
+  // 안전장치 — 원격 snapshot 이 **비어 있으면** 삭제 단계를 건너뛴다. 일시 fetch 실패나
+  // 신규 user 부트스트랩(원격 빈 상태 + 로컬 seed) 시 로컬 전체가 지워지는 것을 막는다.
+  // (과거 로컬 DB 유실 사고가 있었던 만큼 보수적으로 처리.)
+
+  @visibleForTesting
+  Future<void> reconcileTodos(
+    List<Todo> remote, {
+    required Set<String> localIds,
+    required Set<String> pendingDeleteIds,
+    required Set<String> pendingUpsertIds,
+    bool reconcileDeletes = true,
+  }) async {
+    for (final r in remote) {
+      if (pendingDeleteIds.contains(r.id)) continue; // 증상① — 되살리지 않음
+      await applyInsertOrUpdate(r); // todos 는 LWW 가드 포함
+    }
+    if (!reconcileDeletes || remote.isEmpty) return; // 빈 snapshot 보호
+    final remoteIds = remote.map((r) => r.id).toSet();
+    for (final id in localIds) {
+      if (remoteIds.contains(id)) continue;
+      if (pendingUpsertIds.contains(id)) continue; // 미push 신규 보존
+      if (pendingDeleteIds.contains(id)) continue;
+      await applyDelete(id); // 증상② — 다른 기기 삭제 전파
+    }
+  }
+
+  @visibleForTesting
+  Future<void> reconcileCategories(
+    List<Category> remote, {
+    required Set<String> localIds,
+    required Set<String> pendingDeleteIds,
+    required Set<String> pendingUpsertIds,
+    bool reconcileDeletes = true,
+  }) async {
+    for (final r in remote) {
+      if (pendingDeleteIds.contains(r.id)) continue;
+      await applyCategoryUpsert(r);
+    }
+    if (!reconcileDeletes || remote.isEmpty) return;
+    final remoteIds = remote.map((r) => r.id).toSet();
+    for (final id in localIds) {
+      if (remoteIds.contains(id)) continue;
+      if (pendingUpsertIds.contains(id)) continue;
+      if (pendingDeleteIds.contains(id)) continue;
+      await applyCategoryDelete(id);
+    }
+  }
+
+  @visibleForTesting
+  Future<void> reconcileGroups(
+    List<Group> remote, {
+    required Set<String> localIds,
+    required Set<String> pendingDeleteIds,
+    required Set<String> pendingUpsertIds,
+    bool reconcileDeletes = true,
+  }) async {
+    for (final r in remote) {
+      if (pendingDeleteIds.contains(r.id)) continue;
+      await applyGroupUpsert(r);
+    }
+    if (!reconcileDeletes || remote.isEmpty) return;
+    final remoteIds = remote.map((r) => r.id).toSet();
+    for (final id in localIds) {
+      if (remoteIds.contains(id)) continue;
+      if (pendingUpsertIds.contains(id)) continue;
+      if (pendingDeleteIds.contains(id)) continue;
+      await applyGroupDelete(id);
+    }
   }
 
   Future<void> _handleCategory(PostgresChangePayload payload) async {
@@ -334,6 +453,8 @@ final supabaseRealtimeSyncProvider = Provider<SupabaseRealtimeSync?>((ref) {
     categoriesApply: LocalCategoriesRepository(db.categoriesDao),
     groupsApi: groupsApi,
     groupsApply: LocalGroupsRepository(db.groupsDao),
+    // snapshot 재조정의 삭제 단계 — 미push mutation 구분용. 같은 outbox 를 공유.
+    outbox: db.outboxDao,
   );
   sync.start();
   ref.onDispose(sync.stop);

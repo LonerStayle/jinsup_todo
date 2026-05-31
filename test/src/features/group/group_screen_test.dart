@@ -93,7 +93,11 @@ void main() {
     expect(find.widgetWithText(Tab, '오늘'), findsOneWidget);
     expect(find.widgetWithText(Tab, '전체보기'), findsOneWidget);
 
-    // 오늘 탭(default) — 회사 그룹 카테고리(work)만, 미분류 개인개발은 제외.
+    // 디폴트 탭은 '전체보기'(94fe4d9) — '오늘' 탭으로 전환 후 검증.
+    await tester.tap(find.widgetWithText(Tab, '오늘'));
+    await tester.pumpAndSettle();
+
+    // 오늘 탭 — 회사 그룹 카테고리(work)만, 미분류 개인개발은 제외.
     expect(find.text('회사 오늘'), findsOneWidget);
     expect(find.text('개인 오늘'), findsNothing);
   });
