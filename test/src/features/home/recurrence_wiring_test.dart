@@ -10,12 +10,13 @@ import 'package:solo_todo/src/domain/recurrence.dart';
 import 'package:solo_todo/src/domain/todo.dart';
 import 'package:solo_todo/src/features/home/today_providers.dart';
 
-ProviderContainer _makeContainer(AppDatabase db) => ProviderContainer(
-  overrides: [
-    appDatabaseProvider.overrideWithValue(db),
-    nowProvider.overrideWithValue(() => clock.now()),
-  ],
-);
+ProviderContainer _container(AppDatabase db, DateTime Function() now) =>
+    ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        nowProvider.overrideWithValue(now),
+      ],
+    );
 
 Todo _master({
   required String id,
@@ -35,90 +36,70 @@ Todo _master({
 );
 
 void main() {
+  // 트리거(스트림+async upsert)는 실제 async — 폴링으로 안정화 대기.
   group('recurrenceMaterializerProvider', () {
-    test('누락 인스턴스를 결정적 id 로 생성', () {
-      fakeAsync((async) {
-        final db = AppDatabase.memory();
-        final container = _makeContainer(db);
-        addTearDown(() async {
-          container.dispose();
-          await db.close();
-        });
+    test('누락 인스턴스를 결정적 id 로 생성', () async {
+      final db = AppDatabase.memory();
+      addTearDown(db.close);
+      await db.todosDao.upsert(
+        _master(
+          id: 'm1',
+          rule: const RecurrenceRule(freq: RecurrenceFreq.daily),
+          dueAt: DateTime(2026, 1, 1),
+        ),
+      );
 
-        db.todosDao.upsert(
-          _master(
-            id: 'm1',
-            rule: const RecurrenceRule(freq: RecurrenceFreq.daily),
-            dueAt: DateTime(2026, 1, 1),
-          ),
-        );
-        async.flushMicrotasks();
+      final c = _container(db, () => DateTime(2026, 1, 5, 12));
+      addTearDown(c.dispose);
+      c.read(recurrenceMaterializerProvider); // 활성화
 
-        container.read(recurrenceMaterializerProvider); // 활성화
-        async.flushMicrotasks();
-        async.elapse(const Duration(milliseconds: 1));
-        async.flushMicrotasks();
-
-        var all = <Todo>[];
-        db.todosDao.watchAll().first.then((v) => all = v);
-        async.flushMicrotasks();
-
-        final inst = all
+      var inst = <Todo>[];
+      for (var i = 0; i < 100; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        final all = await db.todosDao.watchAll().first;
+        inst = all
             .where((t) => t.seriesId == 'm1' && !t.isSeriesMaster)
             .toList();
-        expect(inst.length, 5); // 1/1~1/5
-        expect(inst.map((t) => t.id).toSet(), {
-          'm1#20260101',
-          'm1#20260102',
-          'm1#20260103',
-          'm1#20260104',
-          'm1#20260105',
-        }, reason: '결정적 id — 중복 불가');
-      }, initialTime: DateTime(2026, 1, 5, 12));
+        if (inst.length >= 5) break;
+      }
+      expect(inst.length, 5); // 1/1~1/5
+      expect(inst.map((t) => t.id).toSet(), {
+        'm1#20260101',
+        'm1#20260102',
+        'm1#20260103',
+        'm1#20260104',
+        'm1#20260105',
+      }, reason: '결정적 id — 중복 불가');
     });
 
-    test('재평가해도 중복 없음 (결정적 id 멱등)', () {
-      fakeAsync((async) {
-        final db = AppDatabase.memory();
-        final container = _makeContainer(db);
-        addTearDown(() async {
-          container.dispose();
-          await db.close();
-        });
+    test('재평가해도 중복 없음 (결정적 id 멱등)', () async {
+      final db = AppDatabase.memory();
+      addTearDown(db.close);
+      await db.todosDao.upsert(
+        _master(
+          id: 'm1',
+          rule: const RecurrenceRule(freq: RecurrenceFreq.daily),
+          dueAt: DateTime(2026, 1, 4),
+        ),
+      );
 
-        db.todosDao.upsert(
-          _master(
-            id: 'm1',
-            rule: const RecurrenceRule(freq: RecurrenceFreq.daily),
-            dueAt: DateTime(2026, 1, 4),
-          ),
-        );
-        async.flushMicrotasks();
+      final c = _container(db, () => DateTime(2026, 1, 5, 12));
+      addTearDown(c.dispose);
+      c.read(recurrenceMaterializerProvider);
+      await Future<void>.delayed(const Duration(milliseconds: 400));
 
-        container.read(recurrenceMaterializerProvider);
-        // 여러 차례 재평가 유도.
-        for (var i = 0; i < 5; i++) {
-          async.flushMicrotasks();
-          async.elapse(const Duration(milliseconds: 1));
-        }
-        async.flushMicrotasks();
-
-        var all = <Todo>[];
-        db.todosDao.watchAll().first.then((v) => all = v);
-        async.flushMicrotasks();
-
-        final inst = all
-            .where((t) => t.seriesId == 'm1' && !t.isSeriesMaster)
-            .toList();
-        expect(inst.length, 2); // 1/4, 1/5 — 반복 평가에도 2건 유지
-      }, initialTime: DateTime(2026, 1, 5, 12));
+      final all = await db.todosDao.watchAll().first;
+      final inst = all
+          .where((t) => t.seriesId == 'm1' && !t.isSeriesMaster)
+          .toList();
+      expect(inst.length, 2); // 1/4, 1/5 — 재평가에도 결정적 id 라 2건 유지
     });
   });
 
   test('dedupedTodayProvider — 같은 시리즈 미체크 누적은 1건만 노출', () {
     fakeAsync((async) {
       final db = AppDatabase.memory();
-      final container = _makeContainer(db);
+      final container = _container(db, () => clock.now());
       addTearDown(() async {
         container.dispose();
         await db.close();

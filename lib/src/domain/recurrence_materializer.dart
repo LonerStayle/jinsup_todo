@@ -1,5 +1,3 @@
-import 'package:uuid/uuid.dart';
-
 import 'recurrence.dart';
 import 'todo.dart';
 
@@ -16,16 +14,16 @@ class RecurrenceMaterializer {
   /// [masters] 중 활성 반복 마스터에 대해 [now] 기준 누락 인스턴스를 생성해 반환.
   ///
   /// [existingDatesBySeries] — seriesId → 이미 존재하는 인스턴스의 발생일(local date-only) 집합.
-  /// [idGen] — 테스트 결정성을 위한 id 생성기 주입(기본 uuid v4).
   /// [maxPerSeries] — 시리즈당 한 번에 만들 인스턴스 상한(오래 미실행 시 폭주 방지).
+  ///
+  /// 인스턴스 id 는 결정적([instanceId], `seriesId#yyyymmdd`) — 같은 (시리즈,발생일)은
+  /// 항상 같은 id 라 재생성/다기기 동시생성에도 같은 row 를 덮어쓸 뿐 중복이 생기지 않는다.
   static List<Todo> materializeDue(
     List<Todo> masters,
     Map<String, Set<DateTime>> existingDatesBySeries,
     DateTime now, {
-    String Function()? idGen,
     int maxPerSeries = 400,
   }) {
-    final gen = idGen ?? const Uuid().v4;
     final today0 = _dateOnly(now);
     final out = <Todo>[];
 
@@ -53,10 +51,20 @@ class RecurrenceMaterializer {
       );
       for (final date in dates) {
         if (existing.contains(date)) continue;
-        out.add(_instanceFor(m, date, gen(), now));
+        out.add(_instanceFor(m, date, instanceId(seriesId, date), now));
       }
     }
     return out;
+  }
+
+  /// 결정적 인스턴스 id — `${seriesId}#yyyymmdd`(local date). 같은 (시리즈,발생일)은
+  /// 항상 동일 → upsert 가 같은 row 를 덮어써 중복이 원천 차단된다.
+  static String instanceId(String seriesId, DateTime occLocalDate) {
+    final d = _dateOnly(occLocalDate);
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$seriesId#$y$m$day';
   }
 
   /// 전체 Todo 목록에서 활성 반복 마스터만 추린다.

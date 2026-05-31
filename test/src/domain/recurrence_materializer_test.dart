@@ -54,14 +54,17 @@ void main() {
       }
     });
 
-    test('id 는 주입된 생성기로 유일', () {
+    test('id 는 결정적 (seriesId#yyyymmdd)', () {
       final m = master(
         rule: const RecurrenceRule(freq: RecurrenceFreq.daily),
         dueAt: dt(2026, 1, 4),
       );
       final got = RecurrenceMaterializer.materializeDue([m], {}, now);
-      expect(got.map((t) => t.id).toSet().length, got.length);
-      expect(got.first.id, 'gen-0');
+      expect(got.map((t) => t.id).toSet().length, got.length); // 유일
+      expect(got.map((t) => t.id), ['m1#20260104', 'm1#20260105']);
+      // 같은 입력 재호출 → 같은 id (결정적).
+      final again = RecurrenceMaterializer.materializeDue([m], {}, now);
+      expect(again.map((t) => t.id), got.map((t) => t.id));
     });
   });
 
