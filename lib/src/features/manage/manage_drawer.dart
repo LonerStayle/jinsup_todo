@@ -39,7 +39,7 @@ class ManageDrawer extends ConsumerStatefulWidget {
 
 class _ManageDrawerState extends ConsumerState<ManageDrawer> {
   /// 아코디언 — 펼쳐진 그룹은 **한 번에 하나뿐**. null 이면 모두 접힘 (대표님 요청).
-  /// 그룹 B 를 열면 A 를 포함한 나머지는 자동으로 접힌다.
+  /// 그룹 본문 탭(상세 진입) 또는 chevron 으로 그룹을 열면 나머지는 자동으로 접힌다.
   String? _expandedGroupId;
 
   /// 드래그 중인 카테고리 위로 hover 중인 drop target group id. '미분류' 는
@@ -330,9 +330,16 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
           group: g,
           collapsed: _expandedGroupId != g.id,
           hovering: _hoverTarget == g.id,
-          onSelect: () => widget.onSelectGroup != null
-              ? widget.onSelectGroup!(g)
-              : _toggle(g.id),
+          // 본문 탭 — 그 그룹만 펼치고(나머지는 닫힘) 상세 진입.
+          // onSelectGroup 미주입(이전 호환) 시엔 펼침 토글로 fallback.
+          onSelect: () {
+            if (widget.onSelectGroup != null) {
+              setState(() => _expandedGroupId = g.id);
+              widget.onSelectGroup!(g);
+            } else {
+              _toggle(g.id);
+            }
+          },
           onToggleCollapse: () => _toggle(g.id),
           onLongPress: () => _showGroupMenu(g),
           onWillAccept: () => setState(() => _hoverTarget = g.id),

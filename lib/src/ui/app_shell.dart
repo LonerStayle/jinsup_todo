@@ -784,7 +784,7 @@ class _Sidebar extends StatefulWidget {
 
 class _SidebarState extends State<_Sidebar> {
   /// 아코디언 — 펼쳐진 그룹은 **한 번에 하나뿐**. null 이면 모두 접힘 (대표님 요청).
-  /// 그룹 B 를 열면 A 를 포함한 나머지는 자동으로 접힌다.
+  /// 그룹 본문 탭(상세 진입) 또는 chevron 으로 그룹을 열면 나머지는 자동으로 접힌다.
   String? _expandedGroupId;
 
   /// 드래그 중인 카테고리가 hover 중인 drop target. group id(String) 또는
@@ -1025,7 +1025,11 @@ class _SidebarState extends State<_Sidebar> {
           group: g,
           collapsed: _expandedGroupId != g.id,
           selected: widget.selectedGroupId == g.id,
-          onSelect: () => widget.onSelectGroup(g.id),
+          // 본문 탭 — 그 그룹만 펼치고(나머지는 닫힘) 상세 진입.
+          onSelect: () {
+            setState(() => _expandedGroupId = g.id);
+            widget.onSelectGroup(g.id);
+          },
           onToggleCollapse: () => _toggle(g.id),
           hovering: _hoverTarget == g.id,
           onLongPress: () => _showGroupMenu(g),
