@@ -192,6 +192,151 @@ void main() {
       expect(await db.groupsDao.getById('g1'), isNull);
     });
   });
+
+  // 시작-동기화의 snapshot 재조정. fetchAll 은 "원격에 남아 있는" 행만 돌려주므로,
+  // upsert-only 로는 (1) 다른 기기에서 삭제된 행이 로컬에 영원히 남고(증상②),
+  // (2) 로컬 삭제 직후 원격에 아직 남아 있으면 snapshot 이 되살린다(증상①).
+  // reconcile* 가 두 케이스를 모두 막는다.
+  group('snapshot 재조정 — 삭제 전파 + 부활 방지', () {
+    late AppDatabase db;
+    late SupabaseRealtimeSync sync;
+
+    setUp(() {
+      db = AppDatabase.memory();
+      sync = SupabaseRealtimeSync.forApplyOnly(
+        api: _FakeApi(),
+        localApply: LocalTodoRepository(db.todosDao),
+        flushOutbox: () async {},
+        userId: 'u1',
+        categoriesApi: _FakeCategoriesApi(),
+        categoriesApply: LocalCategoriesRepository(db.categoriesDao),
+        groupsApi: _FakeGroupsApi(),
+        groupsApply: LocalGroupsRepository(db.groupsDao),
+      );
+    });
+
+    tearDown(() async => db.close());
+
+    Todo todo({String id = 'a'}) => Todo(
+      id: id,
+      title: 'x',
+      category: Category.daily,
+      dueAt: null,
+      doneAt: null,
+      createdAt: DateTime.utc(2026, 5, 27, 9),
+      updatedAt: DateTime.utc(2026, 5, 27, 9),
+      calendarEventId: null,
+    );
+
+    Category cat({String id = 'work', String label = '회사 할일'}) => Category(
+      id: id,
+      label: label,
+      iconCodePoint: Icons.work_outline.codePoint,
+      colorValue: 0xFF2A66FF,
+      sortOrder: 0,
+    );
+
+    Group grp({String id = 'g1', String label = '업무'}) =>
+        Group(id: id, label: label, colorValue: 0xFF2A66FF);
+
+    test('증상② — 원격 snapshot 에 없는 로컬 todo 는 제거(삭제 전파)', () async {
+      await db.todosDao.upsert(todo(id: 'keep'));
+      await db.todosDao.upsert(todo(id: 'gone')); // 다른 기기서 삭제됨
+      await db.todosDao.upsert(todo(id: 'offline')); // 아직 push 안 한 신규
+
+      await sync.reconcileTodos(
+        [todo(id: 'keep')], // 원격엔 keep 만 남음
+        localIds: {'keep', 'gone', 'offline'},
+        pendingDeleteIds: {},
+        pendingUpsertIds: {'offline'}, // 미push 신규 → 보존돼야 함
+      );
+
+      expect(await db.todosDao.getById('keep'), isNotNull);
+      expect(await db.todosDao.getById('gone'), isNull, reason: '삭제 전파');
+      expect(
+        await db.todosDao.getById('offline'),
+        isNotNull,
+        reason: '미push 신규는 지우면 안 됨',
+      );
+    });
+
+    test('증상① — 로컬 삭제 대기(pending delete)인 행은 snapshot 이 되살리지 않음', () async {
+      // 로컬에선 이미 삭제됨(local 에 없음). 원격엔 아직 남아 outbox delete 대기 중.
+      await sync.reconcileTodos(
+        [todo(id: 'penddel')],
+        localIds: {},
+        pendingDeleteIds: {'penddel'},
+        pendingUpsertIds: {},
+      );
+      expect(
+        await db.todosDao.getById('penddel'),
+        isNull,
+        reason: '삭제 대기 행을 upsert 로 되살리면 부활 버그',
+      );
+    });
+
+    test('빈 원격 snapshot 으로는 로컬을 지우지 않음(일시 fetch 실패/부트스트랩 보호)', () async {
+      await db.todosDao.upsert(todo(id: 'a'));
+      await sync.reconcileTodos(
+        [],
+        localIds: {'a'},
+        pendingDeleteIds: {},
+        pendingUpsertIds: {},
+      );
+      expect(
+        await db.todosDao.getById('a'),
+        isNotNull,
+        reason: '빈 snapshot 으로 전체 삭제하면 데이터 유실',
+      );
+    });
+
+    test('증상①② — 카테고리: 원격에 없는 builtin 제거 + pending delete 부활 방지', () async {
+      await db.categoriesDao.upsert(cat(id: 'work', label: '회사 할일'));
+      await db.categoriesDao.upsert(cat(id: 'daily', label: '일상'));
+
+      await sync.reconcileCategories(
+        [cat(id: 'daily', label: '일상')], // work 는 다른 기기서 삭제됨
+        localIds: {'work', 'daily'},
+        pendingDeleteIds: {},
+        pendingUpsertIds: {},
+      );
+
+      expect(
+        await db.categoriesDao.getById('work'),
+        isNull,
+        reason: '그룹없는 회사할일이 되살아나면 안 됨',
+      );
+      expect(await db.categoriesDao.getById('daily'), isNotNull);
+    });
+
+    test('카테고리: 로컬 삭제 대기(pending cat-delete)는 snapshot 이 되살리지 않음', () async {
+      // builtin seed 와 겹치지 않는 커스텀 카테고리로 검증(memory() 가 5 builtin 을 seed).
+      await sync.reconcileCategories(
+        [cat(id: 'c-custom', label: '커스텀')],
+        localIds: {},
+        pendingDeleteIds: {'c-custom'},
+        pendingUpsertIds: {},
+      );
+      expect(await db.categoriesDao.getById('c-custom'), isNull);
+    });
+
+    test('그룹: 원격에 없는 로컬 그룹 제거 + 미push 신규 보존', () async {
+      await db.groupsDao.upsert(grp(id: 'keep'));
+      await db.groupsDao.upsert(grp(id: 'gone'));
+      await db.groupsDao.upsert(grp(id: 'offline'));
+
+      await sync.reconcileGroups(
+        [grp(id: 'keep')],
+        localIds: {'keep', 'gone', 'offline'},
+        pendingDeleteIds: {},
+        pendingUpsertIds: {'offline'},
+      );
+
+      expect(await db.groupsDao.getById('keep'), isNotNull);
+      expect(await db.groupsDao.getById('gone'), isNull);
+      expect(await db.groupsDao.getById('offline'), isNotNull);
+    });
+  });
 }
 
 class _FakeApi implements RemoteTodosApi {
