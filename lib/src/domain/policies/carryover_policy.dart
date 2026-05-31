@@ -25,6 +25,8 @@ class CarryoverPolicy {
   /// Todo 의 UTC 시간은 [DateTime.toLocal] 로 변환 후 비교.
   static bool shouldCarryOverToday(Todo todo, DateTime now) {
     if (todo.type == TodoType.note) return false;
+    // date-repeat: 반복 마스터(숨김 템플릿)는 이월 대상 아님 — 인스턴스가 이월된다.
+    if (todo.isSeriesMaster) return false;
     if (todo.isDone) return false;
     if (todo.dueAt == null) return false;
     final due = todo.dueAt!.toLocal();

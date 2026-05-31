@@ -18,6 +18,7 @@ void main() {
       ProviderScope(
         overrides: [
           watchTodayTodosProvider.overrideWith((_) => Stream.value(<Todo>[])),
+          recurrenceMaterializerProvider.overrideWith((_) {}),
           outboxCountProvider.overrideWith((_) => Stream<int>.value(0)),
           // v1.1 — HomeScreen breadcrumb 가 allTodosProvider 를 watch.
           allTodosProvider.overrideWith((_) => Stream.value(<Todo>[])),

@@ -21,6 +21,7 @@ void main() {
   Widget app() => ProviderScope(
     overrides: [
       watchTodayTodosProvider.overrideWith((_) => Stream.value(<Todo>[])),
+      recurrenceMaterializerProvider.overrideWith((_) {}),
       watchTodosByCategoryProvider.overrideWith(
         (_, _) => Stream.value(<Todo>[]),
       ),

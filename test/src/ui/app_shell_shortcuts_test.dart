@@ -23,6 +23,7 @@ void main() {
           // 모든 stream provider 를 빈 stream 으로 override — Drift 의존 + timer leak 제거.
           // HANDOFF § 6 함정: 'Widget test 에서 Drift stream 직접 사용 금지'.
           watchTodayTodosProvider.overrideWith((_) => Stream.value(<Todo>[])),
+          recurrenceMaterializerProvider.overrideWith((_) {}),
           watchTodosByCategoryProvider.overrideWith(
             (_, _) => Stream.value(<Todo>[]),
           ),

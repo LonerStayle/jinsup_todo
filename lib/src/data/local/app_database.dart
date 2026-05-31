@@ -43,6 +43,15 @@ class Todos extends Table {
   BoolColumn get isAllDay => boolean().withDefault(const Constant(false))();
   // fast-tasks — 단일·시간 모드에서 dueAt 이 '시작'('start')/'마감'('end')인지.
   TextColumn get timeAnchor => text().withDefault(const Constant('start'))();
+  // date-repeat (v7) — 반복 시리즈 id. 마스터=자기 id, 인스턴스=마스터 id, null=일반.
+  TextColumn get seriesId => text().nullable()();
+  // date-repeat (v7) — 반복 규칙 직렬화(RecurrenceRule.encode). 마스터에만.
+  TextColumn get recurrenceRule => text().nullable()();
+  // date-repeat (v7) — 반복 종료일. 마스터에만. null=무한.
+  DateTimeColumn get recurrenceEndAt => dateTime().nullable()();
+  // date-repeat (v7) — true=규칙 보유 숨김 마스터(목록 제외, 캘린더 RRULE 소유).
+  BoolColumn get isSeriesMaster =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -120,7 +129,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   /// `storeDateTimeAsText: true` — DateTime 을 ISO 8601 text 로 저장.
   /// 기본 (unix int) 은 fetch 시 항상 local time 으로 변환되어 UTC↔local 구분을 잃는다.
@@ -139,6 +148,8 @@ class AppDatabase extends _$AppDatabase {
   /// - v5: todos 에 end_at / is_all_day / time_anchor 컬럼 추가
   ///   (fast-tasks — 날짜·기간 모델). PRAGMA 가드로 idempotent.
   /// - v6: groups 테이블 신규 + categories.group_id 컬럼 (그룹 계층). 가드 idempotent.
+  /// - v7: todos 에 series_id / recurrence_rule / recurrence_end_at / is_series_master
+  ///   추가 (date-repeat — 날짜 반복). PRAGMA 가드로 idempotent.
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
@@ -203,6 +214,23 @@ class AppDatabase extends _$AppDatabase {
         final hasGroupId = catInfo.any((r) => r.data['name'] == 'group_id');
         if (!hasGroupId) {
           await m.addColumn(categories, categories.groupId);
+        }
+      }
+      // 6 → 7: 날짜 반복 4 컬럼 추가. PRAGMA 가드로 idempotent (부분 적용 DB 안전).
+      if (from < 7) {
+        final info = await customSelect("PRAGMA table_info('todos')").get();
+        bool hasCol(String name) => info.any((r) => r.data['name'] == name);
+        if (!hasCol('series_id')) {
+          await m.addColumn(todos, todos.seriesId);
+        }
+        if (!hasCol('recurrence_rule')) {
+          await m.addColumn(todos, todos.recurrenceRule);
+        }
+        if (!hasCol('recurrence_end_at')) {
+          await m.addColumn(todos, todos.recurrenceEndAt);
+        }
+        if (!hasCol('is_series_master')) {
+          await m.addColumn(todos, todos.isSeriesMaster);
         }
       }
     },

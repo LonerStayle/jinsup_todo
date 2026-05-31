@@ -27,6 +27,8 @@ class TodoDrillListSliver extends StatelessWidget {
     required this.onCopy,
     required this.onDelete,
     required this.onReorderSiblings,
+    this.hiddenCountBySeries = const {},
+    this.onStopRecurrence,
   });
 
   /// 이 레벨에서 한 줄씩 보일 형제 list (이미 dao 정렬 순서).
@@ -55,6 +57,12 @@ class TodoDrillListSliver extends StatelessWidget {
   final void Function(List<Todo> siblings, int oldIndex, int newIndex)
   onReorderSiblings;
 
+  /// date-repeat (FR-4) — seriesId → 숨겨진 미체크 건수. leader 타일의 묶음 배지용.
+  final Map<String, int> hiddenCountBySeries;
+
+  /// date-repeat (FR-6) — 반복 항목의 ⋮ 메뉴 '반복 중지' 콜백.
+  final void Function(Todo)? onStopRecurrence;
+
   /// parentId → 직속 자식 수.
   Map<String, int> _childCounts() {
     final counts = <String, int>{};
@@ -77,6 +85,10 @@ class TodoDrillListSliver extends StatelessWidget {
         final todo = items[i];
         final childCount = counts[todo.id] ?? 0;
         final hasChildren = childCount > 0;
+        final sid = todo.seriesId;
+        final hiddenSeriesCount = sid == null
+            ? 0
+            : (hiddenCountBySeries[sid] ?? 0);
         return Padding(
           key: ValueKey('drill-node-${todo.id}'),
           padding: const EdgeInsets.only(bottom: AppTokens.space8),
@@ -96,6 +108,10 @@ class TodoDrillListSliver extends StatelessWidget {
               // 드릴 가능 표시 — chevron_right + 자식 개수 배지.
               drillChildCount: hasChildren ? childCount : null,
               childCount: childCount,
+              hiddenSeriesCount: hiddenSeriesCount,
+              onStopRecurrence: onStopRecurrence == null
+                  ? null
+                  : () => onStopRecurrence!(todo),
             ),
           ),
         );

@@ -31,6 +31,8 @@ void main() {
         overrides: [
           nowProvider.overrideWithValue(() => fixedNow),
           watchTodayTodosProvider.overrideWith((_) => controller.stream),
+          // date-repeat — materializer 는 실제 repo 를 watch 하므로 테스트에선 no-op.
+          recurrenceMaterializerProvider.overrideWith((_) {}),
           outboxCountProvider.overrideWith(
             (_) => outboxCountStream ?? Stream<int>.value(0),
           ),

@@ -183,6 +183,15 @@ alter table solo_todo.categories add column if not exists group_id text;
 alter table solo_todo.categories alter column color_value type bigint;
 alter table solo_todo.groups     alter column color_value type bigint;
 
+-- 19) todos 날짜 반복 컬럼 (date-repeat — v7)
+-- series_id: 반복 시리즈 id (마스터=자기 id / 인스턴스=마스터 id / null=일반).
+-- recurrence_rule / recurrence_end_at: 마스터에만. is_series_master: 숨김 템플릿 플래그.
+alter table solo_todo.todos add column if not exists series_id         text;
+alter table solo_todo.todos add column if not exists recurrence_rule   text;
+alter table solo_todo.todos add column if not exists recurrence_end_at timestamptz;
+alter table solo_todo.todos add column if not exists is_series_master  boolean not null default false;
+create index if not exists todos_series_idx on solo_todo.todos (user_id, series_id);
+
 -- ─────────────────────────────────────────────────────────────────────
 -- v1.1 → v1.2 마이그레이션 (기존 환경 — schema.sql 이미 실행된 프로젝트)
 --

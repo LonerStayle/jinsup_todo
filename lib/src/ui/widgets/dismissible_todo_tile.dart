@@ -23,6 +23,8 @@ class DismissibleTodoTile extends StatelessWidget {
     this.onToggleExpand,
     this.childCount = 0,
     this.drillChildCount,
+    this.hiddenSeriesCount = 0,
+    this.onStopRecurrence,
   });
 
   /// 실수 swipe 방지를 위한 dismiss threshold. 0.4 (40%) 는 의도치 않은 살짝 swipe 으로도
@@ -54,6 +56,12 @@ class DismissibleTodoTile extends StatelessWidget {
 
   /// 기능 M — 드릴다운 모드 배지 (자식 N + chevron). TodoTile 로 전달.
   final int? drillChildCount;
+
+  /// date-repeat (FR-4) — 같은 반복 시리즈 숨김 건수. TodoTile 로 전달.
+  final int hiddenSeriesCount;
+
+  /// date-repeat (FR-6) — ⋮ 메뉴 '반복 중지' 콜백. TodoTile 로 전달.
+  final VoidCallback? onStopRecurrence;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +100,8 @@ class DismissibleTodoTile extends StatelessWidget {
         onToggleExpand: onToggleExpand,
         childCount: childCount,
         drillChildCount: drillChildCount,
+        hiddenSeriesCount: hiddenSeriesCount,
+        onStopRecurrence: onStopRecurrence,
       ),
     );
   }

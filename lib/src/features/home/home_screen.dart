@@ -7,6 +7,7 @@ import '../../data/providers.dart';
 import '../../domain/category.dart';
 import '../../domain/group.dart';
 import '../../domain/policies/carryover_policy.dart';
+import '../../domain/policies/recurrence_dedup_policy.dart';
 import '../../domain/todo.dart';
 import '../../ui/widgets/empty_state.dart';
 import '../../ui/widgets/skeleton.dart';
@@ -18,6 +19,8 @@ import '../add_todo/add_todo_sheet.dart';
 import '../category/categories_controller.dart';
 import '../category/groups_controller.dart';
 import '../outline/tree_providers.dart';
+import '../recurrence/recurrence_actions.dart';
+import '../recurrence/recurrence_manage_screen.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import '../todo_detail/todo_detail_screen.dart';
 import 'today_providers.dart';
@@ -39,6 +42,9 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncTodos = ref.watch(watchTodayTodosProvider);
+    // date-repeat — 반복 인스턴스 자동 생성 트리거 활성화(앱시작·자정). 이 화면이
+    // 떠 있는 동안 마스터의 누락 발생분이 채워진다.
+    ref.watch(recurrenceMaterializerProvider);
     final globalCarryover = ref.watch(carryoverCountProvider);
     final allTodos = ref.watch(allTodosProvider).asData?.value ?? const [];
     final groups = ref.watch(groupsProvider).asData?.value ?? const <Group>[];
@@ -58,7 +64,12 @@ class HomeScreen extends ConsumerWidget {
     return asyncTodos.when(
       loading: () => const TodoListSkeleton(),
       error: (e, _) => _Error(message: '$e'),
-      data: (allToday) {
+      data: (allTodayRaw) {
+        // date-repeat (FR-4) — 같은 반복 미체크 누적은 leader 1건으로 접고 나머지는
+        // 묶음 배지로. 데이터는 보존(표시 레이어 변환).
+        final deduped = RecurrenceDedupPolicy.dedupe(allTodayRaw);
+        final allToday = deduped.visible;
+        final hiddenCountBySeries = deduped.hiddenCountBySeries;
         final todos = groupCategoryIds == null
             ? allToday
             : allToday
@@ -78,6 +89,7 @@ class HomeScreen extends ConsumerWidget {
           todos: todos,
           allTodos: allTodos,
           groups: groups,
+          hiddenCountBySeries: hiddenCountBySeries,
           // 그룹 탭(group != null) 안에서는 그룹 라벨이 중복이라 숨긴다.
           showGroupLabel: group == null,
           doneCount: doneCount,
@@ -122,6 +134,8 @@ class HomeScreen extends ConsumerWidget {
           onReorderSiblings: (siblings, oldIndex, newIndex) => ref
               .read(todoActionsProvider)
               .reorderSiblings(siblings, oldIndex, newIndex),
+          // date-repeat — ⋮ '반복 중지' → 시리즈 마스터 삭제(비파괴적).
+          onStopRecurrence: (t) => confirmStopRecurrence(context, ref, t),
         );
       },
     );
@@ -133,6 +147,7 @@ class _Loaded extends StatefulWidget {
     required this.todos,
     required this.allTodos,
     required this.groups,
+    required this.hiddenCountBySeries,
     required this.showGroupLabel,
     required this.doneCount,
     required this.totalCount,
@@ -146,6 +161,7 @@ class _Loaded extends StatefulWidget {
     required this.onAddChild,
     required this.onCopy,
     required this.onReorderSiblings,
+    required this.onStopRecurrence,
   });
 
   /// 오늘 화면에서 root 로 보일 todo (visibility/carryover 정책 적용된 visible set).
@@ -155,6 +171,9 @@ class _Loaded extends StatefulWidget {
 
   /// 카테고리 섹션 헤더의 그룹 라벨 출력용.
   final List<Group> groups;
+
+  /// date-repeat (FR-4) — seriesId → 숨겨진 미체크 건수 (leader 묶음 배지용).
+  final Map<String, int> hiddenCountBySeries;
 
   /// 그룹 탭 안에서는 그룹 라벨이 중복이라 false.
   final bool showGroupLabel;
@@ -175,6 +194,9 @@ class _Loaded extends StatefulWidget {
   final void Function(Todo) onCopy;
   final void Function(List<Todo> siblings, int oldIndex, int newIndex)
   onReorderSiblings;
+
+  /// date-repeat (FR-6) — ⋮ '반복 중지' 콜백.
+  final void Function(Todo) onStopRecurrence;
 
   @override
   State<_Loaded> createState() => _LoadedState();
@@ -258,6 +280,8 @@ class _LoadedState extends State<_Loaded> {
             onAddChild: widget.onAddChild,
             onCopy: widget.onCopy,
             onReorderSiblings: widget.onReorderSiblings,
+            hiddenCountBySeries: widget.hiddenCountBySeries,
+            onStopRecurrence: widget.onStopRecurrence,
           ),
           const SliverToBoxAdapter(child: SizedBox(height: AppTokens.space48)),
         ],
@@ -275,6 +299,8 @@ class _Header extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final pendingCount = ref.watch(outboxCountProvider).value ?? 0;
+    // date-repeat — 반복 마스터가 있으면 "반복 관리" 진입 버튼 노출(FR-6).
+    final hasRecurring = ref.watch(recurringMastersProvider).isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -290,6 +316,19 @@ class _Header extends ConsumerWidget {
             const Spacer(),
             if (pendingCount > 0)
               _SyncPendingChip(count: pendingCount, theme: theme),
+            if (hasRecurring)
+              IconButton(
+                key: const ValueKey('home-recurrence-manage'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const RecurrenceManageScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.repeat_rounded),
+                iconSize: 20,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                tooltip: '반복 관리',
+              ),
           ],
         ),
         const SizedBox(height: AppTokens.space4),

@@ -57,6 +57,7 @@ void main() {
         overrides: [
           nowProvider.overrideWithValue(() => DateTime(2026, 5, 27, 12)),
           watchTodayTodosProvider.overrideWith((_) => Stream.value(todayTodos)),
+          recurrenceMaterializerProvider.overrideWith((_) {}),
           allTodosProvider.overrideWith((_) => Stream.value(allTodos)),
           rootsOfCategoryProvider.overrideWith(
             (_, cat) => Stream.value(rootsByCategory[cat] ?? const <Todo>[]),
