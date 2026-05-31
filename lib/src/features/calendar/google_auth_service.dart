@@ -1,99 +1,87 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:googleapis_auth/auth_io.dart' as gauth;
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../../app/env.dart';
 import '../../core/platform.dart';
 
-/// Google OAuth (Calendar API 용) 셋업 + sign-in / sign-out.
-///
-/// CLAUDE.md 비전: macOS + Android 모두 사용. 두 플랫폼이 OAuth 클라이언트 id 가 다르므로
-/// [Env.googleOAuthClientIdDesktop] / [Env.googleOAuthClientIdAndroid] 둘 다 가능.
-/// 둘 중 하나라도 채워져 있으면 활성화.
-///
-/// google_sign_in 7.x 의 [GoogleSignIn.instance] 는 process 당 단일. [initialize]
-/// 는 처음 1회만 호출.
-///
-/// ⚠️ 7.x 의 핵심 변화: **인증(authenticate) 과 인가(authorize) 분리**.
-/// `authenticate()` 는 "누구인지"(identity) 만 확인하며 어떤 scope 도 부여하지 않는다.
-/// Calendar 같은 추가 scope 는 반드시 [authorizationClient]`.authorizeScopes()`
-/// 로 **증분 동의(incremental consent)** 를 받아야 access token 에 붙는다.
-/// `authorizationHeaders()` / `authorizationForScopes()` 는 *이미 부여된* scope 에
-/// 대해서만 (사용자 상호작용 없이) 헤더를 돌려주고, 미부여 시 null 을 반환한다.
-/// → 과거 코드는 `authorizeScopes` 호출이 없어 Android 에서 calendar 권한이 절대
-///   부여되지 않았고, 이것이 "권한 없음" 의 코드 측 근본 원인이었다.
-class GoogleAuthService {
-  GoogleAuthService(this._clientId);
+/// Calendar 이벤트 CRUD 에 필요한 scope (읽기/쓰기 포함).
+const calendarEventsScope = 'https://www.googleapis.com/auth/calendar.events';
+const _scopes = [calendarEventsScope];
 
-  /// 현재 플랫폼의 client id. macOS desktop 이면 desktop, Android 면 android.
-  /// 둘 다 비어 있으면 [GoogleAuthService] 자체가 만들어지지 않음 (provider null).
-  ///
-  /// ⚠️ Android: google_sign_in 7.x 는 Credential Manager 기반이라 Android OAuth
-  /// client 를 **코드의 clientId 로 받지 않는다** — 패키지명 + SHA-1 로 Google
-  /// Cloud Console 에서 자동 매칭된다. 그래서 [_ensureInit] 에서 Android 일 때는
-  /// clientId 를 넘기지 않는다 (desktop/iOS 계열만 clientId 필요).
+/// 플랫폼 중립 Calendar 인증 추상화.
+///
+/// macOS desktop 과 Android 는 OAuth 방식이 **근본적으로 다르다**:
+/// - **Android** → [MobileCalendarAuth]: google_sign_in (Credential Manager).
+///   패키지명 + SHA-1 로 Google Cloud Console 에서 자동 매칭.
+/// - **macOS** → [DesktopCalendarAuth]: google_sign_in 의 GIDSignIn 은 토큰을
+///   키체인에 저장하는데, 키체인 액세스 그룹 접근에는 유효한 app-identifier 서명
+///   (= Apple 개발팀) 이 필요하다. ad-hoc 서명(로컬 개발) 에선 "keychain error" 로
+///   실패한다. 그래서 macOS 는 googleapis_auth 의 **데스크톱 OAuth 플로우**
+///   (브라우저 동의 → localhost 리다이렉트 → refresh token 로컬 저장) 로 우회한다.
+///   키체인·Apple 서명이 일절 필요 없다.
+abstract class CalendarAuth {
+  /// Calendar API 호출용 인증된 [http.Client]. 사용자가 동의를 거부/취소하면 null.
+  /// 호출자가 사용 후 반드시 close() 한다.
+  Future<http.Client?> authedClient();
+
+  Future<void> signOut();
+}
+
+// ---------------------------------------------------------------------------
+// Android — google_sign_in (Credential Manager) 기반
+// ---------------------------------------------------------------------------
+
+/// 헤더만 주입하는 얇은 http.Client (google_sign_in 인가 헤더용).
+class _HeaderClient extends http.BaseClient {
+  _HeaderClient(this._headers);
+
+  final Map<String, String> _headers;
+  final http.Client _inner = http.Client();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    request.headers.addAll(_headers);
+    return _inner.send(request);
+  }
+
+  @override
+  void close() {
+    _inner.close();
+    super.close();
+  }
+}
+
+class MobileCalendarAuth implements CalendarAuth {
+  MobileCalendarAuth(this._clientId);
+
+  /// Android 활성화 게이트용. 실제 매칭은 SHA-1 + 패키지명으로 이뤄지므로 값 자체는
+  /// initialize 에 넘기지 않는다 (google_sign_in 7.x Credential Manager 규칙).
+  // ignore: unused_field
   final String _clientId;
-
-  /// Calendar 이벤트 CRUD 에 필요한 scope. 읽기/쓰기 포함.
-  static const _calendarScope =
-      'https://www.googleapis.com/auth/calendar.events';
-  static const _scopes = [_calendarScope];
 
   bool _initialized = false;
 
   Future<void> _ensureInit() async {
     if (_initialized) return;
-    // Android 는 clientId 를 넘기면 안 됨 (SHA-1 기반 자동 매칭). desktop 등은 필요.
-    if (AppPlatform.isDesktop) {
-      await GoogleSignIn.instance.initialize(clientId: _clientId);
-    } else {
-      await GoogleSignIn.instance.initialize();
-    }
+    // Android 7.x 는 serverClientId(웹 클라이언트 ID) 필수. 미설정이면 명확한 에러로
+    // 안내되도록 그대로 넘긴다 (빈 문자열 → null).
+    final serverClientId = Env.googleOAuthServerClientId;
+    await GoogleSignIn.instance.initialize(
+      serverClientId: serverClientId.isEmpty ? null : serverClientId,
+    );
     _initialized = true;
   }
 
-  /// 사용자 명시적 sign-in (identity only). 성공 시 [GoogleSignInAccount] 반환.
-  /// 사용자가 취소하거나 실패하면 [GoogleSignInException] / 일반 예외 throw.
-  ///
-  /// 주의: 이 호출만으로는 Calendar 권한이 부여되지 않는다. scope 부여는
-  /// [authHeadersForCalendar] 내부의 [_ensureCalendarAuthorized] 가 담당.
-  Future<GoogleSignInAccount> signIn() async {
-    await _ensureInit();
-    // scopeHint 로 지원 플랫폼에선 인증과 동시에 scope 동의를 유도. 미지원 플랫폼은
-    // 무시되고 이후 authorizeScopes 가 별도 동의 프롬프트를 띄운다.
-    return GoogleSignIn.instance.authenticate(scopeHint: _scopes);
-  }
-
-  /// Calendar scope 가 부여돼 있는지 확인하고, 없으면 증분 동의 프롬프트를 띄워 부여.
-  /// 부여 완료 후 인가 헤더를 반환. 사용자가 동의를 거부하면 예외 전파.
-  Future<Map<String, String>?> _ensureCalendarAuthorized(
-    GoogleSignInAccount account,
-  ) async {
-    final client = account.authorizationClient;
-    // 1) 이미 부여된 경우 — 사용자 상호작용 없이 헤더 획득.
-    final existing = await client.authorizationForScopes(_scopes);
-    if (existing != null) {
-      return client.authorizationHeaders(_scopes);
-    }
-    // 2) 미부여 — 증분 동의 프롬프트 (Android 는 사용자 상호작용 필요). 거부 시 throw.
-    await client.authorizeScopes(_scopes);
-    return client.authorizationHeaders(_scopes);
-  }
-
-  /// Calendar 권한 (`calendar.events`) 인가 헤더. CalendarService 가 매 요청 직전 호출.
-  /// 토큰 만료 시 자동 갱신은 google_sign_in 이 처리.
-  /// scope 미부여 시 증분 동의 프롬프트를 띄운다 (7.x 핵심 흐름).
-  Future<Map<String, String>?> authHeadersForCalendar(
-    GoogleSignInAccount account,
-  ) async {
-    await _ensureInit();
-    return _ensureCalendarAuthorized(account);
-  }
-
-  /// 백그라운드에서 자동 sign-in 시도 (이전 세션 복원). UI 가드용.
-  Future<GoogleSignInAccount?> tryRestore() async {
+  Future<GoogleSignInAccount?> _tryRestore() async {
     try {
-      await _ensureInit();
       return await GoogleSignIn.instance.attemptLightweightAuthentication();
     } catch (e) {
       debugPrint('[solo_todo] Google 세션 복원 실패: $e');
@@ -101,6 +89,24 @@ class GoogleAuthService {
     }
   }
 
+  @override
+  Future<http.Client?> authedClient() async {
+    await _ensureInit();
+    final account =
+        await _tryRestore() ??
+        await GoogleSignIn.instance.authenticate(scopeHint: _scopes);
+    final client = account.authorizationClient;
+    // calendar scope 미부여 시 증분 동의 프롬프트. 거부 시 throw.
+    final existing = await client.authorizationForScopes(_scopes);
+    if (existing == null) {
+      await client.authorizeScopes(_scopes);
+    }
+    final headers = await client.authorizationHeaders(_scopes);
+    if (headers == null) return null;
+    return _HeaderClient(headers);
+  }
+
+  @override
   Future<void> signOut() async {
     try {
       await _ensureInit();
@@ -111,23 +117,118 @@ class GoogleAuthService {
   }
 }
 
-/// 현재 플랫폼에 맞는 Google OAuth client id. 미설정이면 null.
-String? _platformClientId() {
-  if (AppPlatform.isDesktop) {
-    final id = Env.googleOAuthClientIdDesktop;
-    return id.isEmpty ? null : id;
+// ---------------------------------------------------------------------------
+// macOS — googleapis_auth 데스크톱 OAuth 플로우 (키체인/서명 불필요)
+// ---------------------------------------------------------------------------
+
+class DesktopCalendarAuth implements CalendarAuth {
+  DesktopCalendarAuth({required this.clientId, required this.clientSecret});
+
+  /// "Desktop app" 타입 OAuth 클라이언트 (client_secret 동반). localhost 리다이렉트를
+  /// Google 이 자동 허용하므로 별도 redirect URI 등록 불필요.
+  final String clientId;
+  final String clientSecret;
+
+  gauth.ClientId get _id => gauth.ClientId(clientId, clientSecret);
+
+  @override
+  Future<http.Client?> authedClient() async {
+    // 1) 저장된 refresh token 으로 무프롬프트 갱신 시도.
+    final refreshToken = await _loadRefreshToken();
+    if (refreshToken != null) {
+      try {
+        final base = http.Client();
+        final stale = gauth.AccessCredentials(
+          gauth.AccessToken(
+            'Bearer',
+            'expired',
+            DateTime.now().toUtc().subtract(const Duration(hours: 1)),
+          ),
+          refreshToken,
+          _scopes,
+        );
+        final fresh = await gauth.refreshCredentials(_id, stale, base);
+        return gauth.autoRefreshingClient(_id, fresh, base);
+      } catch (e) {
+        debugPrint('[solo_todo] Calendar refresh 실패 → 브라우저 재동의로 진행: $e');
+        // 토큰이 무효 — 지우고 동의 플로우로.
+        await _clearRefreshToken();
+      }
+    }
+    // 2) 브라우저 동의 (localhost 임시 서버로 코드 수신).
+    try {
+      final client = await gauth.clientViaUserConsent(_id, _scopes, _open);
+      final rt = client.credentials.refreshToken;
+      if (rt != null && rt.isNotEmpty) await _saveRefreshToken(rt);
+      return client;
+    } catch (e) {
+      debugPrint('[solo_todo] Calendar OAuth 동의 실패/취소: $e');
+      return null;
+    }
   }
-  final id = Env.googleOAuthClientIdAndroid;
-  return id.isEmpty ? null : id;
+
+  /// macOS 기본 브라우저로 동의 URL 열기 (url_launcher 의존 없이 `open`).
+  void _open(String url) {
+    Process.run('open', [url]);
+  }
+
+  @override
+  Future<void> signOut() => _clearRefreshToken();
+
+  // --- refresh token 로컬 저장 (키체인 X — 평문 파일, 1인 개인 앱 전제) ---------
+
+  Future<File> _tokenFile() async {
+    final dir = await getApplicationSupportDirectory();
+    return File(p.join(dir.path, 'google_calendar_token.json'));
+  }
+
+  Future<String?> _loadRefreshToken() async {
+    try {
+      final f = await _tokenFile();
+      if (!await f.exists()) return null;
+      final map = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+      final rt = map['refresh_token'] as String?;
+      return (rt == null || rt.isEmpty) ? null : rt;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveRefreshToken(String token) async {
+    try {
+      final f = await _tokenFile();
+      await f.writeAsString(jsonEncode({'refresh_token': token}));
+    } catch (e) {
+      debugPrint('[solo_todo] refresh token 저장 실패: $e');
+    }
+  }
+
+  Future<void> _clearRefreshToken() async {
+    try {
+      final f = await _tokenFile();
+      if (await f.exists()) await f.delete();
+    } catch (_) {}
+  }
 }
 
-/// [GoogleAuthService] 인스턴스. 환경변수 미설정 시 null — Calendar 연동 자체가 disabled.
-final googleAuthServiceProvider = Provider<GoogleAuthService?>((ref) {
-  final id = _platformClientId();
-  return id == null ? null : GoogleAuthService(id);
+// ---------------------------------------------------------------------------
+// Providers
+// ---------------------------------------------------------------------------
+
+/// 현재 플랫폼에 맞는 [CalendarAuth]. 환경변수 미설정 시 null — Calendar 연동 비활성.
+final calendarAuthProvider = Provider<CalendarAuth?>((ref) {
+  if (AppPlatform.isDesktop) {
+    final id = Env.googleOAuthClientIdDesktop;
+    final secret = Env.googleOAuthClientSecretDesktop;
+    // 데스크톱 플로우는 client id + secret 둘 다 필요.
+    if (id.isEmpty || secret.isEmpty) return null;
+    return DesktopCalendarAuth(clientId: id, clientSecret: secret);
+  }
+  final id = Env.googleOAuthClientIdAndroid;
+  return id.isEmpty ? null : MobileCalendarAuth(id);
 });
 
 /// 사용자에게 Calendar 연결 기능을 노출할지 결정하는 plain bool.
 final googleCalendarAvailableProvider = Provider<bool>(
-  (ref) => ref.watch(googleAuthServiceProvider) != null,
+  (ref) => ref.watch(calendarAuthProvider) != null,
 );
