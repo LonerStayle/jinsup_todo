@@ -6,6 +6,7 @@ import '../../core/date_format.dart';
 import '../../core/theme.dart';
 import '../../domain/category.dart';
 import '../../domain/group.dart';
+import '../../domain/recurrence.dart';
 import '../../domain/todo.dart' show Todo, TodoDateMode, TodoType;
 import '../category/categories_controller.dart';
 import '../category/groups_controller.dart';
@@ -1770,11 +1771,20 @@ class AddTodoSubmission {
     this.endAt,
     this.timeAnchor = 'start',
     this.parentId,
+    this.recurrence,
+    this.recurrenceEndAt,
   });
 
   final String title;
   final Category category;
   final DateTime? dueAt;
+
+  /// date-repeat — 반복 규칙. null 이면 단발(비반복) 할 일. non-null 이면 이 submission
+  /// 은 반복 마스터로 저장되고, 발생일마다 인스턴스가 자동 생성된다.
+  final RecurrenceRule? recurrence;
+
+  /// date-repeat — 반복 종료일(선택). recurrence 가 null 이면 무의미.
+  final DateTime? recurrenceEndAt;
 
   /// Task C — "하위 추가" 모드면 부모 todo 의 id. null 이면 root 생성.
   final String? parentId;

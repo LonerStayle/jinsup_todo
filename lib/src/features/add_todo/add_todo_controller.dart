@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/providers.dart';
 import '../../data/todo_repository.dart';
+import '../../domain/recurrence_materializer.dart';
 import '../../domain/todo.dart';
 import '../calendar/calendar_service.dart';
 import 'add_todo_sheet.dart';
@@ -84,6 +85,9 @@ class AddTodoController {
       parentId: s.parentId,
     );
     final sortOrder = (minSibling ?? 0) - 1;
+    // date-repeat — 반복 규칙이 있으면 이 todo 는 "마스터"(숨김 템플릿)로 저장하고,
+    // 발생일마다 인스턴스를 즉시 실체화한다. recurrence 는 dueAt(앵커)이 있어야 의미.
+    final isRecurring = s.recurrence != null && s.dueAt != null;
     var todo = Todo.create(
       title: s.title,
       category: s.category,
@@ -97,7 +101,29 @@ class AddTodoController {
       parentId: s.parentId,
       sortOrder: sortOrder,
     );
+    if (isRecurring) {
+      // 마스터: seriesId=자기 id, 규칙/종료일 보유, isSeriesMaster=true.
+      todo = todo.copyWith(
+        seriesId: todo.id,
+        recurrenceRule: s.recurrence!.encode(),
+        recurrenceEndAt: s.recurrenceEndAt,
+        isSeriesMaster: true,
+      );
+    }
     await repo.upsert(todo);
+
+    // 마스터면 anchor~오늘 발생분을 즉시 생성(첫 인스턴스가 바로 오늘 화면에 뜨도록).
+    // 이후 발생분은 recurrenceMaterializerProvider 가 자정마다 채운다.
+    if (isRecurring) {
+      final fresh = RecurrenceMaterializer.materializeDue(
+        [todo],
+        const {},
+        now(),
+      );
+      for (final inst in fresh) {
+        await repo.upsert(inst);
+      }
+    }
 
     String? warning;
     if (s.addToCalendar && s.dueAt != null) {
