@@ -36,6 +36,9 @@ class VisibilityPolicy {
   /// 발생하지 않는다.)
   static bool isVisibleToday(Todo todo, DateTime now) {
     if (todo.type == TodoType.note) return false;
+    // date-repeat: 반복 마스터는 규칙 보유 숨김 템플릿 — 모든 목록에서 제외.
+    // 실제 노출은 발생일마다 생성되는 인스턴스가 담당한다.
+    if (todo.isSeriesMaster) return false;
     if (todo.dueAt == null) return false;
 
     final today0 = DateTime(now.year, now.month, now.day);
