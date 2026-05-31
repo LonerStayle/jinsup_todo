@@ -23,6 +23,7 @@ class TodoTile extends StatelessWidget {
     this.childCount = 0,
     this.drillChildCount,
     this.hiddenSeriesCount = 0,
+    this.onStopRecurrence,
   });
 
   final Todo todo;
@@ -61,6 +62,10 @@ class TodoTile extends StatelessWidget {
   /// date-repeat (FR-4) — 같은 반복 시리즈의 숨겨진 미체크 건수. >0 이면 이 타일이
   /// leader 이며 "외 N건" 묶음 배지를 표시한다. 0 이면 배지 없음.
   final int hiddenSeriesCount;
+
+  /// date-repeat (FR-6) — 더보기(⋮) 메뉴의 '반복 중지'. 반복 시리즈 항목일 때만
+  /// 메뉴에 노출된다(null 이거나 비반복이면 미표시). 누르면 시리즈 마스터를 삭제한다.
+  final VoidCallback? onStopRecurrence;
 
   @override
   Widget build(BuildContext context) {
@@ -323,8 +328,11 @@ class TodoTile extends StatelessWidget {
                   ),
                   tooltip: isDone ? '완료 취소' : '완료',
                 ),
-              // 더보기(⋮) 메뉴 — 복사 / 편집 / 삭제. 셋 중 하나라도 있으면 노출.
-              if (onCopy != null || onEditItem != null || onDelete != null)
+              // 더보기(⋮) 메뉴 — 복사 / 편집 / 반복중지 / 삭제. 하나라도 있으면 노출.
+              if (onCopy != null ||
+                  onEditItem != null ||
+                  onDelete != null ||
+                  (onStopRecurrence != null && todo.isInRecurringSeries))
                 PopupMenuButton<_TileMenuAction>(
                   key: ValueKey('todo-tile-menu-${todo.id}'),
                   icon: Icon(
@@ -340,6 +348,8 @@ class TodoTile extends StatelessWidget {
                         onCopy?.call();
                       case _TileMenuAction.edit:
                         onEditItem?.call();
+                      case _TileMenuAction.stopRecurrence:
+                        onStopRecurrence?.call();
                       case _TileMenuAction.delete:
                         onDelete?.call();
                     }
@@ -363,6 +373,17 @@ class TodoTile extends StatelessWidget {
                           contentPadding: EdgeInsets.zero,
                           leading: Icon(Icons.edit_outlined, size: 18),
                           title: Text('편집'),
+                        ),
+                      ),
+                    // date-repeat — 반복 시리즈 항목만 '반복 중지' 노출.
+                    if (onStopRecurrence != null && todo.isInRecurringSeries)
+                      const PopupMenuItem(
+                        value: _TileMenuAction.stopRecurrence,
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.repeat_rounded, size: 18),
+                          title: Text('반복 중지'),
                         ),
                       ),
                     if (onDelete != null)
@@ -393,4 +414,4 @@ class TodoTile extends StatelessWidget {
 }
 
 /// [TodoTile] 의 더보기(⋮) 메뉴 액션.
-enum _TileMenuAction { copy, edit, delete }
+enum _TileMenuAction { copy, edit, stopRecurrence, delete }

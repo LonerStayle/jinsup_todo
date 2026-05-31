@@ -31,6 +31,7 @@ List<Widget> todayCategorySectionSlivers({
   required void Function(List<Todo> siblings, int oldIndex, int newIndex)
   onReorderSiblings,
   Map<String, int> hiddenCountBySeries = const {},
+  void Function(Todo)? onStopRecurrence,
 }) {
   // parentId → 직속 자식 수 (드릴 배지 / 편집 분기 판정용).
   final childCounts = <String, int>{};
@@ -127,6 +128,12 @@ List<Widget> todayCategorySectionSlivers({
                   onEditItem: () => onEdit(todo),
                   drillChildCount: hasChildren ? childCount : null,
                   childCount: childCount,
+                  hiddenSeriesCount: todo.seriesId == null
+                      ? 0
+                      : (hiddenCountBySeries[todo.seriesId] ?? 0),
+                  onStopRecurrence: onStopRecurrence == null
+                      ? null
+                      : () => onStopRecurrence(todo),
                 ),
               ),
             );

@@ -19,6 +19,7 @@ import '../add_todo/add_todo_sheet.dart';
 import '../category/categories_controller.dart';
 import '../category/groups_controller.dart';
 import '../outline/tree_providers.dart';
+import '../recurrence/recurrence_actions.dart';
 import '../recurrence/recurrence_manage_screen.dart';
 import '../todo_actions/todo_actions_controller.dart';
 import '../todo_detail/todo_detail_screen.dart';
@@ -133,6 +134,8 @@ class HomeScreen extends ConsumerWidget {
           onReorderSiblings: (siblings, oldIndex, newIndex) => ref
               .read(todoActionsProvider)
               .reorderSiblings(siblings, oldIndex, newIndex),
+          // date-repeat — ⋮ '반복 중지' → 시리즈 마스터 삭제(비파괴적).
+          onStopRecurrence: (t) => confirmStopRecurrence(context, ref, t),
         );
       },
     );
@@ -158,6 +161,7 @@ class _Loaded extends StatefulWidget {
     required this.onAddChild,
     required this.onCopy,
     required this.onReorderSiblings,
+    required this.onStopRecurrence,
   });
 
   /// 오늘 화면에서 root 로 보일 todo (visibility/carryover 정책 적용된 visible set).
@@ -190,6 +194,9 @@ class _Loaded extends StatefulWidget {
   final void Function(Todo) onCopy;
   final void Function(List<Todo> siblings, int oldIndex, int newIndex)
   onReorderSiblings;
+
+  /// date-repeat (FR-6) — ⋮ '반복 중지' 콜백.
+  final void Function(Todo) onStopRecurrence;
 
   @override
   State<_Loaded> createState() => _LoadedState();
@@ -274,6 +281,7 @@ class _LoadedState extends State<_Loaded> {
             onCopy: widget.onCopy,
             onReorderSiblings: widget.onReorderSiblings,
             hiddenCountBySeries: widget.hiddenCountBySeries,
+            onStopRecurrence: widget.onStopRecurrence,
           ),
           const SliverToBoxAdapter(child: SizedBox(height: AppTokens.space48)),
         ],

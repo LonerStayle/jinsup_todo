@@ -61,4 +61,27 @@ void main() {
     await tester.pumpWidget(host(TodoTile(todo: make(seriesId: 's1'))));
     expect(find.byKey(badge), findsNothing);
   });
+
+  testWidgets('반복 항목 + onStopRecurrence → ⋮ 메뉴에 "반복 중지"', (tester) async {
+    await tester.pumpWidget(
+      host(
+        TodoTile(
+          todo: make(seriesId: 's1'),
+          onStopRecurrence: () {},
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('todo-tile-menu-t1')));
+    await tester.pumpAndSettle();
+    expect(find.text('반복 중지'), findsOneWidget);
+  });
+
+  testWidgets('비반복 항목 → ⋮ 메뉴에 "반복 중지" 없음', (tester) async {
+    await tester.pumpWidget(
+      host(TodoTile(todo: make(), onStopRecurrence: () {}, onDelete: () {})),
+    );
+    await tester.tap(find.byKey(const ValueKey('todo-tile-menu-t1')));
+    await tester.pumpAndSettle();
+    expect(find.text('반복 중지'), findsNothing);
+  });
 }

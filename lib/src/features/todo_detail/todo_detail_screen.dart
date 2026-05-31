@@ -10,6 +10,7 @@ import '../../ui/widgets/undo_snackbar.dart';
 import '../add_todo/add_todo_controller.dart';
 import '../add_todo/add_todo_sheet.dart';
 import '../outline/tree_providers.dart';
+import '../recurrence/recurrence_actions.dart';
 import '../todo_actions/todo_actions_controller.dart';
 
 /// 기능 M — 하위 체크리스트 드릴다운 상세 화면.
@@ -151,6 +152,8 @@ class TodoDetailScreen extends ConsumerWidget {
                     );
                   },
                   onReorderSiblings: actions.reorderSiblings,
+                  onStopRecurrence: (t) =>
+                      confirmStopRecurrence(context, ref, t),
                 ),
               ),
             ],
