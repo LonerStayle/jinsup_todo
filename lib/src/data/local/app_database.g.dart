@@ -168,6 +168,55 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant('start'),
   );
+  static const VerificationMeta _seriesIdMeta = const VerificationMeta(
+    'seriesId',
+  );
+  @override
+  late final GeneratedColumn<String> seriesId = GeneratedColumn<String>(
+    'series_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _recurrenceRuleMeta = const VerificationMeta(
+    'recurrenceRule',
+  );
+  @override
+  late final GeneratedColumn<String> recurrenceRule = GeneratedColumn<String>(
+    'recurrence_rule',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _recurrenceEndAtMeta = const VerificationMeta(
+    'recurrenceEndAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> recurrenceEndAt =
+      GeneratedColumn<DateTime>(
+        'recurrence_end_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _isSeriesMasterMeta = const VerificationMeta(
+    'isSeriesMaster',
+  );
+  @override
+  late final GeneratedColumn<bool> isSeriesMaster = GeneratedColumn<bool>(
+    'is_series_master',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_series_master" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -185,6 +234,10 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
     endAt,
     isAllDay,
     timeAnchor,
+    seriesId,
+    recurrenceRule,
+    recurrenceEndAt,
+    isSeriesMaster,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -301,6 +354,39 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
         timeAnchor.isAcceptableOrUnknown(data['time_anchor']!, _timeAnchorMeta),
       );
     }
+    if (data.containsKey('series_id')) {
+      context.handle(
+        _seriesIdMeta,
+        seriesId.isAcceptableOrUnknown(data['series_id']!, _seriesIdMeta),
+      );
+    }
+    if (data.containsKey('recurrence_rule')) {
+      context.handle(
+        _recurrenceRuleMeta,
+        recurrenceRule.isAcceptableOrUnknown(
+          data['recurrence_rule']!,
+          _recurrenceRuleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('recurrence_end_at')) {
+      context.handle(
+        _recurrenceEndAtMeta,
+        recurrenceEndAt.isAcceptableOrUnknown(
+          data['recurrence_end_at']!,
+          _recurrenceEndAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_series_master')) {
+      context.handle(
+        _isSeriesMasterMeta,
+        isSeriesMaster.isAcceptableOrUnknown(
+          data['is_series_master']!,
+          _isSeriesMasterMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -370,6 +456,22 @@ class $TodosTable extends Todos with TableInfo<$TodosTable, TodoRow> {
         DriftSqlType.string,
         data['${effectivePrefix}time_anchor'],
       )!,
+      seriesId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}series_id'],
+      ),
+      recurrenceRule: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recurrence_rule'],
+      ),
+      recurrenceEndAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}recurrence_end_at'],
+      ),
+      isSeriesMaster: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_series_master'],
+      )!,
     );
   }
 
@@ -395,6 +497,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
   final DateTime? endAt;
   final bool isAllDay;
   final String timeAnchor;
+  final String? seriesId;
+  final String? recurrenceRule;
+  final DateTime? recurrenceEndAt;
+  final bool isSeriesMaster;
   const TodoRow({
     required this.id,
     required this.title,
@@ -411,6 +517,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     this.endAt,
     required this.isAllDay,
     required this.timeAnchor,
+    this.seriesId,
+    this.recurrenceRule,
+    this.recurrenceEndAt,
+    required this.isSeriesMaster,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -442,6 +552,16 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     }
     map['is_all_day'] = Variable<bool>(isAllDay);
     map['time_anchor'] = Variable<String>(timeAnchor);
+    if (!nullToAbsent || seriesId != null) {
+      map['series_id'] = Variable<String>(seriesId);
+    }
+    if (!nullToAbsent || recurrenceRule != null) {
+      map['recurrence_rule'] = Variable<String>(recurrenceRule);
+    }
+    if (!nullToAbsent || recurrenceEndAt != null) {
+      map['recurrence_end_at'] = Variable<DateTime>(recurrenceEndAt);
+    }
+    map['is_series_master'] = Variable<bool>(isSeriesMaster);
     return map;
   }
 
@@ -474,6 +594,16 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           : Value(endAt),
       isAllDay: Value(isAllDay),
       timeAnchor: Value(timeAnchor),
+      seriesId: seriesId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seriesId),
+      recurrenceRule: recurrenceRule == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recurrenceRule),
+      recurrenceEndAt: recurrenceEndAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recurrenceEndAt),
+      isSeriesMaster: Value(isSeriesMaster),
     );
   }
 
@@ -498,6 +628,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       endAt: serializer.fromJson<DateTime?>(json['endAt']),
       isAllDay: serializer.fromJson<bool>(json['isAllDay']),
       timeAnchor: serializer.fromJson<String>(json['timeAnchor']),
+      seriesId: serializer.fromJson<String?>(json['seriesId']),
+      recurrenceRule: serializer.fromJson<String?>(json['recurrenceRule']),
+      recurrenceEndAt: serializer.fromJson<DateTime?>(json['recurrenceEndAt']),
+      isSeriesMaster: serializer.fromJson<bool>(json['isSeriesMaster']),
     );
   }
   @override
@@ -519,6 +653,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       'endAt': serializer.toJson<DateTime?>(endAt),
       'isAllDay': serializer.toJson<bool>(isAllDay),
       'timeAnchor': serializer.toJson<String>(timeAnchor),
+      'seriesId': serializer.toJson<String?>(seriesId),
+      'recurrenceRule': serializer.toJson<String?>(recurrenceRule),
+      'recurrenceEndAt': serializer.toJson<DateTime?>(recurrenceEndAt),
+      'isSeriesMaster': serializer.toJson<bool>(isSeriesMaster),
     };
   }
 
@@ -538,6 +676,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     Value<DateTime?> endAt = const Value.absent(),
     bool? isAllDay,
     String? timeAnchor,
+    Value<String?> seriesId = const Value.absent(),
+    Value<String?> recurrenceRule = const Value.absent(),
+    Value<DateTime?> recurrenceEndAt = const Value.absent(),
+    bool? isSeriesMaster,
   }) => TodoRow(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -556,6 +698,14 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     endAt: endAt.present ? endAt.value : this.endAt,
     isAllDay: isAllDay ?? this.isAllDay,
     timeAnchor: timeAnchor ?? this.timeAnchor,
+    seriesId: seriesId.present ? seriesId.value : this.seriesId,
+    recurrenceRule: recurrenceRule.present
+        ? recurrenceRule.value
+        : this.recurrenceRule,
+    recurrenceEndAt: recurrenceEndAt.present
+        ? recurrenceEndAt.value
+        : this.recurrenceEndAt,
+    isSeriesMaster: isSeriesMaster ?? this.isSeriesMaster,
   );
   TodoRow copyWithCompanion(TodosCompanion data) {
     return TodoRow(
@@ -580,6 +730,16 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
       timeAnchor: data.timeAnchor.present
           ? data.timeAnchor.value
           : this.timeAnchor,
+      seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
+      recurrenceRule: data.recurrenceRule.present
+          ? data.recurrenceRule.value
+          : this.recurrenceRule,
+      recurrenceEndAt: data.recurrenceEndAt.present
+          ? data.recurrenceEndAt.value
+          : this.recurrenceEndAt,
+      isSeriesMaster: data.isSeriesMaster.present
+          ? data.isSeriesMaster.value
+          : this.isSeriesMaster,
     );
   }
 
@@ -600,7 +760,11 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           ..write('description: $description, ')
           ..write('endAt: $endAt, ')
           ..write('isAllDay: $isAllDay, ')
-          ..write('timeAnchor: $timeAnchor')
+          ..write('timeAnchor: $timeAnchor, ')
+          ..write('seriesId: $seriesId, ')
+          ..write('recurrenceRule: $recurrenceRule, ')
+          ..write('recurrenceEndAt: $recurrenceEndAt, ')
+          ..write('isSeriesMaster: $isSeriesMaster')
           ..write(')'))
         .toString();
   }
@@ -622,6 +786,10 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
     endAt,
     isAllDay,
     timeAnchor,
+    seriesId,
+    recurrenceRule,
+    recurrenceEndAt,
+    isSeriesMaster,
   );
   @override
   bool operator ==(Object other) =>
@@ -641,7 +809,11 @@ class TodoRow extends DataClass implements Insertable<TodoRow> {
           other.description == this.description &&
           other.endAt == this.endAt &&
           other.isAllDay == this.isAllDay &&
-          other.timeAnchor == this.timeAnchor);
+          other.timeAnchor == this.timeAnchor &&
+          other.seriesId == this.seriesId &&
+          other.recurrenceRule == this.recurrenceRule &&
+          other.recurrenceEndAt == this.recurrenceEndAt &&
+          other.isSeriesMaster == this.isSeriesMaster);
 }
 
 class TodosCompanion extends UpdateCompanion<TodoRow> {
@@ -660,6 +832,10 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
   final Value<DateTime?> endAt;
   final Value<bool> isAllDay;
   final Value<String> timeAnchor;
+  final Value<String?> seriesId;
+  final Value<String?> recurrenceRule;
+  final Value<DateTime?> recurrenceEndAt;
+  final Value<bool> isSeriesMaster;
   final Value<int> rowid;
   const TodosCompanion({
     this.id = const Value.absent(),
@@ -677,6 +853,10 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     this.endAt = const Value.absent(),
     this.isAllDay = const Value.absent(),
     this.timeAnchor = const Value.absent(),
+    this.seriesId = const Value.absent(),
+    this.recurrenceRule = const Value.absent(),
+    this.recurrenceEndAt = const Value.absent(),
+    this.isSeriesMaster = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TodosCompanion.insert({
@@ -695,6 +875,10 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     this.endAt = const Value.absent(),
     this.isAllDay = const Value.absent(),
     this.timeAnchor = const Value.absent(),
+    this.seriesId = const Value.absent(),
+    this.recurrenceRule = const Value.absent(),
+    this.recurrenceEndAt = const Value.absent(),
+    this.isSeriesMaster = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -717,6 +901,10 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     Expression<DateTime>? endAt,
     Expression<bool>? isAllDay,
     Expression<String>? timeAnchor,
+    Expression<String>? seriesId,
+    Expression<String>? recurrenceRule,
+    Expression<DateTime>? recurrenceEndAt,
+    Expression<bool>? isSeriesMaster,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -735,6 +923,10 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
       if (endAt != null) 'end_at': endAt,
       if (isAllDay != null) 'is_all_day': isAllDay,
       if (timeAnchor != null) 'time_anchor': timeAnchor,
+      if (seriesId != null) 'series_id': seriesId,
+      if (recurrenceRule != null) 'recurrence_rule': recurrenceRule,
+      if (recurrenceEndAt != null) 'recurrence_end_at': recurrenceEndAt,
+      if (isSeriesMaster != null) 'is_series_master': isSeriesMaster,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -755,6 +947,10 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     Value<DateTime?>? endAt,
     Value<bool>? isAllDay,
     Value<String>? timeAnchor,
+    Value<String?>? seriesId,
+    Value<String?>? recurrenceRule,
+    Value<DateTime?>? recurrenceEndAt,
+    Value<bool>? isSeriesMaster,
     Value<int>? rowid,
   }) {
     return TodosCompanion(
@@ -773,6 +969,10 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
       endAt: endAt ?? this.endAt,
       isAllDay: isAllDay ?? this.isAllDay,
       timeAnchor: timeAnchor ?? this.timeAnchor,
+      seriesId: seriesId ?? this.seriesId,
+      recurrenceRule: recurrenceRule ?? this.recurrenceRule,
+      recurrenceEndAt: recurrenceEndAt ?? this.recurrenceEndAt,
+      isSeriesMaster: isSeriesMaster ?? this.isSeriesMaster,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -825,6 +1025,18 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
     if (timeAnchor.present) {
       map['time_anchor'] = Variable<String>(timeAnchor.value);
     }
+    if (seriesId.present) {
+      map['series_id'] = Variable<String>(seriesId.value);
+    }
+    if (recurrenceRule.present) {
+      map['recurrence_rule'] = Variable<String>(recurrenceRule.value);
+    }
+    if (recurrenceEndAt.present) {
+      map['recurrence_end_at'] = Variable<DateTime>(recurrenceEndAt.value);
+    }
+    if (isSeriesMaster.present) {
+      map['is_series_master'] = Variable<bool>(isSeriesMaster.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -849,6 +1061,10 @@ class TodosCompanion extends UpdateCompanion<TodoRow> {
           ..write('endAt: $endAt, ')
           ..write('isAllDay: $isAllDay, ')
           ..write('timeAnchor: $timeAnchor, ')
+          ..write('seriesId: $seriesId, ')
+          ..write('recurrenceRule: $recurrenceRule, ')
+          ..write('recurrenceEndAt: $recurrenceEndAt, ')
+          ..write('isSeriesMaster: $isSeriesMaster, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2173,6 +2389,10 @@ typedef $$TodosTableCreateCompanionBuilder =
       Value<DateTime?> endAt,
       Value<bool> isAllDay,
       Value<String> timeAnchor,
+      Value<String?> seriesId,
+      Value<String?> recurrenceRule,
+      Value<DateTime?> recurrenceEndAt,
+      Value<bool> isSeriesMaster,
       Value<int> rowid,
     });
 typedef $$TodosTableUpdateCompanionBuilder =
@@ -2192,6 +2412,10 @@ typedef $$TodosTableUpdateCompanionBuilder =
       Value<DateTime?> endAt,
       Value<bool> isAllDay,
       Value<String> timeAnchor,
+      Value<String?> seriesId,
+      Value<String?> recurrenceRule,
+      Value<DateTime?> recurrenceEndAt,
+      Value<bool> isSeriesMaster,
       Value<int> rowid,
     });
 
@@ -2275,6 +2499,26 @@ class $$TodosTableFilterComposer extends Composer<_$AppDatabase, $TodosTable> {
 
   ColumnFilters<String> get timeAnchor => $composableBuilder(
     column: $table.timeAnchor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get seriesId => $composableBuilder(
+    column: $table.seriesId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recurrenceRule => $composableBuilder(
+    column: $table.recurrenceRule,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get recurrenceEndAt => $composableBuilder(
+    column: $table.recurrenceEndAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSeriesMaster => $composableBuilder(
+    column: $table.isSeriesMaster,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2362,6 +2606,26 @@ class $$TodosTableOrderingComposer
     column: $table.timeAnchor,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get seriesId => $composableBuilder(
+    column: $table.seriesId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recurrenceRule => $composableBuilder(
+    column: $table.recurrenceRule,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get recurrenceEndAt => $composableBuilder(
+    column: $table.recurrenceEndAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSeriesMaster => $composableBuilder(
+    column: $table.isSeriesMaster,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TodosTableAnnotationComposer
@@ -2423,6 +2687,24 @@ class $$TodosTableAnnotationComposer
     column: $table.timeAnchor,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get seriesId =>
+      $composableBuilder(column: $table.seriesId, builder: (column) => column);
+
+  GeneratedColumn<String> get recurrenceRule => $composableBuilder(
+    column: $table.recurrenceRule,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get recurrenceEndAt => $composableBuilder(
+    column: $table.recurrenceEndAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isSeriesMaster => $composableBuilder(
+    column: $table.isSeriesMaster,
+    builder: (column) => column,
+  );
 }
 
 class $$TodosTableTableManager
@@ -2468,6 +2750,10 @@ class $$TodosTableTableManager
                 Value<DateTime?> endAt = const Value.absent(),
                 Value<bool> isAllDay = const Value.absent(),
                 Value<String> timeAnchor = const Value.absent(),
+                Value<String?> seriesId = const Value.absent(),
+                Value<String?> recurrenceRule = const Value.absent(),
+                Value<DateTime?> recurrenceEndAt = const Value.absent(),
+                Value<bool> isSeriesMaster = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodosCompanion(
                 id: id,
@@ -2485,6 +2771,10 @@ class $$TodosTableTableManager
                 endAt: endAt,
                 isAllDay: isAllDay,
                 timeAnchor: timeAnchor,
+                seriesId: seriesId,
+                recurrenceRule: recurrenceRule,
+                recurrenceEndAt: recurrenceEndAt,
+                isSeriesMaster: isSeriesMaster,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2504,6 +2794,10 @@ class $$TodosTableTableManager
                 Value<DateTime?> endAt = const Value.absent(),
                 Value<bool> isAllDay = const Value.absent(),
                 Value<String> timeAnchor = const Value.absent(),
+                Value<String?> seriesId = const Value.absent(),
+                Value<String?> recurrenceRule = const Value.absent(),
+                Value<DateTime?> recurrenceEndAt = const Value.absent(),
+                Value<bool> isSeriesMaster = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TodosCompanion.insert(
                 id: id,
@@ -2521,6 +2815,10 @@ class $$TodosTableTableManager
                 endAt: endAt,
                 isAllDay: isAllDay,
                 timeAnchor: timeAnchor,
+                seriesId: seriesId,
+                recurrenceRule: recurrenceRule,
+                recurrenceEndAt: recurrenceEndAt,
+                isSeriesMaster: isSeriesMaster,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

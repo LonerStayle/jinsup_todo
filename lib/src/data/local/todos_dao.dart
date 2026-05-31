@@ -156,6 +156,10 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
       endAt: row.endAt,
       isAllDay: row.isAllDay,
       timeAnchor: row.timeAnchor,
+      seriesId: row.seriesId,
+      recurrenceRule: row.recurrenceRule,
+      recurrenceEndAt: row.recurrenceEndAt,
+      isSeriesMaster: row.isSeriesMaster,
     );
   }
 
@@ -220,6 +224,10 @@ class TodosDao extends DatabaseAccessor<AppDatabase> with _$TodosDaoMixin {
       endAt: Value(t.endAt),
       isAllDay: Value(t.isAllDay),
       timeAnchor: Value(t.timeAnchor),
+      seriesId: Value(t.seriesId),
+      recurrenceRule: Value(t.recurrenceRule),
+      recurrenceEndAt: Value(t.recurrenceEndAt),
+      isSeriesMaster: Value(t.isSeriesMaster),
     );
   }
 }
