@@ -2,6 +2,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:uuid/uuid.dart';
 
 import 'category.dart';
+import 'recurrence.dart';
 
 part 'todo.freezed.dart';
 part 'todo.g.dart';
@@ -73,6 +74,16 @@ abstract class Todo with _$Todo {
     // [timeAnchor] — 단일·시간 모드에서 dueAt 이 '시작'('start')인지 '마감'('end')인지.
     // 하루종일·기간 모드에서는 의미 없음 (기본 'start' 유지).
     @Default('start') String timeAnchor,
+    // ── 날짜 반복 (date-repeat) ─────────────────────────────────────────────
+    // [seriesId] — 소속 반복 시리즈 id. 마스터는 자기 id, 인스턴스는 마스터 id.
+    //   null = 일반(비반복) Todo.
+    String? seriesId,
+    // [recurrenceRule] — 반복 규칙 직렬화(RecurrenceRule.encode). **마스터에만** 채움.
+    String? recurrenceRule,
+    // [recurrenceEndAt] — 반복 종료일. **마스터에만**. null = 무한.
+    DateTime? recurrenceEndAt,
+    // [isSeriesMaster] — true = 규칙 보유 숨김 템플릿(모든 목록에서 제외, 캘린더 RRULE 소유).
+    @Default(false) bool isSeriesMaster,
   }) = _Todo;
 
   factory Todo.fromJson(Map<String, dynamic> json) => _$TodoFromJson(json);
@@ -91,6 +102,10 @@ abstract class Todo with _$Todo {
     DateTime? endAt,
     bool isAllDay = false,
     String timeAnchor = 'start',
+    String? seriesId,
+    String? recurrenceRule,
+    DateTime? recurrenceEndAt,
+    bool isSeriesMaster = false,
   }) {
     final n = (now ?? DateTime.now)();
     return Todo(
@@ -109,6 +124,10 @@ abstract class Todo with _$Todo {
       endAt: endAt,
       isAllDay: isAllDay,
       timeAnchor: timeAnchor,
+      seriesId: seriesId,
+      recurrenceRule: recurrenceRule,
+      recurrenceEndAt: recurrenceEndAt,
+      isSeriesMaster: isSeriesMaster,
     );
   }
 
@@ -136,6 +155,16 @@ abstract class Todo with _$Todo {
     final n = (now ?? DateTime.now)();
     return copyWith(calendarEventId: eventId, updatedAt: n);
   }
+
+  /// 반복 시리즈의 마스터(숨김 템플릿)인가 — 규칙 보유 + 목록 제외 + 캘린더 RRULE 소유.
+  bool get isRecurringMaster => isSeriesMaster && recurrenceRule != null;
+
+  /// 반복 시리즈(마스터 또는 인스턴스)에 속하는가?
+  bool get isInRecurringSeries => seriesId != null;
+
+  /// 디코드된 반복 규칙. 규칙 문자열이 없으면 null. (마스터에서만 유효)
+  RecurrenceRule? get recurrence =>
+      recurrenceRule == null ? null : RecurrenceRule.decode(recurrenceRule!);
 }
 
 /// Todo JSON 의 `category` 필드를 nested object 가 아닌 string id 로 직렬화 유지.

@@ -24,6 +24,12 @@ _Todo _$TodoFromJson(Map<String, dynamic> json) => _Todo(
   endAt: json['endAt'] == null ? null : DateTime.parse(json['endAt'] as String),
   isAllDay: json['isAllDay'] as bool? ?? false,
   timeAnchor: json['timeAnchor'] as String? ?? 'start',
+  seriesId: json['seriesId'] as String?,
+  recurrenceRule: json['recurrenceRule'] as String?,
+  recurrenceEndAt: json['recurrenceEndAt'] == null
+      ? null
+      : DateTime.parse(json['recurrenceEndAt'] as String),
+  isSeriesMaster: json['isSeriesMaster'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$TodoToJson(_Todo instance) => <String, dynamic>{
@@ -42,6 +48,10 @@ Map<String, dynamic> _$TodoToJson(_Todo instance) => <String, dynamic>{
   'endAt': instance.endAt?.toIso8601String(),
   'isAllDay': instance.isAllDay,
   'timeAnchor': instance.timeAnchor,
+  'seriesId': instance.seriesId,
+  'recurrenceRule': instance.recurrenceRule,
+  'recurrenceEndAt': instance.recurrenceEndAt?.toIso8601String(),
+  'isSeriesMaster': instance.isSeriesMaster,
 };
 
 const _$TodoTypeEnumMap = {TodoType.task: 'task', TodoType.note: 'note'};
