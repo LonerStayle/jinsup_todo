@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:solo_todo/src/data/local/app_database.dart';
-import 'package:solo_todo/src/data/providers.dart';
 import 'package:solo_todo/src/domain/category.dart';
 import 'package:solo_todo/src/domain/recurrence.dart';
 import 'package:solo_todo/src/domain/todo.dart';
+import 'package:solo_todo/src/features/outline/tree_providers.dart';
 import 'package:solo_todo/src/features/recurrence/recurrence_manage_screen.dart';
 
 Todo _master() => Todo(
@@ -54,30 +53,20 @@ void main() {
     });
   });
 
+  // allTodosProvider 를 Stream.value 로 override — 실제 Drift 의존 + timer leak 회피.
+  Widget host(List<Todo> all) => ProviderScope(
+    overrides: [allTodosProvider.overrideWith((_) => Stream.value(all))],
+    child: const MaterialApp(home: RecurrenceManageScreen()),
+  );
+
   testWidgets('마스터 없으면 빈 상태', (tester) async {
-    final db = AppDatabase.memory();
-    addTearDown(db.close);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [appDatabaseProvider.overrideWithValue(db)],
-        child: const MaterialApp(home: RecurrenceManageScreen()),
-      ),
-    );
+    await tester.pumpWidget(host(const []));
     await tester.pump();
     expect(find.text('반복 중인 할 일이 없어요'), findsOneWidget);
   });
 
   testWidgets('마스터 있으면 카드 + 규칙 요약 + 반복중지 버튼', (tester) async {
-    final db = AppDatabase.memory();
-    addTearDown(db.close);
-    await db.todosDao.upsert(_master());
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [appDatabaseProvider.overrideWithValue(db)],
-        child: const MaterialApp(home: RecurrenceManageScreen()),
-      ),
-    );
-    await tester.pump();
+    await tester.pumpWidget(host([_master()]));
     await tester.pump();
 
     expect(find.text('매주 정산'), findsOneWidget);
