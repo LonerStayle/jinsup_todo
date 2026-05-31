@@ -930,6 +930,15 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
                             setState(() => _recurrenceEndAt = null),
                       ),
                     ],
+                    // 편집 모드 + 반복 시리즈 항목 → 규칙 요약 + "반복 중지" (FR-6).
+                    // 규칙 자체 수정은 미지원이라 입력 UI 대신 정보+중지만 노출.
+                    if (_isEditMode &&
+                        (widget.initialTodo?.isInRecurringSeries ?? false)) ...[
+                      const SizedBox(height: AppTokens.space16),
+                      _SectionLabel(text: '반복'),
+                      const SizedBox(height: AppTokens.space8),
+                      _RecurrenceEditInfo(item: widget.initialTodo!),
+                    ],
                   ],
                   const SizedBox(height: AppTokens.space20),
                   _Actions(
