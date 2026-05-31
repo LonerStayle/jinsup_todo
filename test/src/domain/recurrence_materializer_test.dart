@@ -33,12 +33,6 @@ void main() {
     );
   }
 
-  /// 결정적 id 생성기.
-  String Function() counterGen() {
-    var n = 0;
-    return () => 'gen-${n++}';
-  }
-
   final now = dt(2026, 1, 5, 12); // "오늘" = 1/5
 
   group('materializeDue — 기본 생성', () {
@@ -47,12 +41,7 @@ void main() {
         rule: const RecurrenceRule(freq: RecurrenceFreq.daily),
         dueAt: dt(2026, 1, 1),
       );
-      final got = RecurrenceMaterializer.materializeDue(
-        [m],
-        {},
-        now,
-        idGen: counterGen(),
-      );
+      final got = RecurrenceMaterializer.materializeDue([m], {}, now);
       expect(got.length, 5); // 1/1,1/2,1/3,1/4,1/5
       expect(got.map((t) => t.dueAt!.day), [1, 2, 3, 4, 5]);
       for (final t in got) {
@@ -70,12 +59,7 @@ void main() {
         rule: const RecurrenceRule(freq: RecurrenceFreq.daily),
         dueAt: dt(2026, 1, 4),
       );
-      final got = RecurrenceMaterializer.materializeDue(
-        [m],
-        {},
-        now,
-        idGen: counterGen(),
-      );
+      final got = RecurrenceMaterializer.materializeDue([m], {}, now);
       expect(got.map((t) => t.id).toSet().length, got.length);
       expect(got.first.id, 'gen-0');
     });
@@ -90,12 +74,7 @@ void main() {
       final existing = {
         'm1': {dt(2026, 1, 1), dt(2026, 1, 2), dt(2026, 1, 3)},
       };
-      final got = RecurrenceMaterializer.materializeDue(
-        [m],
-        existing,
-        now,
-        idGen: counterGen(),
-      );
+      final got = RecurrenceMaterializer.materializeDue([m], existing, now);
       expect(got.map((t) => t.dueAt!.day), [4, 5]);
     });
 
@@ -119,12 +98,7 @@ void main() {
         dueAt: dt(2026, 1, 1),
         recurrenceEndAt: dt(2026, 1, 3),
       );
-      final got = RecurrenceMaterializer.materializeDue(
-        [m],
-        {},
-        now,
-        idGen: counterGen(),
-      );
+      final got = RecurrenceMaterializer.materializeDue([m], {}, now);
       expect(got.map((t) => t.dueAt!.day), [1, 2, 3]);
     });
 
@@ -133,12 +107,7 @@ void main() {
         rule: const RecurrenceRule(freq: RecurrenceFreq.daily),
         dueAt: dt(2026, 1, 1),
       );
-      final got = RecurrenceMaterializer.materializeDue(
-        [m],
-        {},
-        now,
-        idGen: counterGen(),
-      );
+      final got = RecurrenceMaterializer.materializeDue([m], {}, now);
       expect(
         got.every((t) => !t.dueAt!.isAfter(dt(2026, 1, 5, 23, 59))),
         isTrue,
@@ -164,7 +133,6 @@ void main() {
         [m],
         {},
         now,
-        idGen: counterGen(),
         maxPerSeries: 3,
       );
       expect(got.length, 3);
@@ -177,12 +145,7 @@ void main() {
         rule: const RecurrenceRule(freq: RecurrenceFreq.daily),
         dueAt: dt(2026, 1, 4, 9, 30),
       );
-      final got = RecurrenceMaterializer.materializeDue(
-        [m],
-        {},
-        now,
-        idGen: counterGen(),
-      );
+      final got = RecurrenceMaterializer.materializeDue([m], {}, now);
       for (final t in got) {
         expect(t.dueAt!.hour, 9);
         expect(t.dueAt!.minute, 30);
@@ -195,12 +158,7 @@ void main() {
         dueAt: dt(2026, 1, 4, 9, 0),
         endAt: dt(2026, 1, 4, 11, 0), // 2시간
       );
-      final got = RecurrenceMaterializer.materializeDue(
-        [m],
-        {},
-        now,
-        idGen: counterGen(),
-      );
+      final got = RecurrenceMaterializer.materializeDue([m], {}, now);
       for (final t in got) {
         expect(t.endAt, isNotNull);
         expect(t.endAt!.difference(t.dueAt!), const Duration(hours: 2));
