@@ -1,0 +1,137 @@
+import 'package:uuid/uuid.dart';
+
+import 'recurrence.dart';
+import 'todo.dart';
+
+/// 반복 마스터로부터 "발생일이 지난(=오늘까지)" 인스턴스 Todo 를 생성하는 순수 로직.
+///
+/// 설계(tech-design §3):
+/// - lazy 생성 — anchor(master.dueAt)부터 **오늘까지만** 채운다. 미래분은 미리 안 만듦.
+/// - idempotent — 이미 존재하는 `(seriesId, 발생일)` 은 건너뛴다(중복 가드).
+/// - 종료일 컷 — `recurrenceEndAt` 이후 발생분은 만들지 않는다.
+/// - 인스턴스는 마스터의 시각/기간/카테고리/타입 패턴을 복제하되 규칙은 보유하지 않는다.
+class RecurrenceMaterializer {
+  const RecurrenceMaterializer._();
+
+  /// [masters] 중 활성 반복 마스터에 대해 [now] 기준 누락 인스턴스를 생성해 반환.
+  ///
+  /// [existingDatesBySeries] — seriesId → 이미 존재하는 인스턴스의 발생일(local date-only) 집합.
+  /// [idGen] — 테스트 결정성을 위한 id 생성기 주입(기본 uuid v4).
+  /// [maxPerSeries] — 시리즈당 한 번에 만들 인스턴스 상한(오래 미실행 시 폭주 방지).
+  static List<Todo> materializeDue(
+    List<Todo> masters,
+    Map<String, Set<DateTime>> existingDatesBySeries,
+    DateTime now, {
+    String Function()? idGen,
+    int maxPerSeries = 400,
+  }) {
+    final gen = idGen ?? const Uuid().v4;
+    final today0 = _dateOnly(now);
+    final out = <Todo>[];
+
+    for (final m in masters) {
+      if (!m.isRecurringMaster) continue;
+      final rule = m.recurrence;
+      final anchor = m.dueAt;
+      final seriesId = m.seriesId;
+      if (rule == null || anchor == null || seriesId == null) continue;
+
+      // 종료일 컷: min(오늘, recurrenceEndAt 의 local date).
+      var until = today0;
+      final end = m.recurrenceEndAt;
+      if (end != null) {
+        final end0 = _dateOnly(end);
+        if (end0.isBefore(until)) until = end0;
+      }
+      if (until.isBefore(_dateOnly(anchor))) continue;
+
+      final existing = existingDatesBySeries[seriesId] ?? const <DateTime>{};
+      final dates = rule.occurrencesUntil(
+        anchor,
+        until,
+        maxCount: maxPerSeries,
+      );
+      for (final date in dates) {
+        if (existing.contains(date)) continue;
+        out.add(_instanceFor(m, date, gen(), now));
+      }
+    }
+    return out;
+  }
+
+  /// 전체 Todo 목록에서 활성 반복 마스터만 추린다.
+  static List<Todo> activeMasters(List<Todo> all) =>
+      all.where((t) => t.isRecurringMaster).toList();
+
+  /// 전체 Todo 목록에서 인스턴스의 발생일(local date-only)을 seriesId 별로 인덱싱.
+  /// (마스터 자신은 제외 — 마스터의 dueAt 은 anchor 이지 인스턴스 발생분이 아니다.)
+  static Map<String, Set<DateTime>> indexExistingInstanceDates(List<Todo> all) {
+    final map = <String, Set<DateTime>>{};
+    for (final t in all) {
+      if (t.isSeriesMaster) continue;
+      final sid = t.seriesId;
+      final due = t.dueAt;
+      if (sid == null || due == null) continue;
+      (map[sid] ??= <DateTime>{}).add(_dateOnly(due));
+    }
+    return map;
+  }
+
+  // ── 내부 ──────────────────────────────────────────────────────────────────
+
+  static Todo _instanceFor(
+    Todo master,
+    DateTime occLocalDate,
+    String id,
+    DateTime now,
+  ) {
+    final dueAt = _withDate(master.dueAt!, occLocalDate);
+    DateTime? endAt;
+    if (master.endAt != null) {
+      // 기간 모드: 마스터의 (endAt - dueAt) 길이를 그대로 보존.
+      endAt = dueAt.add(master.endAt!.difference(master.dueAt!));
+    }
+    final stamp = now.toUtc();
+    return Todo(
+      id: id,
+      title: master.title,
+      category: master.category,
+      dueAt: dueAt,
+      doneAt: null,
+      createdAt: stamp,
+      updatedAt: stamp,
+      calendarEventId: null, // 캘린더는 마스터 RRULE 이 소유.
+      parentId: master.parentId,
+      type: master.type,
+      sortOrder: master.sortOrder,
+      description: master.description,
+      endAt: endAt,
+      isAllDay: master.isAllDay,
+      timeAnchor: master.timeAnchor,
+      seriesId: master.seriesId,
+      recurrenceRule: null, // 인스턴스는 규칙 미보유.
+      recurrenceEndAt: null,
+      isSeriesMaster: false,
+    );
+  }
+
+  /// [base] 의 시각/타임존(utc 여부)을 유지한 채 날짜만 [localDate] 로 교체.
+  static DateTime _withDate(DateTime base, DateTime localDate) {
+    final b = base.toLocal();
+    final combined = DateTime(
+      localDate.year,
+      localDate.month,
+      localDate.day,
+      b.hour,
+      b.minute,
+      b.second,
+      b.millisecond,
+    );
+    return base.isUtc ? combined.toUtc() : combined;
+  }
+
+  static DateTime _dateOnly(DateTime d) {
+    final l = d.toLocal();
+    return DateTime(l.year, l.month, l.day);
+  }
+}
