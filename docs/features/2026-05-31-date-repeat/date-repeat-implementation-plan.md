@@ -61,19 +61,27 @@
 - [x] Phase G — recurrenceMaterializerProvider(앱시작·자정 트리거) + dedupedTodayProvider
 - [x] Phase H — buildEvent RRULE 부착 (마스터 한정, UNTIL UTC)
 
-**남은 작업 (UI — 다음 세션 권장):**
-- [ ] **Phase I1** — add/edit 시트에 반복 규칙 입력 UI (주기 4종·N간격·요일·종료일).
-  마스터 생성 경로: `Todo(isSeriesMaster:true, seriesId=자기 id, recurrenceRule=rule.encode(),
-  recurrenceEndAt)` upsert. 마스터에 캘린더 토글 시 `tryCreateCalendarEvent`(RRULE 자동).
-  파일: `lib/src/features/add_todo/add_todo_sheet.dart` + `add_todo_controller.dart`.
-- [ ] **Phase I2** — 오늘 목록을 `dedupedTodayProvider` 소비로 전환 + 반복 아이콘(FR-7)
-  + "외 N건" 배지(`hiddenCountBySeries`, FR-4). "반복 관리" 진입점(마스터 목록/규칙 해제).
-  파일: `lib/src/ui/widgets/todo_tile*.dart`, `lib/src/features/home/home_screen.dart`.
-- [ ] **Phase I3** — 위젯 테스트.
+**UI (Phase I) — 완료·커밋:**
+- [x] **Phase I-a** — AddTodoSubmission.recurrence/recurrenceEndAt + AddTodoController
+  가 마스터 저장 + anchor~오늘 인스턴스 즉시 실체화 (컨트롤러 테스트 3건).
+- [x] **Phase I-b** — 추가 시트 반복 입력 UI (주기 칩·N간격 스텝퍼·요일 칩·종료일).
+  편집 모드 미노출(규칙 수정은 별도 동작). 위젯 테스트 6건.
+- [x] **Phase I-c** — TodoTile 반복 아이콘(FR-7) + "밀린 반복 외 N건" 배지(FR-4),
+  HomeScreen materializer 활성화 + dedup 적용 + hiddenCountBySeries 배선,
+  RecurrenceManageScreen(반복 중지=비파괴적) + 헤더 진입 버튼(FR-6). 테스트 추가.
 
-**재개 메모:** 백엔드/정책/동기화/캘린더는 완결·검증됨. I 단계는 순수 표현/입력 계층.
-`dedupedTodayProvider`(visible + hiddenCountBySeries)와 `recurrenceMaterializerProvider`
-(HomeScreen 에서 watch 해야 활성)만 UI 에서 연결하면 기능이 화면에 드러난다.
+### Phase J — 마무리 (완료)
+- [x] J1. 전체 검증 3종 exit 0 (analyze 0 / format clean / test 551건 GREEN).
+
+**자가평가 (CLAUDE.md §4):**
+- 디자인 9.3 — 반복 아이콘·묶음 배지·관리 화면이 기존 톤(카테고리색·칩·카드)과 일관.
+  고빈도 반복 누적 시 화면 도배를 dedup 으로 차단해 가시성 보호(앱 1순위 기준 충족).
+- 편의성 9.4 — 날짜 지정 시 한 시트에서 주기·간격·요일·종료일까지 토글로 완결,
+  발생일마다 자동 생성·이월, 캘린더 RRULE 1이벤트 자동 등록. 수동 재생성 부담 제거.
+
+**구현 요약:** 마스터-인스턴스 모델로 기존 이월/오늘/동기화 로직 100% 재사용.
+결정적 id(`seriesId#yyyymmdd`)로 다기기·재방출 중복 원천 차단. 백엔드~UI 14+커밋,
+전 구간 TDD. v1.0 비전의 반복 기능 항목 충족.
 
 ---
 ## 변경이력
