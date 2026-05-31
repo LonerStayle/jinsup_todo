@@ -295,9 +295,7 @@ void main() {
       expect(parentCheck.onTap, isNotNull);
     });
 
-    testWidgets('자식 없는 leaf 노드 — 탭 동작 없음 + chevron 없음 (상세 이동 X)', (
-      tester,
-    ) async {
+    testWidgets('자식 없는 leaf 노드 — chevron 없음 + 탭 시 편집 바텀시트', (tester) async {
       final leaf = make(id: 'leaf', title: '단독 task');
       await mount(
         tester,
@@ -310,8 +308,8 @@ void main() {
       final node = tester.widget<InkWell>(
         find.byKey(const ValueKey('outline-node-leaf')),
       );
-      expect(node.onTap, isNull, reason: 'leaf 는 자식이 없어 상세로 이동하지 않음');
-      // 드릴다운 chevron 도 노출되지 않는다.
+      expect(node.onTap, isNotNull, reason: 'leaf 도 탭하면 편집 시트가 열림');
+      // 상세 드릴다운 chevron 은 leaf 에 노출되지 않는다 (자식 없음).
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('outline-node-leaf')),
@@ -319,6 +317,11 @@ void main() {
         ),
         findsNothing,
       );
+
+      // 탭 → 편집 바텀시트(AddTodoSheet) 노출.
+      await tester.tap(find.byKey(const ValueKey('outline-node-leaf')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('add-todo-title')), findsOneWidget);
     });
   });
 
