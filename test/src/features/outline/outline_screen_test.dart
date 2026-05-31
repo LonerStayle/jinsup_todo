@@ -295,7 +295,9 @@ void main() {
       expect(parentCheck.onTap, isNotNull);
     });
 
-    testWidgets('leaf 노드 — 탭하면 상세 화면으로 이동', (tester) async {
+    testWidgets('자식 없는 leaf 노드 — 탭 동작 없음 + chevron 없음 (상세 이동 X)', (
+      tester,
+    ) async {
       final leaf = make(id: 'leaf', title: '단독 task');
       await mount(
         tester,
@@ -308,14 +310,14 @@ void main() {
       final node = tester.widget<InkWell>(
         find.byKey(const ValueKey('outline-node-leaf')),
       );
-      expect(node.onTap, isNotNull, reason: 'leaf 도 탭하면 상세로 이동');
-
-      await tester.tap(find.byKey(const ValueKey('outline-node-leaf')));
-      await tester.pumpAndSettle();
+      expect(node.onTap, isNull, reason: 'leaf 는 자식이 없어 상세로 이동하지 않음');
+      // 드릴다운 chevron 도 노출되지 않는다.
       expect(
-        find.byKey(const ValueKey('detail-toggle')),
-        findsOneWidget,
-        reason: '상세 화면 진입',
+        find.descendant(
+          of: find.byKey(const ValueKey('outline-node-leaf')),
+          matching: find.byIcon(Icons.chevron_right_rounded),
+        ),
+        findsNothing,
       );
     });
   });
