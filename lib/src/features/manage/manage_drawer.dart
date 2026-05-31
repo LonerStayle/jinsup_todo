@@ -239,6 +239,65 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
         .reorderInGroup(siblings, oldIndex, newIndex);
   }
 
+  /// 그룹 순서 변경 (그룹 헤더의 드래그 핸들 ⠿). groups 전체를 재배열해 sortOrder 갱신.
+  Future<void> _reorderGroups(
+    List<Group> groups,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    await ref
+        .read(groupsControllerProvider)
+        .reorder(groups, oldIndex, newIndex);
+  }
+
+  /// 그룹 한 섹션(헤더 + 펼침 시 카테고리 리스트)을 [ReorderableListView] 아이템으로
+  /// 구성. key 는 섹션이 들고, [reorderIndex] 로 헤더의 드래그 핸들을 연결한다.
+  Widget _buildGroupSection(
+    int index,
+    Group g,
+    List<Group> groups,
+    Map<String, List<Category>> byGroup,
+  ) {
+    return _GroupSection(
+      key: ValueKey('manage-group-${g.id}'),
+      group: g,
+      reorderIndex: index,
+      collapsed: _expandedGroupId != g.id,
+      hovering: _hoverTarget == g.id,
+      // 본문 탭 — 그 그룹만 펼치고(나머지는 닫힘) 상세 진입.
+      // onSelectGroup 미주입(이전 호환) 시엔 펼침 토글로 fallback.
+      onSelect: () {
+        if (widget.onSelectGroup != null) {
+          setState(() => _expandedGroupId = g.id);
+          widget.onSelectGroup!(g);
+        } else {
+          _toggle(g.id);
+        }
+      },
+      onToggleCollapse: () => _toggle(g.id),
+      onLongPress: () => _showGroupMenu(g),
+      onWillAccept: () => setState(() => _hoverTarget = g.id),
+      onLeave: () => setState(() => _hoverTarget = null),
+      onAccept: (cat) {
+        setState(() => _hoverTarget = null);
+        _applyMove(cat, g.id);
+      },
+      categoryList: _expandedGroupId == g.id
+          ? _ReorderableCategoryList(
+              siblings: byGroup[g.id] ?? const <Category>[],
+              group: g,
+              onTapCategory: (c) => widget.onSelectCategory?.call(c),
+              onMenuCategory: (c) => _showCategoryMenu(c, groups),
+              onReorder: (oldI, newI) => _reorderInGroup(
+                byGroup[g.id] ?? const <Category>[],
+                oldI,
+                newI,
+              ),
+            )
+          : null,
+    );
+  }
+
   /// 카테고리 long-press 메뉴 — 그룹 이동 / 삭제.
   Future<void> _showCategoryMenu(Category category, List<Group> groups) async {
     final action = await showModalBottomSheet<String>(
@@ -325,43 +384,21 @@ class _ManageDrawerState extends ConsumerState<ManageDrawer> {
             _EmptyHint(text: '여기로 드래그하면 그룹에서 빼요'),
         ],
       ),
-      for (final g in groups) ...[
-        _GroupDropHeader(
-          group: g,
-          collapsed: _expandedGroupId != g.id,
-          hovering: _hoverTarget == g.id,
-          // 본문 탭 — 그 그룹만 펼치고(나머지는 닫힘) 상세 진입.
-          // onSelectGroup 미주입(이전 호환) 시엔 펼침 토글로 fallback.
-          onSelect: () {
-            if (widget.onSelectGroup != null) {
-              setState(() => _expandedGroupId = g.id);
-              widget.onSelectGroup!(g);
-            } else {
-              _toggle(g.id);
-            }
-          },
-          onToggleCollapse: () => _toggle(g.id),
-          onLongPress: () => _showGroupMenu(g),
-          onWillAccept: () => setState(() => _hoverTarget = g.id),
-          onLeave: () => setState(() => _hoverTarget = null),
-          onAccept: (cat) {
-            setState(() => _hoverTarget = null);
-            _applyMove(cat, g.id);
-          },
+      // 그룹 섹션들 — 헤더의 드래그 핸들(⠿)로 그룹 순서 변경(ReorderableListView).
+      // 바깥 ListView 안에 들어가므로 shrinkWrap + NeverScrollable.
+      if (groups.isNotEmpty)
+        ReorderableListView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          onReorder: (oldI, newI) => _reorderGroups(groups, oldI, newI),
+          proxyDecorator: (child, index, animation) =>
+              Material(color: Colors.transparent, child: child),
+          children: [
+            for (final entry in groups.asMap().entries)
+              _buildGroupSection(entry.key, entry.value, groups, byGroup),
+          ],
         ),
-        if (_expandedGroupId == g.id)
-          _ReorderableCategoryList(
-            siblings: byGroup[g.id] ?? const <Category>[],
-            group: g,
-            onTapCategory: (c) => widget.onSelectCategory?.call(c),
-            onMenuCategory: (c) => _showCategoryMenu(c, groups),
-            onReorder: (oldI, newI) => _reorderInGroup(
-              byGroup[g.id] ?? const <Category>[],
-              oldI,
-              newI,
-            ),
-          ),
-      ],
       const SizedBox(height: AppTokens.space12),
     ];
 
@@ -668,6 +705,63 @@ class _DragFeedback extends StatelessWidget {
   }
 }
 
+/// 그룹 한 섹션 — 헤더(+드래그 핸들) + 펼침 시 카테고리 리스트. 그룹
+/// [ReorderableListView] 의 한 아이템이며, key 와 [reorderIndex] 로 순서 변경을
+/// 연결한다. 헤더만 들고 본문은 [categoryList] 로 주입받아 합성한다.
+class _GroupSection extends StatelessWidget {
+  const _GroupSection({
+    super.key,
+    required this.group,
+    required this.reorderIndex,
+    required this.collapsed,
+    required this.hovering,
+    required this.onSelect,
+    required this.onToggleCollapse,
+    required this.onLongPress,
+    required this.onWillAccept,
+    required this.onLeave,
+    required this.onAccept,
+    required this.categoryList,
+  });
+
+  final Group group;
+  final int reorderIndex;
+  final bool collapsed;
+  final bool hovering;
+  final VoidCallback onSelect;
+  final VoidCallback onToggleCollapse;
+  final VoidCallback onLongPress;
+  final VoidCallback onWillAccept;
+  final VoidCallback onLeave;
+  final ValueChanged<Category> onAccept;
+
+  /// 펼침 상태면 카테고리 ReorderableList, 아니면 null.
+  final Widget? categoryList;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _GroupDropHeader(
+          group: group,
+          reorderIndex: reorderIndex,
+          collapsed: collapsed,
+          hovering: hovering,
+          onSelect: onSelect,
+          onToggleCollapse: onToggleCollapse,
+          onLongPress: onLongPress,
+          onWillAccept: onWillAccept,
+          onLeave: onLeave,
+          onAccept: onAccept,
+        ),
+        ?categoryList,
+      ],
+    );
+  }
+}
+
 /// 그룹 헤더 — DragTarget. 카테고리를 드롭하면 그 그룹으로 이동(E).
 ///
 /// A안: 본문 탭 = 그룹 화면 진입([onSelect]), 우측 chevron 탭 = 접힘 토글
@@ -675,6 +769,7 @@ class _DragFeedback extends StatelessWidget {
 class _GroupDropHeader extends StatelessWidget {
   const _GroupDropHeader({
     required this.group,
+    required this.reorderIndex,
     required this.collapsed,
     required this.hovering,
     required this.onSelect,
@@ -686,6 +781,9 @@ class _GroupDropHeader extends StatelessWidget {
   });
 
   final Group group;
+
+  /// 그룹 [ReorderableListView] 안에서의 인덱스 — 드래그 핸들이 사용.
+  final int reorderIndex;
   final bool collapsed;
   final bool hovering;
   final VoidCallback onSelect;
@@ -766,6 +864,19 @@ class _GroupDropHeader extends StatelessWidget {
                       ),
                       tooltip: collapsed ? '펼치기' : '접기',
                       onPressed: onToggleCollapse,
+                    ),
+                    // 드래그 핸들 — 그룹 순서 변경. 헤더 본문 탭/롱프레스/드롭타겟과
+                    // 별개 제스처라 충돌하지 않는다.
+                    ReorderableDragStartListener(
+                      index: reorderIndex,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: AppTokens.space4),
+                        child: Icon(
+                          Icons.drag_indicator,
+                          size: 18,
+                          color: scheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
                     ),
                   ],
                 ),

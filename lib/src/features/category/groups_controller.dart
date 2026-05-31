@@ -24,6 +24,24 @@ class GroupsController {
   /// id 기준 삭제. 속한 카테고리는 미분류로 이동 (차단 없음). 반환값 = 영향받은
   /// 그룹 row 수 (이미 없으면 0 — idempotent).
   Future<int> delete(String id) => _repo.deleteById(id);
+
+  /// 그룹 순서 변경 (drawer 의 드래그 핸들). [ordered] 는 현재 화면에 보이는 순서의
+  /// 그룹 리스트. [ReorderableListView] 의 (oldIndex, newIndex) 규약을 받아 재배열한 뒤
+  /// **sortOrder 가 실제로 바뀐 그룹만** upsert 한다 (sync outbox 경유).
+  /// 카테고리의 [CategoriesController.reorderInGroup] 미러.
+  Future<void> reorder(List<Group> ordered, int oldIndex, int newIndex) async {
+    final list = [...ordered];
+    if (oldIndex < 0 || oldIndex >= list.length) return;
+    if (newIndex > oldIndex) newIndex -= 1;
+    final moved = list.removeAt(oldIndex);
+    list.insert(newIndex.clamp(0, list.length), moved);
+    for (var i = 0; i < list.length; i++) {
+      final g = list[i];
+      if (g.sortOrder != i) {
+        await _repo.upsert(g.copyWith(sortOrder: i));
+      }
+    }
+  }
 }
 
 /// 전체 그룹 stream — sidebar 가 watch.

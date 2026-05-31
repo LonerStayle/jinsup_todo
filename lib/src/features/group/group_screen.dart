@@ -23,6 +23,7 @@ class GroupScreen extends StatelessWidget {
     final theme = Theme.of(context);
     return DefaultTabController(
       length: 2,
+      initialIndex: 1, // 디폴트 = '전체보기' 탭
       child: Column(
         children: [
           Padding(
