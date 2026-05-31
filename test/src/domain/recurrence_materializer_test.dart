@@ -226,6 +226,42 @@ void main() {
       expect(idx['m1'], {dt(2026, 1, 2)}); // 마스터의 anchor(1/1)은 제외
     });
 
+    test('findMaster: 인스턴스 → seriesId 로 마스터 조회', () {
+      final m = master(
+        rule: const RecurrenceRule(freq: RecurrenceFreq.daily),
+        dueAt: dt(2026, 1, 1),
+      );
+      final inst = Todo(
+        id: 'm1#20260102',
+        title: '반복 할일',
+        category: Category.work,
+        dueAt: dt(2026, 1, 2),
+        doneAt: null,
+        createdAt: dt(2026, 1, 2),
+        updatedAt: dt(2026, 1, 2),
+        seriesId: 'm1',
+      );
+      expect(RecurrenceMaterializer.findMaster([m, inst], inst), m);
+      // 마스터 자체를 넣으면 자기 자신.
+      expect(RecurrenceMaterializer.findMaster([m, inst], m), m);
+    });
+
+    test('findMaster: 비반복 또는 마스터 없으면 null', () {
+      final plain = Todo(
+        id: 'p',
+        title: '일반',
+        category: Category.work,
+        dueAt: dt(2026, 1, 1),
+        doneAt: null,
+        createdAt: dt(2026, 1, 1),
+        updatedAt: dt(2026, 1, 1),
+      );
+      expect(RecurrenceMaterializer.findMaster([plain], plain), isNull);
+      // seriesId 는 있으나 마스터가 목록에 없음.
+      final orphan = plain.copyWith(seriesId: 'gone');
+      expect(RecurrenceMaterializer.findMaster([orphan], orphan), isNull);
+    });
+
     test('activeMasters: 마스터만', () {
       final m = master(
         rule: const RecurrenceRule(freq: RecurrenceFreq.daily),

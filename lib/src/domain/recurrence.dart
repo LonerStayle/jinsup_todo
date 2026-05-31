@@ -172,6 +172,46 @@ class RecurrenceRule {
     return 'RRULE:$body;UNTIL=$stamp';
   }
 
+  // ── 사람용 한국어 요약 ──────────────────────────────────────────────────────
+
+  /// 규칙을 한국어 한 줄로 요약. UI(편집 시트·상세·반복 관리)가 공유.
+  /// 예: "매일", "2주마다 (월·수)", "매월 · 2026.12.31 까지".
+  /// [until] 이 있으면 "· yyyy.MM.dd 까지" 를 덧붙인다.
+  String describe({DateTime? until}) {
+    final String base;
+    if (interval == 1) {
+      base = switch (freq) {
+        RecurrenceFreq.daily => '매일',
+        RecurrenceFreq.weekly => '매주',
+        RecurrenceFreq.monthly => '매월',
+        RecurrenceFreq.yearly => '매년',
+      };
+    } else {
+      final unit = switch (freq) {
+        RecurrenceFreq.daily => '일',
+        RecurrenceFreq.weekly => '주',
+        RecurrenceFreq.monthly => '개월',
+        RecurrenceFreq.yearly => '년',
+      };
+      base = '$interval$unit마다';
+    }
+
+    final parts = <String>[base];
+    if (freq == RecurrenceFreq.weekly && byWeekday.isNotEmpty) {
+      const labels = ['월', '화', '수', '목', '금', '토', '일'];
+      final days = (byWeekday.toList()..sort())
+          .map((wd) => labels[wd - 1])
+          .join('·');
+      parts.add('($days)');
+    }
+    var summary = parts.join(' ');
+    if (until != null) {
+      final u = until.toLocal();
+      summary = '$summary · ${_p4(u.year)}.${_p2(u.month)}.${_p2(u.day)} 까지';
+    }
+    return summary;
+  }
+
   // ── 동등성 ────────────────────────────────────────────────────────────────
 
   @override

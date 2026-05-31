@@ -126,7 +126,7 @@ class _MasterCard extends StatelessWidget {
                   Text(
                     rule == null
                         ? '반복'
-                        : describeRecurrence(rule, master.recurrenceEndAt),
+                        : rule.describe(until: master.recurrenceEndAt),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurface.withValues(alpha: 0.7),
                     ),
@@ -145,29 +145,4 @@ class _MasterCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 반복 규칙을 한국어 한 줄로 요약. 예: "2주마다 (월·수) · 2026.12.31 까지".
-String describeRecurrence(RecurrenceRule rule, DateTime? endAt) {
-  const unit = {
-    RecurrenceFreq.daily: '일',
-    RecurrenceFreq.weekly: '주',
-    RecurrenceFreq.monthly: '개월',
-    RecurrenceFreq.yearly: '년',
-  };
-  const weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
-
-  final n = rule.interval;
-  final base = n == 1 ? '매${unit[rule.freq]}' : '$n${unit[rule.freq]}마다';
-
-  final parts = <String>[base];
-  if (rule.freq == RecurrenceFreq.weekly && rule.byWeekday.isNotEmpty) {
-    final days = (rule.byWeekday.toList()..sort())
-        .map((wd) => weekdayLabels[wd - 1])
-        .join('·');
-    parts.add('($days)');
-  }
-  var summary = parts.join(' ');
-  if (endAt != null) summary = '$summary · ${KoDate.shortDate(endAt)} 까지';
-  return summary;
 }

@@ -188,6 +188,59 @@ void main() {
     });
   });
 
+  group('describe (한국어 요약)', () {
+    test('n=1 주기별', () {
+      expect(const RecurrenceRule(freq: RecurrenceFreq.daily).describe(), '매일');
+      expect(
+        const RecurrenceRule(freq: RecurrenceFreq.weekly).describe(),
+        '매주',
+      );
+      expect(
+        const RecurrenceRule(freq: RecurrenceFreq.monthly).describe(),
+        '매월',
+      );
+      expect(
+        const RecurrenceRule(freq: RecurrenceFreq.yearly).describe(),
+        '매년',
+      );
+    });
+
+    test('n>1 간격 — 매월은 "개월마다"', () {
+      expect(
+        const RecurrenceRule(
+          freq: RecurrenceFreq.daily,
+          interval: 3,
+        ).describe(),
+        '3일마다',
+      );
+      expect(
+        const RecurrenceRule(
+          freq: RecurrenceFreq.monthly,
+          interval: 2,
+        ).describe(),
+        '2개월마다',
+      );
+    });
+
+    test('weekly + 요일', () {
+      final r = RecurrenceRule(
+        freq: RecurrenceFreq.weekly,
+        interval: 2,
+        byWeekday: const {DateTime.monday, DateTime.wednesday},
+      );
+      expect(r.describe(), '2주마다 (월·수)');
+    });
+
+    test('종료일 덧붙임', () {
+      expect(
+        const RecurrenceRule(
+          freq: RecurrenceFreq.monthly,
+        ).describe(until: DateTime(2026, 12, 31)),
+        '매월 · 2026.12.31 까지',
+      );
+    });
+  });
+
   group('동등성', () {
     test('같은 규칙은 ==', () {
       expect(

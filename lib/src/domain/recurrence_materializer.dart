@@ -70,6 +70,19 @@ class RecurrenceMaterializer {
   static List<Todo> activeMasters(List<Todo> all) =>
       all.where((t) => t.isRecurringMaster).toList();
 
+  /// 반복 항목([item], 인스턴스 또는 마스터)이 속한 시리즈의 마스터를 [all] 에서 찾는다.
+  /// [item] 자체가 마스터면 그대로 반환. 시리즈 외 항목이거나 마스터가 없으면 null.
+  /// "반복 중지"(마스터 삭제) 진입점이 사용 — 인스턴스에서 규칙 보유 마스터로 거슬러 올라간다.
+  static Todo? findMaster(List<Todo> all, Todo item) {
+    final sid = item.seriesId;
+    if (sid == null) return null;
+    if (item.isRecurringMaster) return item;
+    for (final t in all) {
+      if (t.id == sid && t.isRecurringMaster) return t;
+    }
+    return null;
+  }
+
   /// 전체 Todo 목록에서 인스턴스의 발생일(local date-only)을 seriesId 별로 인덱싱.
   /// (마스터 자신은 제외 — 마스터의 dueAt 은 anchor 이지 인스턴스 발생분이 아니다.)
   static Map<String, Set<DateTime>> indexExistingInstanceDates(List<Todo> all) {
