@@ -144,6 +144,19 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
   /// v1.1 — 추가할 항목의 종류. note 면 일정/캘린더 영역은 비활성 (의미 없음).
   TodoType _type = TodoType.task;
 
+  /// date-repeat — 반복 주기. null = 반복 안 함(단발). non-null 이면 마스터로 저장.
+  /// 추가 모드 전용 (편집 모드에서 규칙 수정은 별도 동작 — PRD FR-6).
+  RecurrenceFreq? _recurrenceFreq;
+
+  /// 반복 N간격 (1 이상). 예: weekly + 2 = 격주.
+  int _recurrenceInterval = 1;
+
+  /// weekly 전용 — 반복 요일 집합(1=월..7=일). 비면 anchor 요일.
+  final Set<int> _recurrenceWeekdays = {};
+
+  /// 반복 종료일(선택). null = 무한.
+  DateTime? _recurrenceEndAt;
+
   /// v1.2 — 상세 메모 펼침/접힘. default 접힘. description 가 비어있지 않으면 펼침.
   bool _showDescription = false;
 
@@ -212,6 +225,48 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
     _titleCtrl.dispose();
     _descriptionCtrl.dispose();
     super.dispose();
+  }
+
+  // ── date-repeat — 반복 규칙 핸들러 ─────────────────────────────────────────
+  void _setRecurrenceFreq(RecurrenceFreq? freq) {
+    setState(() {
+      _recurrenceFreq = freq;
+      if (freq == null) {
+        // 반복 해제 — 부속 상태 초기화.
+        _recurrenceInterval = 1;
+        _recurrenceWeekdays.clear();
+        _recurrenceEndAt = null;
+      } else if (freq == RecurrenceFreq.weekly && _recurrenceWeekdays.isEmpty) {
+        // 매주 선택 시 기본으로 dueAt 요일을 켜둔다(빈 집합도 허용되지만 시각 신호).
+        final d = _dueAt;
+        if (d != null) _recurrenceWeekdays.add(d.weekday);
+      }
+    });
+  }
+
+  void _setRecurrenceInterval(int value) {
+    setState(() => _recurrenceInterval = value < 1 ? 1 : value);
+  }
+
+  void _toggleRecurrenceWeekday(int weekday) {
+    setState(() {
+      if (_recurrenceWeekdays.contains(weekday)) {
+        _recurrenceWeekdays.remove(weekday);
+      } else {
+        _recurrenceWeekdays.add(weekday);
+      }
+    });
+  }
+
+  Future<void> _pickRecurrenceEnd() async {
+    final base = _recurrenceEndAt ?? _dueAt ?? (widget.now ?? DateTime.now)();
+    final picked = await _pickDate(base);
+    if (picked != null) {
+      setState(
+        () =>
+            _recurrenceEndAt = DateTime(picked.year, picked.month, picked.day),
+      );
+    }
   }
 
   /// 현재 모드/state → 직렬화 4-tuple. note 면 모두 무효 (dueAt=null).
@@ -301,6 +356,18 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
       return;
     }
 
+    // date-repeat — 반복 규칙(추가 모드 + task + 주기 선택 시). dueAt 없으면 무의미.
+    final recurrence =
+        (!isNote && _recurrenceFreq != null && date.dueAt != null)
+        ? RecurrenceRule(
+            freq: _recurrenceFreq!,
+            interval: _recurrenceInterval < 1 ? 1 : _recurrenceInterval,
+            byWeekday: _recurrenceFreq == RecurrenceFreq.weekly
+                ? {..._recurrenceWeekdays}
+                : const {},
+          )
+        : null;
+
     // add 모드 — note 는 일정/캘린더 모두 강제 null/false.
     widget.onSubmit(
       AddTodoSubmission(
@@ -314,6 +381,8 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
         type: _type,
         description: descOrNull,
         parentId: widget.parentId,
+        recurrence: recurrence,
+        recurrenceEndAt: recurrence == null ? null : _recurrenceEndAt,
       ),
     );
     Navigator.of(context).maybePop();
@@ -839,6 +908,25 @@ class _AddTodoSheetState extends ConsumerState<AddTodoSheet> {
                               ),
                             ),
                     ),
+                    // date-repeat — 반복 규칙 (추가 모드 + 날짜 지정 시에만).
+                    // 편집 모드에서 규칙 수정은 별도 동작이라 노출하지 않는다 (PRD FR-6).
+                    if (!_isEditMode && _dueAt != null) ...[
+                      const SizedBox(height: AppTokens.space16),
+                      _SectionLabel(text: '반복'),
+                      const SizedBox(height: AppTokens.space8),
+                      _RecurrenceSection(
+                        freq: _recurrenceFreq,
+                        interval: _recurrenceInterval,
+                        weekdays: _recurrenceWeekdays,
+                        endAt: _recurrenceEndAt,
+                        onSelectFreq: _setRecurrenceFreq,
+                        onChangeInterval: _setRecurrenceInterval,
+                        onToggleWeekday: _toggleRecurrenceWeekday,
+                        onPickEnd: _pickRecurrenceEnd,
+                        onClearEnd: () =>
+                            setState(() => _recurrenceEndAt = null),
+                      ),
+                    ],
                   ],
                   const SizedBox(height: AppTokens.space20),
                   _Actions(
@@ -1250,6 +1338,238 @@ class _CalendarToggle extends StatelessWidget {
         ),
         Switch(value: value, onChanged: onChanged),
       ],
+    );
+  }
+}
+
+/// date-repeat — 반복 규칙 입력. 주기 칩(안 함/매일/매주/매월/매년) + N간격 스텝퍼
+/// + (매주) 요일 칩 + 종료일(선택). 컴팩트하게 한 섹션에 묶는다.
+class _RecurrenceSection extends StatelessWidget {
+  const _RecurrenceSection({
+    required this.freq,
+    required this.interval,
+    required this.weekdays,
+    required this.endAt,
+    required this.onSelectFreq,
+    required this.onChangeInterval,
+    required this.onToggleWeekday,
+    required this.onPickEnd,
+    required this.onClearEnd,
+  });
+
+  final RecurrenceFreq? freq;
+  final int interval;
+  final Set<int> weekdays;
+  final DateTime? endAt;
+  final ValueChanged<RecurrenceFreq?> onSelectFreq;
+  final ValueChanged<int> onChangeInterval;
+  final ValueChanged<int> onToggleWeekday;
+  final VoidCallback onPickEnd;
+  final VoidCallback onClearEnd;
+
+  static const _freqLabels = {
+    RecurrenceFreq.daily: '매일',
+    RecurrenceFreq.weekly: '매주',
+    RecurrenceFreq.monthly: '매월',
+    RecurrenceFreq.yearly: '매년',
+  };
+
+  static const _unit = {
+    RecurrenceFreq.daily: '일',
+    RecurrenceFreq.weekly: '주',
+    RecurrenceFreq.monthly: '개월',
+    RecurrenceFreq.yearly: '년',
+  };
+
+  static const _weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 주기 선택 칩.
+        Wrap(
+          spacing: AppTokens.space8,
+          runSpacing: AppTokens.space8,
+          children: [
+            _RecurChip(
+              key: const ValueKey('recur-freq-none'),
+              label: '안 함',
+              selected: freq == null,
+              onTap: () => onSelectFreq(null),
+            ),
+            for (final f in RecurrenceFreq.values)
+              _RecurChip(
+                key: ValueKey('recur-freq-${f.name}'),
+                label: _freqLabels[f]!,
+                selected: freq == f,
+                onTap: () => onSelectFreq(f),
+              ),
+          ],
+        ),
+        if (freq != null) ...[
+          const SizedBox(height: AppTokens.space12),
+          // N간격 스텝퍼 — "N(일/주/개월/년)마다".
+          Row(
+            children: [
+              Text('간격', style: theme.textTheme.bodyMedium),
+              const SizedBox(width: AppTokens.space12),
+              _StepperButton(
+                key: const ValueKey('recur-interval-minus'),
+                icon: Icons.remove_rounded,
+                onTap: interval > 1
+                    ? () => onChangeInterval(interval - 1)
+                    : null,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTokens.space12,
+                ),
+                child: Text(
+                  '$interval${_unit[freq]!}마다',
+                  key: const ValueKey('recur-interval-label'),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _StepperButton(
+                key: const ValueKey('recur-interval-plus'),
+                icon: Icons.add_rounded,
+                onTap: () => onChangeInterval(interval + 1),
+              ),
+            ],
+          ),
+          // 매주 — 요일 선택 칩.
+          if (freq == RecurrenceFreq.weekly) ...[
+            const SizedBox(height: AppTokens.space12),
+            Wrap(
+              spacing: AppTokens.space8,
+              runSpacing: AppTokens.space8,
+              children: [
+                for (var wd = 1; wd <= 7; wd++)
+                  _RecurChip(
+                    key: ValueKey('recur-weekday-$wd'),
+                    label: _weekdayLabels[wd - 1],
+                    selected: weekdays.contains(wd),
+                    onTap: () => onToggleWeekday(wd),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: AppTokens.space12),
+          // 종료일(선택).
+          Row(
+            children: [
+              Icon(
+                Icons.event_busy_outlined,
+                size: 18,
+                color: scheme.onSurface.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: AppTokens.space8),
+              Expanded(
+                child: TextButton(
+                  key: const ValueKey('recur-end-pick'),
+                  onPressed: onPickEnd,
+                  style: TextButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppTokens.space8,
+                    ),
+                  ),
+                  child: Text(
+                    endAt == null
+                        ? '종료일 없음 (계속 반복)'
+                        : '${KoDate.short(endAt!)} 까지',
+                  ),
+                ),
+              ),
+              if (endAt != null)
+                IconButton(
+                  key: const ValueKey('recur-end-clear'),
+                  onPressed: onClearEnd,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  tooltip: '종료일 지우기',
+                  visualDensity: VisualDensity.compact,
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// 반복 섹션 전용 선택 칩 (주기·요일 공용).
+class _RecurChip extends StatelessWidget {
+  const _RecurChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Material(
+      color: selected ? scheme.primary : scheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space16,
+            vertical: AppTokens.space8,
+          ),
+          child: Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: selected ? scheme.onPrimary : scheme.onSurface,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// N간격 +/- 스텝퍼 버튼. [onTap] null 이면 비활성.
+class _StepperButton extends StatelessWidget {
+  const _StepperButton({super.key, required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final enabled = onTap != null;
+    return Material(
+      color: scheme.surfaceContainerHighest,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(AppTokens.space8),
+          child: Icon(
+            icon,
+            size: 18,
+            color: scheme.onSurface.withValues(alpha: enabled ? 0.9 : 0.3),
+          ),
+        ),
+      ),
     );
   }
 }
