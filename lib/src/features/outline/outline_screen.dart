@@ -10,12 +10,14 @@ import '../../ui/widgets/empty_state.dart';
 import '../category/categories_controller.dart';
 import '../category/groups_controller.dart';
 import '../todo_actions/todo_actions_controller.dart';
+import '../todo_detail/todo_detail_screen.dart';
 import 'tree_providers.dart';
 
 /// 전체 트리 view — **그룹 → 카테고리 → 태스크** 계층으로 펼침/접힘 표시.
 ///
 /// v1.4 (Task D) — 상단 탭 2개로 분리:
-///   - **체크리스트**: task 트리만 (note 제외). 그룹 헤더 → 카테고리 root + task 자식.
+///   - **체크리스트**: task root 만 (note 제외). 그룹 헤더 → 카테고리 root 목록.
+///     root 탭 → 상세 화면(TodoDetailScreen) 으로 드릴다운 (인라인 펼침 대체).
 ///   - **메모**: note 만 그룹 → 카테고리 섹션으로 평탄 나열 (체크 개념 없음).
 ///
 /// 작업 3 (L) — 카테고리만 평면 나열하던 것을 그룹 계층으로 확장. '미분류' 카테고리는
@@ -271,8 +273,9 @@ class _ChecklistTab extends ConsumerStatefulWidget {
 
 class _ChecklistTabState extends ConsumerState<_ChecklistTab>
     with AutomaticKeepAliveClientMixin {
-  /// "접힌" 노드 id 모음 — default 가 펼침 상태. id 가 set 에 있으면 접힌 상태.
-  /// 그룹 헤더는 `grp:<id>`, 카테고리 헤더는 `cat:work`, todo 는 그대로 todo.id.
+  /// "접힌" 섹션 id 모음 — default 가 펼침 상태. id 가 set 에 있으면 접힌 상태.
+  /// 그룹 헤더는 `grp:<id>`, 카테고리 헤더는 `cat:work`. (task 노드는 인라인 펼침
+  /// 대신 상세 화면 드릴다운으로 이동하므로 더 이상 토글 대상이 아니다.)
   final Set<String> _collapsed = {};
 
   bool _expanded(String id) => !_collapsed.contains(id);
@@ -290,12 +293,8 @@ class _ChecklistTabState extends ConsumerState<_ChecklistTab>
   bool get wantKeepAlive => true;
 
   /// 한 카테고리 트리 위젯 (그룹 안/미분류 공통).
-  Widget _category(Category c) => _OutlineCategory(
-    category: c,
-    collapsed: _collapsed,
-    expanded: _expanded,
-    onToggle: _toggle,
-  );
+  Widget _category(Category c) =>
+      _OutlineCategory(category: c, expanded: _expanded, onToggle: _toggle);
 
   /// 체크리스트(= task root) 가 하나라도 있는 카테고리 id 집합만 통과시킨다.
   /// 메모만 있거나 완전히 빈 카테고리는 체크리스트 탭에서 숨긴다 (사용자 요청).
@@ -388,13 +387,11 @@ class _ChecklistTabState extends ConsumerState<_ChecklistTab>
 class _OutlineCategory extends ConsumerWidget {
   const _OutlineCategory({
     required this.category,
-    required this.collapsed,
     required this.expanded,
     required this.onToggle,
   });
 
   final Category category;
-  final Set<String> collapsed;
   final bool Function(String id) expanded;
   final void Function(String id) onToggle;
 
@@ -455,15 +452,7 @@ class _OutlineCategory extends ConsumerWidget {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final r in roots)
-                      _OutlineNode(
-                        node: r,
-                        collapsed: collapsed,
-                        expanded: expanded,
-                        onToggle: onToggle,
-                      ),
-                  ],
+                  children: [for (final r in roots) _OutlineNode(node: r)],
                 ),
               ),
           ],
@@ -541,26 +530,21 @@ class _CategoryRow extends StatelessWidget {
   }
 }
 
+/// 한 task root / note 헤딩 행. 탭 → 상세 화면(TodoDetailScreen) 으로 이동한다.
+///
+/// 하위가 있으면 인라인으로 펼치지 않고 상세 화면에서 자식 체크리스트를 드릴다운으로
+/// 본다 (home / 카테고리 화면과 동일한 "기능 M" 드릴다운 패턴 — 인라인 트리 대체).
 class _OutlineNode extends ConsumerWidget {
-  const _OutlineNode({
-    required this.node,
-    required this.collapsed,
-    required this.expanded,
-    required this.onToggle,
-  });
+  const _OutlineNode({required this.node});
 
   final Todo node;
-  final Set<String> collapsed;
-  final bool Function(String id) expanded;
-  final void Function(String id) onToggle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 체크리스트 탭 — task 자식 + task 자손 보유 note 헤딩(§14).
+    // 자손 보유 여부 — 드릴다운/진척 배지 판단용 (task 자식 + task 자손 보유 note §14).
     final children = ref.watch(childTasksOfProvider(node.id)).asData?.value;
     final allTodos = ref.watch(allTodosProvider).asData?.value;
     final isFolder = children != null && children.isNotEmpty;
-    final isExpanded = isFolder && expanded(node.id);
     final progress = isFolder && allTodos != null
         ? computeSubtreeProgress(node, allTodos)
         : null;
@@ -573,151 +557,114 @@ class _OutlineNode extends ConsumerWidget {
     // 날짜가 지정된 체크리스트 항목은 제목 아래에 날짜 라벨을 노출 (TodoTile 과 동일 출처).
     final dateLabel = isNote ? null : TodoDateLabel.format(node);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkWell(
-          key: ValueKey('outline-node-${node.id}'),
-          onTap: isFolder ? () => onToggle(node.id) : null,
-          borderRadius: BorderRadius.circular(AppTokens.radiusM),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.space4,
-              vertical: AppTokens.space2,
-            ),
-            child: Row(
-              children: [
-                // task = 큰 원형 체크박스. note 헤딩 = 메모 글리프(체크 불가).
-                if (isNote)
-                  Padding(
-                    key: ValueKey('outline-note-glyph-${node.id}'),
-                    padding: const EdgeInsets.all(AppTokens.space4),
-                    child: Icon(
-                      Icons.sticky_note_2_outlined,
-                      size: 22,
-                      color: NoteVisual.accent(node.category),
-                    ),
-                  )
-                else
-                  _CheckCircle(
-                    checkKey: ValueKey('outline-check-${node.id}'),
-                    done: isDone,
-                    color: node.category.color,
-                    onTap: () => ref.read(todoActionsProvider).toggle(node),
-                  ),
-                const SizedBox(width: AppTokens.space12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        node.title,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          height: 1.3,
-                          // note 헤딩은 굵게(섹션 제목). task 폴더 w600 / leaf w500.
-                          fontWeight: isNote
-                              ? FontWeight.w700
-                              : (isFolder ? FontWeight.w600 : FontWeight.w500),
-                          decoration: isDone
-                              ? TextDecoration.lineThrough
-                              : null,
-                          color: isDone
-                              ? scheme.onSurface.withValues(alpha: 0.4)
-                              : scheme.onSurface,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      // 날짜가 있으면 제목 아래에 카테고리색 캘린더 글리프 + 날짜.
-                      if (dateLabel != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: AppTokens.space2),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.event_rounded,
-                                size: 13,
-                                color: isDone
-                                    ? scheme.onSurfaceVariant.withValues(
-                                        alpha: 0.5,
-                                      )
-                                    : node.category.color,
-                              ),
-                              const SizedBox(width: AppTokens.space4),
-                              Text(
-                                dateLabel,
-                                key: ValueKey('outline-node-date-${node.id}'),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w400,
-                                  color: isDone
-                                      ? scheme.onSurface.withValues(alpha: 0.4)
-                                      : scheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (progress != null && progress.taskCount > 0) ...[
-                  const SizedBox(width: AppTokens.space8),
-                  _ProgressBadge(
-                    done: progress.doneCount,
-                    total: progress.taskCount,
-                    accent: node.category.color,
-                  ),
-                ],
-                // folder 펼침 화살표 — 우측에 두어 체크박스/제목 정렬을 깨지 않는다.
-                if (isFolder)
-                  Padding(
-                    padding: const EdgeInsets.only(left: AppTokens.space4),
-                    child: AnimatedRotation(
-                      turns: isExpanded ? 0 : -0.25,
-                      duration: AppTokens.motionFast,
-                      child: Icon(
-                        Icons.expand_more_rounded,
-                        size: 22,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+    // 행 탭 → 상세 화면 이동. 하위가 있으면 거기서 자식 체크리스트를 드릴다운.
+    void openDetail() => Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => TodoDetailScreen(parent: node)),
+    );
+
+    return InkWell(
+      key: ValueKey('outline-node-${node.id}'),
+      onTap: openDetail,
+      borderRadius: BorderRadius.circular(AppTokens.radiusM),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTokens.space4,
+          vertical: AppTokens.space2,
         ),
-        // 자식 — 카테고리 색 가이드 레일로 깊이를 시각화 (트리 연결선).
-        if (isExpanded)
-          Padding(
-            padding: const EdgeInsets.only(left: AppTokens.space16),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border(
-                  left: BorderSide(
-                    color: node.category.color.withValues(alpha: 0.28),
-                    width: 2,
-                  ),
+        child: Row(
+          children: [
+            // task = 큰 원형 체크박스. note 헤딩 = 메모 글리프(체크 불가).
+            if (isNote)
+              Padding(
+                key: ValueKey('outline-note-glyph-${node.id}'),
+                padding: const EdgeInsets.all(AppTokens.space4),
+                child: Icon(
+                  Icons.sticky_note_2_outlined,
+                  size: 22,
+                  color: NoteVisual.accent(node.category),
                 ),
+              )
+            else
+              _CheckCircle(
+                checkKey: ValueKey('outline-check-${node.id}'),
+                done: isDone,
+                color: node.category.color,
+                onTap: () => ref.read(todoActionsProvider).toggle(node),
               ),
-              child: Padding(
-                padding: const EdgeInsets.only(left: AppTokens.space8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final c in children)
-                      _OutlineNode(
-                        node: c,
-                        collapsed: collapsed,
-                        expanded: expanded,
-                        onToggle: onToggle,
+            const SizedBox(width: AppTokens.space12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    node.title,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      height: 1.3,
+                      // note 헤딩은 굵게(섹션 제목). task 폴더 w600 / leaf w500.
+                      fontWeight: isNote
+                          ? FontWeight.w700
+                          : (isFolder ? FontWeight.w600 : FontWeight.w500),
+                      decoration: isDone ? TextDecoration.lineThrough : null,
+                      color: isDone
+                          ? scheme.onSurface.withValues(alpha: 0.4)
+                          : scheme.onSurface,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  // 날짜가 있으면 제목 아래에 카테고리색 캘린더 글리프 + 날짜.
+                  if (dateLabel != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppTokens.space2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.event_rounded,
+                            size: 13,
+                            color: isDone
+                                ? scheme.onSurfaceVariant.withValues(alpha: 0.5)
+                                : node.category.color,
+                          ),
+                          const SizedBox(width: AppTokens.space4),
+                          Text(
+                            dateLabel,
+                            key: ValueKey('outline-node-date-${node.id}'),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w400,
+                              color: isDone
+                                  ? scheme.onSurface.withValues(alpha: 0.4)
+                                  : scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
-          ),
-      ],
+            if (progress != null && progress.taskCount > 0) ...[
+              const SizedBox(width: AppTokens.space8),
+              _ProgressBadge(
+                done: progress.doneCount,
+                total: progress.taskCount,
+                accent: node.category.color,
+              ),
+            ],
+            // 상세 이동 표시 — 하위가 있으면 진한 chevron, leaf 는 옅게.
+            Padding(
+              padding: const EdgeInsets.only(left: AppTokens.space4),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 22,
+                color: isFolder
+                    ? scheme.onSurfaceVariant
+                    : scheme.onSurfaceVariant.withValues(alpha: 0.4),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
