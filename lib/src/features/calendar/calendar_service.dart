@@ -1,79 +1,66 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/calendar/v3.dart' as gcal;
-import 'package:http/http.dart' as http;
 
 import '../../domain/todo.dart';
 import 'google_auth_service.dart';
 
 /// Google Calendar API wrapper. Todo ↔ Event 매핑 단일 출처.
 ///
-/// 사용자가 [Todo.dueAt] 을 채운 채로 AddTodoSheet 의 "Calendar 등록" 토글을 켜면
-/// AddTodoController 가 이 서비스를 호출 (다음 task 에서 wiring).
+/// 인증은 [CalendarAuth] 가 플랫폼별로(macOS=데스크톱 OAuth, Android=google_sign_in)
+/// 책임지고, 이 서비스는 인증된 [http.Client] 만 받아 Calendar API 를 호출한다.
 class CalendarService {
   CalendarService(this._auth);
 
-  final GoogleAuthService _auth;
+  final CalendarAuth _auth;
 
   /// Todo 의 dueAt 기반 이벤트 생성. dueAt 이 null 이면 null 반환.
-  /// [isAllDay] true 면 시간 없는 종일 이벤트로 등록 (Google Calendar 의 `date` 필드).
-  /// 사용자가 OAuth 인증을 거부/실패하면 예외 전파 — 호출자가 graceful 처리.
+  /// 사용자가 OAuth 인증을 거부/실패하면 null (호출자가 graceful 처리).
   Future<String?> createEventForTodo(Todo todo, {bool isAllDay = false}) async {
     if (todo.dueAt == null) return null;
-
-    final account = await _auth.tryRestore() ?? await _auth.signIn();
-    final api = await _apiFor(account);
-    if (api == null) return null;
-
-    final event = _toEvent(todo, isAllDay: isAllDay);
+    final client = await _auth.authedClient();
+    if (client == null) return null;
     try {
-      final created = await api.events.insert(event, 'primary');
+      final api = gcal.CalendarApi(client);
+      final created = await api.events.insert(
+        _toEvent(todo, isAllDay: isAllDay),
+        'primary',
+      );
       return created.id;
     } finally {
-      api.requester.close();
+      client.close();
     }
   }
 
-  /// 기존 캘린더 이벤트를 todo 의 최신 상태로 patch. dueAt 이 null 이 되면 이벤트 자체를
-  /// 삭제 (호출자가 [deleteEvent] 로 별도 처리해도 OK 하지만, 이 경로가 더 명확).
-  ///
-  /// 사용자가 OAuth 를 끊은 경우 등 인가 실패는 예외 전파.
+  /// 기존 캘린더 이벤트를 todo 의 최신 상태로 갱신. dueAt 이 null 이 되면 이벤트 삭제.
   Future<void> updateEventForTodo(Todo todo, String eventId) async {
     if (todo.dueAt == null) {
       await deleteEvent(eventId);
       return;
     }
-    final account = await _auth.tryRestore() ?? await _auth.signIn();
-    final api = await _apiFor(account);
-    if (api == null) return;
+    final client = await _auth.authedClient();
+    if (client == null) return;
     try {
+      final api = gcal.CalendarApi(client);
       await api.events.update(_toEvent(todo), 'primary', eventId);
     } finally {
-      api.requester.close();
+      client.close();
     }
   }
 
-  /// 캘린더 이벤트 삭제. 이미 삭제된 (404) 경우 silent — 멱등.
+  /// 캘린더 이벤트 삭제. 이미 삭제된 (404/410) 경우 silent — 멱등.
   Future<void> deleteEvent(String eventId) async {
-    final account = await _auth.tryRestore() ?? await _auth.signIn();
-    final api = await _apiFor(account);
-    if (api == null) return;
+    final client = await _auth.authedClient();
+    if (client == null) return;
     try {
+      final api = gcal.CalendarApi(client);
       await api.events.delete('primary', eventId);
     } on gcal.DetailedApiRequestError catch (e) {
       if (e.status == 404 || e.status == 410) return; // 이미 없음 — 멱등
       rethrow;
     } finally {
-      api.requester.close();
+      client.close();
     }
-  }
-
-  Future<_AuthedCalendarApi?> _apiFor(GoogleSignInAccount account) async {
-    final headers = await _auth.authHeadersForCalendar(account);
-    if (headers == null) return null;
-    final client = _GoogleAuthClient(headers);
-    return _AuthedCalendarApi(gcal.CalendarApi(client), client);
   }
 
   gcal.Event _toEvent(Todo todo, {bool isAllDay = false}) =>
@@ -136,35 +123,9 @@ class CalendarService {
   }
 }
 
-class _AuthedCalendarApi {
-  _AuthedCalendarApi(this._api, this.requester);
-  final gcal.CalendarApi _api;
-  final _GoogleAuthClient requester;
-  gcal.EventsResource get events => _api.events;
-}
-
-class _GoogleAuthClient extends http.BaseClient {
-  _GoogleAuthClient(this._headers);
-
-  final Map<String, String> _headers;
-  final http.Client _inner = http.Client();
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
-    request.headers.addAll(_headers);
-    return _inner.send(request);
-  }
-
-  @override
-  void close() {
-    _inner.close();
-    super.close();
-  }
-}
-
-/// CalendarService 인스턴스. GoogleAuthService 미설정 시 null.
+/// CalendarService 인스턴스. CalendarAuth 미설정 시 null.
 final calendarServiceProvider = Provider<CalendarService?>((ref) {
-  final auth = ref.watch(googleAuthServiceProvider);
+  final auth = ref.watch(calendarAuthProvider);
   return auth == null ? null : CalendarService(auth);
 });
 
@@ -180,7 +141,7 @@ Future<String?> tryCreateCalendarEvent(Ref ref, Todo todo) async {
   }
 }
 
-/// Todo 변경 시 (편집 / 삭제 흐름) 호출. eventId 가 있는 todo 만 처리.
+/// Todo 변경 시 (편집 흐름) 호출. eventId 가 있는 todo 만 처리.
 Future<void> tryUpdateCalendarEvent(Ref ref, Todo todo) async {
   final eventId = todo.calendarEventId;
   if (eventId == null) return;

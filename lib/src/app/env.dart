@@ -15,8 +15,22 @@ class Env {
   static const String googleOAuthClientIdDesktop = String.fromEnvironment(
     'GOOGLE_OAUTH_CLIENT_ID_DESKTOP',
   );
+
+  /// macOS 데스크톱 OAuth 플로우용 client secret ("Desktop app" 타입 클라이언트의 비밀).
+  /// googleapis_auth 데스크톱 플로우는 client_secret 을 토큰 교환에 사용한다.
+  static const String googleOAuthClientSecretDesktop = String.fromEnvironment(
+    'GOOGLE_OAUTH_CLIENT_SECRET_DESKTOP',
+  );
+
   static const String googleOAuthClientIdAndroid = String.fromEnvironment(
     'GOOGLE_OAUTH_CLIENT_ID_ANDROID',
+  );
+
+  /// Android google_sign_in 7.x 의 `serverClientId` — "웹 애플리케이션" 타입 OAuth
+  /// 클라이언트 ID. Credential Manager 가 토큰 교환에 요구한다 (없으면
+  /// "serverClientId must be provided on Android" 로 실패).
+  static const String googleOAuthServerClientId = String.fromEnvironment(
+    'GOOGLE_OAUTH_SERVER_CLIENT_ID',
   );
 
   // --- configured flags ---------------------------------------------------
