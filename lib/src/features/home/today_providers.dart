@@ -6,6 +6,7 @@ import '../../domain/policies/carryover_policy.dart';
 import '../../domain/policies/recurrence_dedup_policy.dart';
 import '../../domain/recurrence_materializer.dart';
 import '../../domain/todo.dart';
+import '../outline/tree_providers.dart';
 
 /// 오늘 화면에 보일 todos (visibility 적용된 list).
 ///
@@ -82,6 +83,21 @@ final recurrenceMaterializerProvider = Provider<void>((ref) {
     }
   });
   ref.onDispose(sub.cancel);
+});
+
+/// date-repeat — 활성 반복 마스터 목록 (반복 관리 화면용).
+///
+/// 마스터는 [VisibilityPolicy] 로 모든 일반 목록에서 숨겨지므로, 규칙 조회/해제는
+/// 이 provider 를 통해서만 접근한다(FR-6). dueAt(anchor) 오름차순.
+final recurringMastersProvider = Provider<List<Todo>>((ref) {
+  final all = ref.watch(allTodosProvider).asData?.value ?? const <Todo>[];
+  final masters = all.where((t) => t.isRecurringMaster).toList()
+    ..sort((a, b) {
+      final ad = a.dueAt, bd = b.dueAt;
+      if (ad != null && bd != null) return ad.compareTo(bd);
+      return a.createdAt.compareTo(b.createdAt);
+    });
+  return masters;
 });
 
 /// date-repeat — 오늘 화면용 dedup 결과 (FR-4).

@@ -30,6 +30,7 @@ List<Widget> todayCategorySectionSlivers({
   required void Function(Todo) onDelete,
   required void Function(List<Todo> siblings, int oldIndex, int newIndex)
   onReorderSiblings,
+  Map<String, int> hiddenCountBySeries = const {},
 }) {
   // parentId → 직속 자식 수 (드릴 배지 / 편집 분기 판정용).
   final childCounts = <String, int>{};

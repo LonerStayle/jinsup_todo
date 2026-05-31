@@ -22,6 +22,7 @@ class TodoTile extends StatelessWidget {
     this.onToggleExpand,
     this.childCount = 0,
     this.drillChildCount,
+    this.hiddenSeriesCount = 0,
   });
 
   final Todo todo;
@@ -56,6 +57,10 @@ class TodoTile extends StatelessWidget {
   /// 앞에 표시(드릴 가능 표시). 타일 탭이 상세 화면 push 임을 시각적으로 알린다.
   /// 인라인 펼침(isExpanded) 과는 상호 배타 — 드릴 리스트에서만 사용.
   final int? drillChildCount;
+
+  /// date-repeat (FR-4) — 같은 반복 시리즈의 숨겨진 미체크 건수. >0 이면 이 타일이
+  /// leader 이며 "외 N건" 묶음 배지를 표시한다. 0 이면 배지 없음.
+  final int hiddenSeriesCount;
 
   @override
   Widget build(BuildContext context) {
@@ -193,6 +198,16 @@ class TodoTile extends StatelessWidget {
                             color: scheme.onSurface.withValues(alpha: 0.55),
                           ),
                         ],
+                        // date-repeat (FR-7) — 반복 시리즈 항목임을 알리는 아이콘.
+                        if (!isNote && todo.isInRecurringSeries) ...[
+                          const SizedBox(width: AppTokens.space8),
+                          Icon(
+                            key: const ValueKey('todo-tile-recurring-icon'),
+                            Icons.repeat_rounded,
+                            size: 14,
+                            color: todo.category.color.withValues(alpha: 0.85),
+                          ),
+                        ],
                       ],
                     ),
                     // §13 — note 본문(description) 2줄 프리뷰. "정보=메모" 를 즉시 전달.
@@ -214,6 +229,31 @@ class TodoTile extends StatelessWidget {
                         child: Text(
                           dateLabel,
                           style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                    // date-repeat (FR-4) — 같은 반복 미체크 누적 묶음 배지.
+                    if (hiddenSeriesCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppTokens.space4),
+                        child: Container(
+                          key: const ValueKey('todo-tile-series-badge'),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppTokens.space8,
+                            vertical: AppTokens.space2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: todo.category.color.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(
+                              AppTokens.radiusFull,
+                            ),
+                          ),
+                          child: Text(
+                            '밀린 반복 외 $hiddenSeriesCount건',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: todo.category.color,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                   ],
