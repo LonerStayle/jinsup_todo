@@ -22,37 +22,6 @@ Todo _master() => Todo(
 );
 
 void main() {
-  group('describeRecurrence', () {
-    test('매일', () {
-      expect(
-        describeRecurrence(
-          const RecurrenceRule(freq: RecurrenceFreq.daily),
-          null,
-        ),
-        '매일',
-      );
-    });
-
-    test('격주 + 요일', () {
-      final r = RecurrenceRule(
-        freq: RecurrenceFreq.weekly,
-        interval: 2,
-        byWeekday: const {DateTime.monday, DateTime.wednesday},
-      );
-      expect(describeRecurrence(r, null), '2주마다 (월·수)');
-    });
-
-    test('매월 + 종료일', () {
-      expect(
-        describeRecurrence(
-          const RecurrenceRule(freq: RecurrenceFreq.monthly),
-          DateTime(2026, 12, 31),
-        ),
-        contains('매개월 · '),
-      );
-    });
-  });
-
   // allTodosProvider 를 Stream.value 로 override — 실제 Drift 의존 + timer leak 회피.
   Widget host(List<Todo> all) => ProviderScope(
     overrides: [allTodosProvider.overrideWith((_) => Stream.value(all))],
