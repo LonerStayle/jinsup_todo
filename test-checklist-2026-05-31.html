@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>테스트 체크리스트 — 전체보기 날짜 표시</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --card: #ffffff; --text: #1a1d24; --muted: #6b7280;
+    --border: #e5e7eb; --accent: #4f46e5;
+    --crit: #dc2626; --high: #ea580c; --med: #ca8a04; --low: #16a34a;
+    --done-bg: #f3f4f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card: #1a1d24; --text: #e5e7eb; --muted: #9ca3af;
+      --border: #2a2e37; --accent: #818cf8;
+      --crit: #f87171; --high: #fb923c; --med: #facc15; --low: #4ade80;
+      --done-bg: #141720;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+    padding: 0 0 60px;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 18px 24px 14px; box-shadow: 0 1px 8px rgba(0,0,0,0.04);
+  }
+  h1 { margin: 0 0 4px; font-size: 19px; font-weight: 800; }
+  .meta { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .meta code { background: var(--bg); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  .progwrap { display: flex; align-items: center; gap: 12px; }
+  .progbar { flex: 1; height: 9px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .progfill { height: 100%; width: 0%; background: var(--accent); border-radius: 99px; transition: width .25s ease; }
+  .progtext { font-size: 13px; font-weight: 700; min-width: 78px; text-align: right; }
+  .alert {
+    margin: 14px 24px 0; padding: 11px 14px; border-radius: 10px;
+    background: color-mix(in srgb, var(--crit) 12%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--crit) 35%, var(--border));
+    font-size: 13.5px;
+  }
+  .alert.done { background: color-mix(in srgb, var(--low) 14%, var(--card)); border-color: color-mix(in srgb, var(--low) 40%, var(--border)); }
+  .filters { display: flex; flex-wrap: wrap; gap: 7px; padding: 16px 24px 4px; }
+  .filters button {
+    font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 99px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    cursor: pointer; transition: all .15s;
+  }
+  .filters button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  main { padding: 8px 24px; }
+  .group-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 22px 0 8px; }
+  .item {
+    background: var(--card); border: 1px solid var(--border); border-left-width: 4px;
+    border-radius: 11px; padding: 13px 15px; margin-bottom: 9px; transition: all .18s;
+  }
+  .item.priority-critical { border-left-color: var(--crit); }
+  .item.priority-high { border-left-color: var(--high); }
+  .item.priority-medium { border-left-color: var(--med); }
+  .item.priority-low { border-left-color: var(--low); }
+  .item.checked { background: var(--done-bg); opacity: .58; }
+  .item.checked .titletext { text-decoration: line-through; }
+  .row { display: flex; align-items: flex-start; gap: 11px; }
+  .row input[type=checkbox] { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .body { flex: 1; min-width: 0; }
+  .badges { display: flex; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+  .badge { font-size: 10px; font-weight: 800; letter-spacing: .4px; padding: 2px 7px; border-radius: 5px; color: #fff; }
+  .badge.critical { background: var(--crit); } .badge.high { background: var(--high); }
+  .badge.medium { background: var(--med); } .badge.low { background: var(--low); }
+  .tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+  .titletext { font-size: 14.5px; font-weight: 600; cursor: pointer; }
+  details { margin-top: 7px; }
+  summary { font-size: 12px; color: var(--accent); cursor: pointer; user-select: none; }
+  details pre { background: var(--bg); padding: 9px 11px; border-radius: 7px; font-size: 12px; overflow-x: auto; margin: 7px 0 4px; white-space: pre-wrap; }
+  details small { color: var(--muted); font-size: 11px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧪 테스트 체크리스트 — 전체보기 날짜 표시</h1>
+  <div class="meta">브랜치 <code>all-view-date-display</code> · 커밋 <code>a2efe4c</code> · 자동 테스트 476개 ✓ 통과</div>
+  <div class="progwrap">
+    <div class="progbar"><div class="progfill" id="progfill"></div></div>
+    <div class="progtext" id="progtext">0 / 0</div>
+  </div>
+</header>
+
+<div class="alert" id="alert"></div>
+
+<div class="filters">
+  <button data-filter="all" class="active">전체</button>
+  <button data-filter="unchecked">미체크만</button>
+  <button data-filter="critical">critical만</button>
+  <button data-filter="manual">수동 검증</button>
+  <button data-filter="auto">자동 테스트</button>
+</div>
+
+<main id="main"></main>
+
+<script>
+const BRANCH = "all-view-date-display";
+const ITEMS = [
+  {
+    id: "T-001", cat: "manual", catLabel: "수동 검증", priority: "critical",
+    title: "전체보기 체크리스트 항목에 날짜가 실제로 보이는지",
+    desc: "이번 변경의 핵심. 날짜(dueAt)가 지정된 task 가 전체보기 > 체크리스트 탭에 보일 때 제목 아래에 캘린더 아이콘 + 날짜 라벨이 뜨는지 직접 확인.",
+    how: "앱 실행 → 아무 task 에 날짜 지정 → 하단 '전체보기' → '체크리스트' 탭 → 해당 카테고리 펼치기 → 제목 아래 '📅 5/27' 형태 확인",
+    src: "lib/src/features/outline/outline_screen.dart:_OutlineNode (dateLabel)"
+  },
+  {
+    id: "T-002", cat: "manual", catLabel: "수동 검증", priority: "high",
+    title: "그룹별 전체보기에서도 동일하게 날짜가 보이는지",
+    desc: "그룹 화면의 '전체보기' 탭은 OutlineScreen(group:...) 을 재사용한다. 그룹 스코프에서도 날짜 라벨이 동일하게 나오는지.",
+    how: "그룹 화면 진입 → '전체보기' 탭 → 날짜 있는 항목의 라벨 확인 (전역 전체보기와 동일해야 함)",
+    src: "lib/src/features/group/group_screen.dart → OutlineScreen(group, showHeader:false)"
+  },
+  {
+    id: "T-003", cat: "manual", catLabel: "수동 검증", priority: "high",
+    title: "날짜 모드별 라벨 표기가 정확한지 (4종)",
+    desc: "allDay / 시작시간 / 마감시간 / 기간 각각 표기가 다르다. 모드별로 항목을 만들어 라벨이 올바른지 확인.",
+    how: "allDay → '5/27' · 시작시간 → '시작 5/27 14:30' · 마감시간 → '마감 5/27 14:30' · 기간 → '5/27 ~ 5/30'. isAllDay 일 때 시간(00:00)이 절대 안 나와야 함.",
+    src: "lib/src/core/date_format.dart:TodoDateLabel.format"
+  },
+  {
+    id: "T-004", cat: "manual", catLabel: "수동 검증", priority: "medium",
+    title: "날짜 없는 항목은 라벨이 안 나오는지 (회귀)",
+    desc: "dueAt 가 null 인 항목은 기존처럼 날짜 줄이 추가되지 않아야 한다. 빈 줄/여백이 생기면 안 됨.",
+    how: "날짜 미지정 task 를 전체보기에서 확인 → 제목만, 날짜 줄 없음",
+    src: "TodoDateLabel.format → dueAt null 시 return null"
+  },
+  {
+    id: "T-005", cat: "manual", catLabel: "수동 검증", priority: "medium",
+    title: "완료(체크)된 항목의 날짜가 흐리게(muted) 처리되는지",
+    desc: "체크 시 제목에 취소선이 들어가는데, 날짜 라벨/아이콘도 함께 muted 되어 톤이 일관되는지.",
+    how: "날짜 있는 항목을 체크 → 날짜 텍스트·캘린더 아이콘이 회색조로 흐려지는지 확인",
+    src: "outline_screen.dart:_OutlineNode (isDone ? alpha 0.4 ...)"
+  },
+  {
+    id: "T-006", cat: "manual", catLabel: "수동 검증", priority: "medium",
+    title: "메모(note) 헤딩에는 날짜가 안 붙는지",
+    desc: "체크리스트 트리에 섞인 note 타입 헤딩은 체크 개념이 없어 날짜를 제외했다. note 에 날짜 라벨이 안 나오는지 확인.",
+    how: "체크리스트 탭에서 메모 헤딩(sticky note 글리프) 항목 확인 → 날짜 라벨 없음",
+    src: "outline_screen.dart → isNote ? null : TodoDateLabel.format(node)"
+  },
+  {
+    id: "T-007", cat: "manual", catLabel: "수동 검증", priority: "low",
+    title: "긴 제목 + 날짜 동시 노출 시 레이아웃 깨짐 없는지",
+    desc: "제목을 Column 으로 감싸 날짜를 아래에 넣었다. 제목 2줄 + 날짜가 같이 있을 때 progress badge·펼침 화살표 정렬이 안 깨지는지.",
+    how: "제목이 매우 긴 + 날짜 있는 + 자식 있는(folder) 항목을 만들어 한 화면에서 확인",
+    src: "outline_screen.dart:_OutlineNode Row"
+  },
+  {
+    id: "T-008", cat: "manual", catLabel: "수동 검증", priority: "low",
+    title: "macOS·Android 양쪽에서 동일하게 보이는지 (parity)",
+    desc: "데스크탑·모바일 둘 다 사용. 한쪽만 확인하지 말고 양쪽 빌드에서 날짜 표시가 동일한지.",
+    how: "flutter run -d macos / Android 디바이스 각각에서 전체보기 날짜 확인",
+    src: "플랫폼 parity 원칙"
+  },
+  {
+    id: "T-009", cat: "auto", catLabel: "자동 테스트", priority: "low",
+    title: "(선택) outline 날짜 표시 위젯 테스트 추가",
+    desc: "현재 자동 테스트는 통과하지만 이 변경에 대한 전용 위젯 테스트는 없다. 날짜 라벨 노출/비노출을 ValueKey('outline-node-date-<id>') 로 검증하는 테스트를 추가하면 회귀 방지에 좋다.",
+    how: "test/ 아래 outline 위젯 테스트 작성 → find.byKey(ValueKey('outline-node-date-...')) 로 검증. 필요하면 말씀 주시면 작성하겠습니다.",
+    src: "신규 — test/src/features/outline/"
+  }
+];
+
+const main = document.getElementById('main');
+const groups = { manual: "수동 검증", auto: "자동 테스트" };
+const prioRank = { critical: 0, high: 1, medium: 2, low: 3 };
+
+function key(id) { return `what-to-test:${BRANCH}:${id}`; }
+function esc(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function render() {
+  main.innerHTML = '';
+  for (const g of Object.keys(groups)) {
+    const inGroup = ITEMS.filter(i => i.cat === g).sort((a,b) => prioRank[a.priority]-prioRank[b.priority]);
+    if (!inGroup.length) continue;
+    const h = document.createElement('div');
+    h.className = 'group-title'; h.textContent = groups[g];
+    main.appendChild(h);
+    for (const it of inGroup) {
+      const checked = localStorage.getItem(key(it.id)) === '1';
+      const el = document.createElement('div');
+      el.className = `item priority-${it.priority} category-${it.cat}` + (checked ? ' checked' : '');
+      el.dataset.id = it.id; el.dataset.cat = it.cat; el.dataset.priority = it.priority; el.dataset.checked = checked;
+      el.innerHTML = `
+        <div class="row">
+          <input type="checkbox" id="cb-${it.id}" ${checked ? 'checked' : ''}>
+          <div class="body">
+            <div class="badges">
+              <span class="badge ${it.priority}">${it.priority.toUpperCase()}</span>
+              <span class="tag">${esc(it.catLabel)}</span>
+            </div>
+            <label class="titletext" for="cb-${it.id}">${esc(it.title)}</label>
+            <details>
+              <summary>왜 / 어떻게</summary>
+              <p style="font-size:12.5px;color:var(--muted);margin:6px 0;">${esc(it.desc)}</p>
+              <pre>${esc(it.how)}</pre>
+              <small>source: ${esc(it.src)}</small>
+            </details>
+          </div>
+        </div>`;
+      const cb = el.querySelector('input');
+      cb.addEventListener('change', () => {
+        localStorage.setItem(key(it.id), cb.checked ? '1' : '0');
+        el.classList.toggle('checked', cb.checked);
+        el.dataset.checked = cb.checked;
+        update();
+      });
+      main.appendChild(el);
+    }
+  }
+  update();
+}
+
+function update() {
+  const total = ITEMS.length;
+  const done = ITEMS.filter(i => localStorage.getItem(key(i.id)) === '1').length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('progfill').style.width = pct + '%';
+  document.getElementById('progtext').textContent = `${done} / ${total} (${pct}%)`;
+  const alert = document.getElementById('alert');
+  const remaining = ITEMS.filter(i => localStorage.getItem(key(i.id)) !== '1')
+    .sort((a,b) => prioRank[a.priority]-prioRank[b.priority]);
+  if (!remaining.length) {
+    alert.className = 'alert done';
+    alert.textContent = '🎉 모든 항목 검증 완료! 머지 준비 됐습니다.';
+  } else {
+    alert.className = 'alert';
+    alert.innerHTML = `미체크 <b>${remaining.length}</b>개 남음 — 가장 먼저: <b>${esc(remaining[0].title)}</b>`;
+  }
+}
+
+document.querySelectorAll('.filters button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const f = btn.dataset.filter;
+    document.querySelectorAll('.item').forEach(el => {
+      let show = true;
+      if (f === 'unchecked') show = el.dataset.checked !== 'true';
+      else if (f === 'critical') show = el.dataset.priority === 'critical';
+      else if (f === 'manual' || f === 'auto') show = el.dataset.cat === f;
+      el.classList.toggle('hidden', !show);
+    });
+    document.querySelectorAll('.group-title').forEach(gt => {
+      let n = gt.nextElementSibling, any = false;
+      while (n && n.classList.contains('item')) { if (!n.classList.contains('hidden')) any = true; n = n.nextElementSibling; }
+      gt.classList.toggle('hidden', !any);
+    });
+  });
+});
+
+// j/k 이동 + space 토글
+let cursor = -1;
+document.addEventListener('keydown', e => {
+  const vis = [...document.querySelectorAll('.item:not(.hidden)')];
+  if (!vis.length) return;
+  if (e.key === 'j' || e.key === 'ArrowDown') { cursor = Math.min(cursor+1, vis.length-1); vis[cursor].scrollIntoView({block:'center',behavior:'smooth'}); vis[cursor].style.outline = '2px solid var(--accent)'; vis.forEach((v,i)=>{if(i!==cursor)v.style.outline='';}); e.preventDefault(); }
+  else if (e.key === 'k' || e.key === 'ArrowUp') { cursor = Math.max(cursor-1, 0); vis[cursor].scrollIntoView({block:'center',behavior:'smooth'}); vis[cursor].style.outline = '2px solid var(--accent)'; vis.forEach((v,i)=>{if(i!==cursor)v.style.outline='';}); e.preventDefault(); }
+  else if (e.key === ' ' && cursor >= 0) { vis[cursor].querySelector('input').click(); e.preventDefault(); }
+});
+
+render();
+</script>
+</body>
+</html>

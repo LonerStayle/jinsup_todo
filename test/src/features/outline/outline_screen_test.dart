@@ -191,7 +191,7 @@ void main() {
       expect(find.text('회사 root'), findsOneWidget);
     });
 
-    testWidgets('자식 트리 — folder 노드 펼침 / 자식 표시 / [done/total] 누적', (
+    testWidgets('folder 노드 — 자식 인라인 비노출 / [done/total] 누적 / 탭 시 상세로 드릴다운', (
       tester,
     ) async {
       final nexus = make(id: 'nexus', title: '넥서스');
@@ -215,17 +215,24 @@ void main() {
       );
 
       expect(find.text('넥서스'), findsOneWidget);
-      expect(find.text('캔버스 첨부 오류'), findsOneWidget);
-      expect(find.text('narrative 에러'), findsOneWidget);
+      // 자식은 인라인으로 펼쳐지지 않는다 (상세 화면에서만 노출).
+      expect(find.text('캔버스 첨부 오류'), findsNothing);
+      expect(find.text('narrative 에러'), findsNothing);
 
+      // 진척률은 subtree 누적으로 그대로 계산 (인라인 노출과 무관).
       expect(find.text('1/3'), findsAtLeastNWidgets(1), reason: '카테고리 누적 진척률');
       expect(find.text('1/2'), findsAtLeastNWidgets(1));
 
+      // 노드 탭 → 상세 화면 진입. 자식 체크리스트는 거기서 드릴다운으로 노출.
       await tester.tap(find.byKey(const ValueKey('outline-node-nexus')));
-      await tester.pump();
-      expect(find.text('캔버스 첨부 오류'), findsNothing);
-      expect(find.text('narrative 에러'), findsNothing);
-      expect(find.text('넥서스'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('detail-toggle')),
+        findsOneWidget,
+        reason: '상세 화면 진입',
+      );
+      expect(find.text('캔버스 첨부 오류'), findsOneWidget);
+      expect(find.text('narrative 에러'), findsOneWidget);
     });
 
     testWidgets('note root 는 체크리스트 탭에서 제외 — task 만 진척률 1/1', (tester) async {
@@ -252,7 +259,9 @@ void main() {
       expect(find.text('1/1'), findsOneWidget);
     });
 
-    testWidgets('note 자식은 체크리스트 트리에서 제외 (task 자식만 노출)', (tester) async {
+    testWidgets('note 자식은 진척률 카운트에서 제외 (task 자식만) — 자식은 인라인 비노출', (
+      tester,
+    ) async {
       final parent = make(id: 'p', title: '부모 할 일');
       final childTask = make(id: 'c1', title: '자식 할 일', parentId: 'p');
       final childNote = make(
@@ -273,19 +282,20 @@ void main() {
       );
 
       expect(find.text('부모 할 일'), findsOneWidget);
-      expect(find.text('자식 할 일'), findsOneWidget);
-      // note 자식은 체크리스트 탭에서 숨김.
+      // 자식(task/note)은 인라인으로 펼쳐지지 않는다 (상세 화면에서만).
+      expect(find.text('자식 할 일'), findsNothing);
       expect(find.text('자식 메모'), findsNothing);
-      // task 는 부모·자식 모두 체크 토글 버튼 존재.
+      // 진척률은 task 자식만 카운트 (note 제외) → 부모 + task 자식 = 0/2.
+      expect(find.text('0/2'), findsAtLeastNWidgets(1));
+      // 부모 task 체크 토글은 그대로 존재 & 동작.
       expect(find.byKey(const ValueKey('outline-check-p')), findsOneWidget);
-      expect(find.byKey(const ValueKey('outline-check-c1')), findsOneWidget);
       final parentCheck = tester.widget<InkWell>(
         find.byKey(const ValueKey('outline-check-p')),
       );
       expect(parentCheck.onTap, isNotNull);
     });
 
-    testWidgets('자식 없는 leaf 노드는 chevron 없음 (펼침 동작 X)', (tester) async {
+    testWidgets('leaf 노드 — 탭하면 상세 화면으로 이동', (tester) async {
       final leaf = make(id: 'leaf', title: '단독 task');
       await mount(
         tester,
@@ -298,7 +308,15 @@ void main() {
       final node = tester.widget<InkWell>(
         find.byKey(const ValueKey('outline-node-leaf')),
       );
-      expect(node.onTap, isNull, reason: 'leaf 는 펼침 동작 없음');
+      expect(node.onTap, isNotNull, reason: 'leaf 도 탭하면 상세로 이동');
+
+      await tester.tap(find.byKey(const ValueKey('outline-node-leaf')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('detail-toggle')),
+        findsOneWidget,
+        reason: '상세 화면 진입',
+      );
     });
   });
 
@@ -561,9 +579,13 @@ void main() {
       );
       expect(find.byKey(const ValueKey('outline-check-h')), findsNothing);
       expect(find.text('코기토 인프라'), findsOneWidget);
-      // 펼쳐진 task 자식은 체크박스로 노출.
-      expect(find.text('서버 세팅'), findsOneWidget);
-      expect(find.byKey(const ValueKey('outline-check-tc')), findsOneWidget);
+      // task 자식은 인라인 비노출 — 헤딩 탭 시 상세 화면에서 드릴다운으로 노출.
+      expect(find.text('서버 세팅'), findsNothing);
+      expect(find.byKey(const ValueKey('outline-check-tc')), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('outline-node-h')));
+      await tester.pumpAndSettle();
+      expect(find.text('서버 세팅'), findsOneWidget, reason: '상세 화면 드릴다운');
     });
 
     testWidgets('note 헤딩은 메모 탭에서 제외 (task 자손 보유 → 체크리스트로)', (tester) async {
