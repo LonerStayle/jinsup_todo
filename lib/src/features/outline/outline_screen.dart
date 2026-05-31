@@ -649,7 +649,7 @@ class _OutlineNode extends ConsumerWidget {
                                 dateLabel,
                                 key: ValueKey('outline-node-date-${node.id}'),
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w400,
                                   color: isDone
                                       ? scheme.onSurface.withValues(alpha: 0.4)
                                       : scheme.onSurfaceVariant,
