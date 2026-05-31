@@ -7,6 +7,7 @@ import '../../domain/category.dart';
 import '../../domain/group.dart';
 import '../../domain/todo.dart';
 import '../../ui/widgets/empty_state.dart';
+import '../add_todo/add_todo_sheet.dart';
 import '../category/categories_controller.dart';
 import '../category/groups_controller.dart';
 import '../todo_actions/todo_actions_controller.dart';
@@ -530,11 +531,11 @@ class _CategoryRow extends StatelessWidget {
   }
 }
 
-/// 한 task root / note 헤딩 행.
+/// 한 task root / note 헤딩 행. (home / 카테고리 화면과 동일한 "기능 M" 패턴.)
 ///
-/// **하위가 있는 노드만** 탭 → 상세 화면(TodoDetailScreen) 으로 드릴다운한다.
-/// (인라인으로 펼치지 않고 상세에서 자식 체크리스트를 본다 — home / 카테고리 화면과
-/// 동일한 "기능 M" 드릴다운 패턴.) 하위 없는 leaf 는 탭 동작이 없고 체크 토글만 가능.
+/// - **하위가 있는 노드** → 탭 시 상세 화면(TodoDetailScreen) 으로 드릴다운
+///   (인라인으로 펼치지 않고 상세에서 자식 체크리스트를 본다).
+/// - **하위 없는 leaf** → 탭 시 편집 바텀시트(AddTodoSheet) 를 연다.
 class _OutlineNode extends ConsumerWidget {
   const _OutlineNode({required this.node});
 
@@ -558,15 +559,22 @@ class _OutlineNode extends ConsumerWidget {
     // 날짜가 지정된 체크리스트 항목은 제목 아래에 날짜 라벨을 노출 (TodoTile 과 동일 출처).
     final dateLabel = isNote ? null : TodoDateLabel.format(node);
 
-    // 하위가 있는 노드만 탭 → 상세 화면에서 자식 체크리스트를 드릴다운.
-    // leaf 는 탭 동작 없음(null) — 체크 토글만.
+    // 하위가 있는 노드 → 상세 화면 드릴다운. 하위 없는 leaf → 편집 바텀시트.
+    // (home / 카테고리 화면과 동일 — folder=드릴다운, leaf=편집.)
     void openDetail() => Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => TodoDetailScreen(parent: node)),
+    );
+    Future<void> openEdit() => AddTodoSheet.show(
+      context,
+      initialCategory: node.category,
+      initialTodo: node,
+      onSubmit: (_) {},
+      onUpdate: (updated) => ref.read(todoActionsProvider).update(updated),
     );
 
     return InkWell(
       key: ValueKey('outline-node-${node.id}'),
-      onTap: isFolder ? openDetail : null,
+      onTap: isFolder ? openDetail : openEdit,
       borderRadius: BorderRadius.circular(AppTokens.radiusM),
       child: Padding(
         padding: const EdgeInsets.symmetric(
