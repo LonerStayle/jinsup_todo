@@ -530,10 +530,11 @@ class _CategoryRow extends StatelessWidget {
   }
 }
 
-/// 한 task root / note 헤딩 행. 탭 → 상세 화면(TodoDetailScreen) 으로 이동한다.
+/// 한 task root / note 헤딩 행.
 ///
-/// 하위가 있으면 인라인으로 펼치지 않고 상세 화면에서 자식 체크리스트를 드릴다운으로
-/// 본다 (home / 카테고리 화면과 동일한 "기능 M" 드릴다운 패턴 — 인라인 트리 대체).
+/// **하위가 있는 노드만** 탭 → 상세 화면(TodoDetailScreen) 으로 드릴다운한다.
+/// (인라인으로 펼치지 않고 상세에서 자식 체크리스트를 본다 — home / 카테고리 화면과
+/// 동일한 "기능 M" 드릴다운 패턴.) 하위 없는 leaf 는 탭 동작이 없고 체크 토글만 가능.
 class _OutlineNode extends ConsumerWidget {
   const _OutlineNode({required this.node});
 
@@ -557,14 +558,15 @@ class _OutlineNode extends ConsumerWidget {
     // 날짜가 지정된 체크리스트 항목은 제목 아래에 날짜 라벨을 노출 (TodoTile 과 동일 출처).
     final dateLabel = isNote ? null : TodoDateLabel.format(node);
 
-    // 행 탭 → 상세 화면 이동. 하위가 있으면 거기서 자식 체크리스트를 드릴다운.
+    // 하위가 있는 노드만 탭 → 상세 화면에서 자식 체크리스트를 드릴다운.
+    // leaf 는 탭 동작 없음(null) — 체크 토글만.
     void openDetail() => Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => TodoDetailScreen(parent: node)),
     );
 
     return InkWell(
       key: ValueKey('outline-node-${node.id}'),
-      onTap: openDetail,
+      onTap: isFolder ? openDetail : null,
       borderRadius: BorderRadius.circular(AppTokens.radiusM),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -651,17 +653,16 @@ class _OutlineNode extends ConsumerWidget {
                 accent: node.category.color,
               ),
             ],
-            // 상세 이동 표시 — 하위가 있으면 진한 chevron, leaf 는 옅게.
-            Padding(
-              padding: const EdgeInsets.only(left: AppTokens.space4),
-              child: Icon(
-                Icons.chevron_right_rounded,
-                size: 22,
-                color: isFolder
-                    ? scheme.onSurfaceVariant
-                    : scheme.onSurfaceVariant.withValues(alpha: 0.4),
+            // 상세 드릴다운 표시 — 하위가 있는 노드에만 chevron. leaf 는 표시 없음.
+            if (isFolder)
+              Padding(
+                padding: const EdgeInsets.only(left: AppTokens.space4),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 22,
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
-            ),
           ],
         ),
       ),
