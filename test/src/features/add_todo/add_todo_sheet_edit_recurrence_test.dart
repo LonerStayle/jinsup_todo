@@ -89,7 +89,14 @@ void main() {
     expect(find.byKey(info), findsOneWidget);
     expect(find.byKey(stop), findsOneWidget);
     // 마스터 규칙 요약(매주 · 2026.12.31 까지)이 표시된다.
-    expect(find.textContaining('매주'), findsOneWidget);
+    // 제목 필드의 "매주 정산" 과 충돌하므로 info 컨테이너 내부에서만 찾는다.
+    expect(
+      find.descendant(
+        of: find.byKey(info),
+        matching: find.textContaining('매주'),
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('2026.12.31'), findsOneWidget);
     // 추가 모드 전용 반복 입력 칩은 편집 모드에서 안 보인다.
     expect(find.byKey(const ValueKey('recur-freq-none')), findsNothing);
