@@ -2,7 +2,7 @@
 
 > ralph 자동 루프 + 사람 reader 모두 이 파일 하나로 컨텍스트 복원 가능하게 작성.
 > 매 iter 시작 시 CLAUDE.md / PROMPT.md / IMPLEMENTATION_PLAN.md 와 함께 이 파일도 읽는다.
-> 마지막 업데이트: **2026-06-06 (브랜딩 라운드 — 앱 이름 '하루' + 볼드 체크 아이콘 + macOS 로그인 자동실행 토글)**
+> 마지막 업데이트: **2026-06-06 (브랜딩 라운드 — 앱 이름 '하루' + 볼드 체크 아이콘 + macOS 로그인 자동실행 토글 + macOS 번들 파일명 `haru.app`)**
 
 ---
 
@@ -42,7 +42,7 @@
 
 ### 브랜딩 내역 (앱 이름 + 아이콘 + 자동실행) — 2026-06-06
 
-- **앱 이름 → '하루'** (대표님 확정, 순우리말): macOS `CFBundleName`/`CFBundleDisplayName` 리터럴 + 창 제목(Swift `self.title`), Android `android:label`, Dart 브랜드 문자열(app/app_shell 사이드바/sign_in/tray/calendar 이벤트 설명). **번들 ID(`com.goldenplanet.soloTodo`)·Android applicationId(`com.goldenplanet.solo_todo`)·Supabase 스키마명(`solo_todo`)은 의도적으로 유지** — OAuth/동기화 연동 키라 변경 금지. macOS PRODUCT_NAME 도 ASCII(`solo_todo`) 유지 → 실행파일/번들명 ASCII(코드서명 안전), 사용자 표시명만 한글.
+- **앱 이름 → '하루'** (대표님 확정, 순우리말): macOS `CFBundleName`/`CFBundleDisplayName` 리터럴 + 창 제목(Swift `self.title`), Android `android:label`, Dart 브랜드 문자열(app/app_shell 사이드바/sign_in/tray/calendar 이벤트 설명). **번들 ID(`com.goldenplanet.soloTodo`)·Android applicationId(`com.goldenplanet.solo_todo`)·Supabase 스키마명(`solo_todo`)은 의도적으로 유지** — OAuth/동기화 연동 키라 변경 금지. macOS PRODUCT_NAME 은 ASCII `haru` (2026-06-06 `solo_todo`→`haru` 변경) → 번들 `haru.app` / 실행파일 `haru` (ASCII 라 코드서명 안전), 사용자 표시명만 한글 '하루'. **PRODUCT_NAME(번들 파일명)은 ASCII 면 자유롭게 바꿔도 안전** — 단 번들 ID·URL 스킴·Supabase 스키마는 절대 유지.
 - **아이콘 → 볼드 체크마크**: `assets/branding/app_icon_source.png`(1024, Chrome 헤드리스로 투명 PNG 렌더) 교체 + `dart run flutter_launcher_icons` 재생성(macOS appiconset + Android adaptive). `adaptive_icon_background` `#5B4BE8`→`#7C3AED`.
 - **macOS 로그인 시 자동 실행 (기본 꺼짐)**: `SMAppService`(macOS 13+) 메서드 채널 `app.haru/launch_at_login`(네이티브 `macos/Runner/MainFlutterWindow.swift`), Dart `LaunchAtLoginService` + `SettingsSheet`(데스크탑 토글). 진입점: 데스크탑 사이드바 톱니 / 모바일 앱바 톱니. **주의: 로그인 아이템 실제 등록은 정식 서명 빌드(/Applications 설치 권장)에서만 안정적, 디버그 `flutter run`에선 미반영 가능.** 신규 `lib/src/features/settings/`.
 

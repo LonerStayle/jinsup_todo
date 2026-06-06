@@ -5,7 +5,9 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = solo_todo
+// NOTE: 사용자 표시명은 '하루'(Info.plist CFBundleName/DisplayName + Swift self.title).
+// PRODUCT_NAME 은 번들/실행파일명이며 ASCII 여야 코드서명이 안전하다. 'haru' 로 고정.
+PRODUCT_NAME = haru
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.goldenplanet.soloTodo

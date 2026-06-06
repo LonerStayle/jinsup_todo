@@ -19,7 +19,7 @@ help:
 	@echo "  make run          macOS 데스크탑 실행 (env 자동)"
 	@echo "  make run-android  Android 첫 device 자동 선택 실행"
 	@echo ""
-	@echo "  make build-macos  release .app 산출 (build/macos/.../solo_todo.app)"
+	@echo "  make build-macos  release .app 산출 (build/macos/.../haru.app)"
 	@echo "  make build-apk    release .apk 산출 (build/app/outputs/flutter-apk/)"
 	@echo ""
 	@echo "  make test         flutter test (전체)"
@@ -85,7 +85,7 @@ run-android:
 .PHONY: build-macos
 build-macos:
 	flutter build macos --release --no-tree-shake-icons $(DART_DEFINE)
-	@echo "✓ build/macos/Build/Products/Release/solo_todo.app"
+	@echo "✓ build/macos/Build/Products/Release/haru.app"
 
 .PHONY: build-apk
 build-apk:
