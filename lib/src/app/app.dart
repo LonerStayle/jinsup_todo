@@ -14,7 +14,7 @@ class SoloTodoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Solo Todo',
+      title: '하루',
       theme: AppTheme.mobileLight(),
       darkTheme: AppTheme.mobileDark(),
       themeMode: ThemeMode.system,

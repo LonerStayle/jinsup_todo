@@ -79,7 +79,7 @@ flutter_launcher_icons:
   image_path: "assets/branding/app_icon_source.png"
   # Android — adaptive icon. 배경은 아이콘 그라데이션과 어울리는 단색, foreground 는 동일 이미지.
   android: true
-  adaptive_icon_background: "#5B4BE8"
+  adaptive_icon_background: "#7C3AED"
   adaptive_icon_foreground: "assets/branding/app_icon_source.png"
   # macOS — .icns appiconset 자동 생성.
   macos:

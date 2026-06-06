@@ -140,7 +140,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   const SizedBox(height: AppTokens.space16),
                   Text(
-                    'Solo Todo',
+                    '하루',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),

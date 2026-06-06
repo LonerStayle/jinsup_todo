@@ -22,6 +22,7 @@ import '../features/home/home_screen.dart';
 import '../features/home/today_providers.dart';
 import '../features/manage/manage_drawer.dart';
 import '../features/outline/outline_screen.dart';
+import '../features/settings/settings_sheet.dart';
 import '../features/system/tray_service.dart';
 import '../features/timeline/timeline_screen.dart';
 import 'destination.dart';
@@ -625,6 +626,14 @@ class _AppShellState extends ConsumerState<AppShell> {
                     onPressed: () => Scaffold.of(ctx).openDrawer(),
                   ),
                 ),
+                actions: [
+                  IconButton(
+                    key: const ValueKey('settings-button'),
+                    icon: const Icon(Icons.settings_outlined),
+                    tooltip: '설정',
+                    onPressed: () => SettingsSheet.show(context),
+                  ),
+                ],
               ),
         drawer: AppPlatform.isDesktop
             ? null
@@ -1064,12 +1073,27 @@ class _SidebarState extends State<_Sidebar> {
         padding: const EdgeInsets.fromLTRB(
           AppTokens.space20,
           AppTokens.space8,
-          AppTokens.space20,
+          AppTokens.space8,
           AppTokens.space16,
         ),
-        child: Text(
-          'Solo Todo',
-          style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '하루',
+                style: textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            IconButton(
+              key: const ValueKey('settings-button'),
+              icon: const Icon(Icons.settings_outlined, size: 20),
+              tooltip: '설정',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => SettingsSheet.show(context),
+            ),
+          ],
         ),
       ),
       if (todayIndex != null) _item(todayIndex),

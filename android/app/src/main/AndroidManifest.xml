@@ -2,7 +2,7 @@
     <!-- Supabase + Google Calendar outbound HTTPS 용 -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="solo_todo"
+        android:label="하루"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

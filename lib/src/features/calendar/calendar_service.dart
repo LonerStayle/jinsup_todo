@@ -77,7 +77,7 @@ class CalendarService {
   /// todo 자체의 모드가 우선한다.
   @visibleForTesting
   static gcal.Event buildEvent(Todo todo, {bool isAllDayHint = false}) {
-    final desc = '${todo.category.label} · Solo Todo 자동 등록';
+    final desc = '${todo.category.label} · 하루 자동 등록';
     final due = todo.dueAt!;
 
     gcal.Event allDayEvent(DateTime start, DateTime endInclusive) {

@@ -20,7 +20,7 @@ class TrayService with TrayListener {
     if (!AppPlatform.isDesktop) return;
     try {
       await trayManager.setIcon(_iconAsset, isTemplate: true);
-      await trayManager.setToolTip('Solo Todo');
+      await trayManager.setToolTip('하루');
       await _rebuildMenu(undoneCount: 0);
       trayManager.addListener(this);
       _initialized = true;
